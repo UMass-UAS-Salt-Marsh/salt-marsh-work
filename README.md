@@ -8,3 +8,4 @@ The structure is as follows:
 * `lidar`  Exploratory lidar data processing for a single site.  
 test
 
+Emily
