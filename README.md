@@ -7,4 +7,4 @@ The structure is as follows:
   for four sites.
 * `lidar`  Exploratory lidar data processing for a single site.  
 test
-sidney
+Sidney
