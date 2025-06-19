@@ -39,13 +39,9 @@ lines<-filter(field_points, SampFormat == "line")
 
 lines_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
    group_by(geometry)|>
-   lapply()
    dplyr::summarize(do_union=FALSE)|>
    st_cast("LINESTRING")
-line(Eastting, Northing, iter = 1)
 
-
-sf::st_Ma
 ggplot() + geom_sf(data=lines_sf)
 
 ```
@@ -57,8 +53,6 @@ ggplot()+
    geom_sf(data = lines_buf)
 ```
 ```{r}
-xy.coords( lines, )
 
-line(x, y, iter = 1)
  
 ```
