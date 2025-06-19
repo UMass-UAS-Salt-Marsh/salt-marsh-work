@@ -1,0 +1,115 @@
+---
+title: "salt_marsh_work"
+author: "emily"
+date: "2025-06-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r reading data}
+library(readr)
+library(ggplot2)
+library(sf)
+library(stars)
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_wrok/vegetation/data")
+
+poly_OTH<-read_csv("14Oct2018_revised.csv")
+```
+
+```{r}
+OTH_sf<- st_as_sf(poly_OTH, coords = c("Easting", "Northing"), crs=26919)
+
+plot(OTH_sf["Subclass"])
+
+```
+
+```{r}
+setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_wrok/vegetation/data/OTH_200ac_Mask_24Mar23 files")
+
+OTH_mask<- st_read("OTH_200ac_Mask_24Mar23.shp")
+
+OTH_mask_26919<-st_transform(OTH_mask, st_crs(OTH_Array_Data_sf))
+```
+
+```{r}
+setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_wrok/vegetation/data")
+
+OTH_raw <- st_read("OTH_raw_points.shp")
+
+ggplot()+
+   geom_sf(data = OTH_raw, mapping = aes(color = Subclass))
+```
+
+```{r}
+polygon_OTH<- read_csv("LabeledData_OTH_27Jul2023_Poly.csv")
+
+```
+
+```{r}
+library(sf)
+library(ggplot2)
+
+ggplot()+
+   geom_sf(data = OTH_mask)
+```
+
+```{r}
+ggplot()+
+   geom_sf(data = OTH_mask_26919)+
+   geom_sf(data = OTH_points, mapping = aes(color = Subclass))
+```
+
+
+```{r}
+st_crs(OTH_mask)
+st_crs(OTH_sf)
+```
+
+```{r}
+ggplot()+
+   geom_sf(data = OTH_sf, mapping = aes(color = Subclass))
+   
+```
+
+```{r}
+setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_wrok/hydrology/Data/OTH")
+library(readr)
+
+OTH_Array_Data <- read_csv("18Aug2022_OTH_ArrayDataSheet.csv")
+
+library(sf)
+
+OTH_Array_Data_sf <- st_as_sf(OTH_Array_Data, coords = c("Eastings", "Northings"), crs = 26919)
+```
+
+```{r}
+ggplot()+
+   geom_sf(data = OTH_mask_26919)+
+   geom_sf(data = OTH_Array_Data_sf, mapping = aes(color = Elevation))
+```
+
+```{r}
+
+```
+
+
+```{r}
+plot(OTH_Array_Data_sf$`Average Maximum Inundation Depth (m)`)
+```
+
+
+```{r}
+library (stars)
+library(ggplot2)
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH")
+
+DEM_OTH <- read_stars("27Apr2021_OTH_Low_RGB_DEM.tif")
+
+plot(DEM_OTH)
+```
+
