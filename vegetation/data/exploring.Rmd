@@ -53,6 +53,12 @@ ggplot()+
    geom_sf(data = lines_buf)
 ```
 ```{r}
+poly_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
+   group_by(SampFormat)|>
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("POLYGON")
 
- 
+ggplot()+
+   geom_sf(data = poly_sf)
 ```
+ 
