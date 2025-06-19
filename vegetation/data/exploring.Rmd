@@ -15,6 +15,7 @@ library(ggplot2)
 library(sf)
 library(stars)
 library (dplyr)
+library(tidyverse)
 
 buffer<-0.5
 
@@ -34,12 +35,18 @@ ggplot()+
 ```
 
 ```{r}
-lines<-filter(field_points, SampFormat == "line")
+lines<-filter(field_points, SampFormat == "line") 
 
-lines_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)
+lines_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
+   group_by(geometry)|>
+   lapply()
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("LINESTRING")
+line(Eastting, Northing, iter = 1)
 
-ggplot()+
-   geom_sf(data = lines_sf)
+
+sf::st_Ma
+ggplot() + geom_sf(data=lines_sf)
 
 ```
 
@@ -48,4 +55,10 @@ lines_buf<- st_buffer(lines_sf, buffer)
 
 ggplot()+
    geom_sf(data = lines_buf)
+```
+```{r}
+xy.coords( lines, )
+
+line(x, y, iter = 1)
+ 
 ```
