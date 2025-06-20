@@ -47,11 +47,24 @@ ggplot() + geom_sf(data=lines_sf)
 ```
 
 ```{r}
+class06_points<- filter(points, Subclass == "06")
+
+class06_points_sf<- st_as_sf(class06_points, coords = c("Easting", "Northing"), crs=26919)|>
+   group_by(Subclass)|>
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("POLYGON")
+
+ggplot()+
+   geom_sf(data = class06_points_sf)
+```
+
+```{r}
 lines_buf<- st_buffer(lines_sf, buffer)
 
 ggplot()+
    geom_sf(data = lines_buf)
 ```
+
 ```{r}
 poly_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
    group_by(SampFormat)|>
@@ -61,4 +74,26 @@ poly_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
 ggplot()+
    geom_sf(data = poly_sf)
 ```
+
+```{r}
+poly_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
+   group_by(SampFormat)|>
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("POLYGON")
+
+ggplot()+
+   geom_sf(data = poly_sf, aes(fill = "all" ))+
+   geom_sf(data = class06_points_sf, aes(fill = "06 class"))
+  
+```
+```{r}
+#Still working on, trying to clip the two polygons
+
+crop_all<- st_intersection(class06_points_sf, poly_sf)
+
+ggplot()+
+   geom_sf(data = crop_all)
+
+```
+ 
  
