@@ -54,6 +54,8 @@ class06_points_sf<- st_as_sf(class06_points, coords = c("Easting", "Northing"), 
    dplyr::summarize(do_union=FALSE)|>
    st_cast("POLYGON")
 
+st_write(class06_points_sf, "06_poly.shp")
+
 ggplot()+
    geom_sf(data = class06_points_sf)
 ```
@@ -81,6 +83,8 @@ poly_sf<- st_as_sf(lines, coords = c("Easting", "Northing"), crs=26919)|>
    dplyr::summarize(do_union=FALSE)|>
    st_cast("POLYGON")
 
+st_write(poly_sf, "all_points_poly.shp")
+
 ggplot()+
    geom_sf(data = poly_sf, aes(fill = "all" ))+
    geom_sf(data = class06_points_sf, aes(fill = "06 class"))
@@ -89,10 +93,16 @@ ggplot()+
 ```{r}
 #Still working on, trying to clip the two polygons
 
-crop_all<- st_intersection(class06_points_sf, poly_sf)
+all_points_shape<-st_read ("all poly files/all_points_poly.shp")
+class06_shape<- st_read("06 poly files/06_poly.shp")
+
+all_points_shape<-st_make_valid(all_points_shape)
+class06_shape<- st_make_valid(class06_shape)
+
+clip<- st_intersection(class06_shape, all_points_shape)
 
 ggplot()+
-   geom_sf(data = crop_all)
+   geom_sf(data = clip, fill = "06")
 
 ```
  
