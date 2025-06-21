@@ -17,6 +17,7 @@ library(stars)
 library (dplyr)
 library(tidyverse)
 
+
 buffer<-0.5
 
 field_points<-read_csv("14Oct2018_revised.csv")
