@@ -1,0 +1,10 @@
+site	site_name	footprint	transects	standard
+SOR	South River			
+BAR	Barnstable			
+PEG	Peggotty Beach			
+WEL	Wellfleet Bay			
+RED	Red River	RFM Processing Inputs/Site Footprint/RR_100ac_Mask_27Mar23.shp		RFM Processing Inputs/Orthomosaics/26May22_RR_Low_Mica_Ortho.tif
+OTH	Old Town Hill	RFM Processing Inputs/Site Footprint/OTH_100ac_Mask_24Mar23.shp	OTH_Poygons_RCW_20Jul2023_4326.shp	RFM Processing Inputs/Orthomosaics/22Sept18_OTH_High_Mica_Ortho.tif
+ESS	Essex Bay			
+NOR	North River			
+WES	Westport	RFM Processing Inputs/Footprint/WES_100ac_Mask_24Mar23.shp		RFM Processing Inputs/Orthomosaics/05Oct20_WES_Low_Mica_Ortho.tif
