@@ -18,16 +18,52 @@ library (dplyr)
 library(tidyverse)
 
 
-buffer<-0.5
-
-field_points<-read_csv("14Oct2018_revised.csv")
-
-points<-filter(field_points, SampFormat == "1 mu")
+buffer<-3
 
 ```
 
 ```{r}
-points_sf<- st_as_sf(points, coords = c("Easting", "Northing"), crs=26919)
+poly_OTH<- read_csv("Labeled Data/Poly/LabeledData_OTH_27Jul2023_Poly.csv")
+
+poly_OTH_sf<- st_as_sf(poly_OTH, coords = c("Northing", "Easting"), crs = 26919)|>
+   group_by(PolygonNum)|>
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("POLYGON")
+  
+poly_oth_buf_sf<- st_buffer(poly_OTH_sf, buffer)
+
+ggplot()+
+   geom_sf(data = poly_oth_buf_sf)
+```
+
+```{r}
+poly_PEG_6oct<- read_csv("Labeled Data/Poly/LabeledData_PEG_06oct2018_Poly.csv")
+poly_PEG_07oct<- read_csv("Labeled Data/Poly/LabeledData_PEG_07oct2018_Poly.csv")
+
+
+poly_PEG_6oc_sf<- st_as_sf(poly_PEG_6oct, coords = c("Northing", "Easting"), crs = 26919)|>
+   group_by(PolygongonNum)|>
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("POLYGON")
+
+poly_PEG_7oc_sf<- st_as_sf(poly_PEG_07oct, coords = c("Northing", "Easting"), crs = 26919)|>
+   group_by(PolygongonNum)|>
+   dplyr::summarize(do_union=FALSE)|>
+   st_cast("POLYGON")
+
+  
+poly_peg6oct_buf_sf<- st_buffer(poly_PEG_6oc_sf, buffer)
+poly_peg7oct_buf_sf<- st_buffer(poly_PEG_7oc_sf, buffer)
+
+ggplot()+
+   geom_sf(data = poly_peg6oct_buf_sf, aes(fill = "6"))+
+   geom_sf(data = poly_peg7oct_buf_sf, aes(fill = "7"))
+   
+```
+
+
+```{r}
+points_sf<- st_as_sf(points, coords = c("Easting", "Northing"), crs=26919)|>
 
 points_buf<- st_buffer(points_sf, buffer)
 
