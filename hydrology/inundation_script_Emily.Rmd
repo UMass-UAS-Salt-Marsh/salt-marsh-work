@@ -77,10 +77,5 @@ four_sites<-readRDS("Data/four_sites.Rds")
 prop_time_elev<-lm(Proportion_Time_Inundated~Elevation, data = four_sites)
 med_time_elev<-lm(Median_Time_Inundated~Elevation, data = four_sites)
 depth_95_elev<-lm(Percentile_95_Depth~Elevation, data = four_sites)
-
-
-#commit message
-lm functions for % time inundated, Median Time of Inundation event, and 95% depth of Inundation as reponse variable. Elevation is explanatory 
-
-Also copied over calibration metrics script
+```
 
