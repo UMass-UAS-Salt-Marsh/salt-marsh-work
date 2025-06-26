@@ -77,5 +77,60 @@ four_sites<-readRDS("Data/four_sites.Rds")
 prop_time_elev<-lm(Proportion_Time_Inundated~Elevation, data = four_sites)
 med_time_elev<-lm(Median_Time_Inundated~Elevation, data = four_sites)
 depth_95_elev<-lm(Percentile_95_Depth~Elevation, data = four_sites)
+
+summary(prop_time_elev)
+
+plot(prop_time_elev)
+plot(med_time_elev)
+plot(depth_95_elev)
+```
+
+```{r}
+library(terra)
+
+setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data")
+
+OTH_dem <- terra::rast("OTH/27Apr2021_OTH_Low_RGB_DEM.tif")
+
+```
+
+
+```{r prop time predict raster}
+
+
+prop_time_elev <- lm(Proportion_Time_Inundated~Elevation, data = four_sites)    
+
+names(OTH_dem) <- "Elevation"
+# should appear as it did in the formula above after the "~" this is telling Terra what layers in the raster should be used for the different model coefficients
+
+pti <- predict(OTH_dem, prop_time_elev)
+
+plot(pti, main = "Proportion_Time_Inundated~Elevation")
+```
+
+
+```{r}
+med_time_elev<-lm(Median_Time_Inundated~Elevation, data = four_sites)
+
+names(OTH_dem) <- "Elevation" 
+# should appear as it did in the formula above after the "~" this is telling Terra what layers in the raster should be used for the different model coefficients
+
+pti1 <- predict(OTH_dem, med_time_elev)
+
+plot(pti1, main = "Median_Time_Inundated~Elevation")
+plot(pti, main = "Median_Time_Inundated~Elevation")
+```
+```{r}
+depth_95_elev<-lm(Percentile_95_Depth~Elevation, data = four_sites)
+
+names(OTH_dem) <- "Elevation" 
+# should appear as it did in the formula above after the "~" this is telling Terra what layers in the raster should be used for the different model coefficients
+
+pti2 <- predict(OTH_dem, depth_95_elev)
+
+plot(pti, main = "Proportion_Time_Inundated")
+plot(pti1, main = "Median_Time_Inundated~Elevation")
+plot(pti2, main = "Percentile_95_Depth")
+
 ```
 
