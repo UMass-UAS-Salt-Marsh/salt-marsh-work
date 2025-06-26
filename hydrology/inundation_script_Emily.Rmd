@@ -7,130 +7,81 @@ output: html_document
 
 ```{r setup, include=FALSE}
 
+#set working directory to project root
+knitr::opts_knit$set(root.dir = here::here())
+
 knitr::opts_chunk$set(echo = TRUE)
 setwd(here::here())
- library(tidyverse)
+library(tidyverse)
 library(readr)
 library(readxl)
 library(VulnToolkit)
 library(mblm)
-
-# Source files in R directory
-a <- list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE) |> lapply(source)
+library(dplyr)
 
 ```
 
-```{r readin}
-# Read Site info
-
-# Loop through sites.
-
-# Read in site level data and add site column
-
-# Composite dataset
-
-
-# Read in standard site table with site abbreviation and name
-sites <- readr::read_tsv("hydrology/Data/sites.txt", show_col_types = FALSE) |>
-select(site, site_name)
-
-selected_sites <- c("RED", "OTH", "WES", "WEL")
-sites <- sites[match(selected_sites, sites$site), ]
-sites$deployment_file_name <- c("15Sep2022_RED_Deployments.csv",
-                                 "OTH_LoggerArray_Pull.csv",
-                                 "15Aug2022_WES_ArrayDataSheet.csv",
-                                 "19Oct2022_WEL_Array_withFloodingMetrics.csv")
-i <- 4
-
-```
-
-```{r results}
-result <- vector(mode = "list", length = nrow(sites))
-for (i in seq_len(nrow(sites))) {
-  site <- sites$site[i]
-  site_name <- sites$site_name[i]
-  message("Processing ", site, " (", site_name, ") " , i, " of ", nrow(sites), "\n" )
-
-  site_data_dir <- file.path("hydrology/Data/", site)
-  calibrated_dir <- file.path(site_data_dir, "Calibrated Data")
-  deployment_file <- file.path(site_data_dir, sites$deployment_file_name[i])
-
-
-  im <- calculate_inundation_metrics(calibrated_dir = calibrated_dir,
-                                     deployment_file = deployment_file)
-
-  im$Site <- site
-
-  result[[i]] <- im
-}
-
-data <- do.call(rbind, result)
-
-readr::write_rds(data, "hydrology/Data/four_sites.Rds")
-
-```
-
-```{r lm functions}
+```{r read metrics}
 four_sites<-readRDS("Data/four_sites.Rds")
 
-
-prop_time_elev<-lm(Proportion_Time_Inundated~Elevation, data = four_sites)
-med_time_elev<-lm(Median_Time_Inundated~Elevation, data = four_sites)
-depth_95_elev<-lm(Percentile_95_Depth~Elevation, data = four_sites)
-
-summary(prop_time_elev)
-
-plot(prop_time_elev)
-plot(med_time_elev)
-plot(depth_95_elev)
 ```
 
-```{r}
+```{r read dem}
 library(terra)
 
-setwd("~/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data")
-
-OTH_dem <- terra::rast("OTH/27Apr2021_OTH_Low_RGB_DEM.tif")
+dem <- terra::rast("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Original Raster/UAS Photogrammetry DEM/OTH/27Apr2021_OTH_Low_RGB_DEM.tif")
 
 ```
 
 
 ```{r prop time predict raster}
+data<-four_sites |>
+   filter(Site == "OTH")
 
+prop_time_model <- lm(Proportion_Time_Inundated~Elevation, data = data)    
 
-prop_time_elev <- lm(Proportion_Time_Inundated~Elevation, data = four_sites)    
+names(dem) <- "Elevation"
 
-names(OTH_dem) <- "Elevation"
-# should appear as it did in the formula above after the "~" this is telling Terra what layers in the raster should be used for the different model coefficients
+pti <- predict(dem, prop_time_model)
 
-pti <- predict(OTH_dem, prop_time_elev)
-
-plot(pti, main = "Proportion_Time_Inundated~Elevation")
 ```
 
 
-```{r}
-med_time_elev<-lm(Median_Time_Inundated~Elevation, data = four_sites)
+```{r med time raster predict}
+data<-four_sites |>
+   filter(Site == "OTH")
 
-names(OTH_dem) <- "Elevation" 
-# should appear as it did in the formula above after the "~" this is telling Terra what layers in the raster should be used for the different model coefficients
+med_time_mode <- lm(Median_Time_Inundated~Elevation, data = data)
 
-pti1 <- predict(OTH_dem, med_time_elev)
+names(dem) <- "Elevation" 
 
-plot(pti1, main = "Median_Time_Inundated~Elevation")
-plot(pti, main = "Median_Time_Inundated~Elevation")
+pti1 <- predict(dem, med_time_model)
 ```
-```{r}
-depth_95_elev<-lm(Percentile_95_Depth~Elevation, data = four_sites)
 
-names(OTH_dem) <- "Elevation" 
-# should appear as it did in the formula above after the "~" this is telling Terra what layers in the raster should be used for the different model coefficients
 
-pti2 <- predict(OTH_dem, depth_95_elev)
+```{r depth 95 raster predict}
+data<-four_sites |>
+   filter(Site == "OTH")
+
+depth_95_model <- lm(Percentile_95_Depth~Elevation, data = data)
+
+names(dem) <- "Elevation" 
+
+pti2 <- predict(dem, depth_95_model)
 
 plot(pti, main = "Proportion_Time_Inundated")
-plot(pti1, main = "Median_Time_Inundated~Elevation")
+plot(pti1, main = "Median_Time_Inundated")
 plot(pti2, main = "Percentile_95_Depth")
+
+```
+
+```{r write out_tif}
+
+out_tif_prop_time <- writeRaster(pti, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Proportion_Time_Inundated.tif")
+
+out_tif_med_time <- writeRaster(pti1, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Median_Time_Inundated.tif")
+
+out_tif_95_depth <- writeRaster(pti2, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Percentile_95_Depth.tif")
 
 ```
 
