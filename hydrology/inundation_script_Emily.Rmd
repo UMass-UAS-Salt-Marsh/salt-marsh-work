@@ -29,15 +29,16 @@ four_sites<-readRDS("hydrology/Data/four_sites.Rds")
 ```{r read dem}
 library(terra)
 
-dem <- terra::rast("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Original Raster/UAS Photogrammetry DEM/OTH/27Apr2021_OTH_Low_RGB_DEM.tif")
+dem <- terra::rast("Path/to/DEM")
 
 ```
 
 
 ```{r prop time predict raster}
 data<-four_sites |>
-   filter(Site == "OTH")
+   filter(Site == "which site you want")
 
+#metric model
 prop_time_model <- lm(Proportion_Time_Inundated~Elevation, data = data)    
 
 names(dem) <- "Elevation"
@@ -49,8 +50,9 @@ pti <- predict(dem, prop_time_model)
 
 ```{r med time raster predict}
 data<-four_sites |>
-   filter(Site == "OTH")
+   filter(Site == "which site you want")
 
+#metric model
 med_time_mode <- lm(Median_Time_Inundated~Elevation, data = data)
 
 names(dem) <- "Elevation" 
@@ -61,14 +63,17 @@ pti1 <- predict(dem, med_time_model)
 
 ```{r depth 95 raster predict}
 data<-four_sites |>
-   filter(Site == "OTH")
+   filter(Site == "which site you want")
 
+#metric model
 depth_95_model <- lm(Percentile_95_Depth~Elevation, data = data)
 
 names(dem) <- "Elevation" 
 
 pti2 <- predict(dem, depth_95_model)
+```
 
+```{r}
 plot(pti, main = "Proportion_Time_Inundated")
 plot(pti1, main = "Median_Time_Inundated")
 plot(pti2, main = "Percentile_95_Depth")
@@ -77,11 +82,14 @@ plot(pti2, main = "Percentile_95_Depth")
 
 ```{r write out_tif}
 
+#out_tif_metric <- writeRaster(raster, "path to where you want the file")
+
 out_tif_prop_time <- writeRaster(pti, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Proportion_Time_Inundated.tif")
 
 out_tif_med_time <- writeRaster(pti1, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Median_Time_Inundated.tif")
 
 out_tif_95_depth <- writeRaster(pti2, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Percentile_95_Depth.tif")
+
 
 ```
 
