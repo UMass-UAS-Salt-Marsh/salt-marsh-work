@@ -18,7 +18,7 @@ map_hydrology <- function(calibrated_dir, deployment_file, dem, out_tif, metric)
    stopifnot(metric %in% names(metrics))
    formula <- as.formula(paste0(metric, "~Elevation"))
    model <- lm(formula, metrics)
-   #OTH is being used but any site and DEM can be changed
+   #Your chosen DEM site to transform raster to
    dem <- terra::rast("Data_AllSites/Original Raster/UAS Photogrammetry DEM/OTH/27Apr2021_OTH_Low_RGB_DEM.tif")
    names(dem) <- "Elevation"
    #raster prediction creation
