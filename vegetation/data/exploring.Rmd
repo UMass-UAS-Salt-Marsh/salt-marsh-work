@@ -18,6 +18,7 @@ library (dplyr)
 library(tidyverse)
 
 #adding ranodm thing
+fjfjfjj
 
 buffer<-3
 
