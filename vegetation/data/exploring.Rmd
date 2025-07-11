@@ -17,6 +17,7 @@ library(stars)
 library (dplyr)
 library(tidyverse)
 
+#adding ranodm thing
 
 buffer<-3
 
