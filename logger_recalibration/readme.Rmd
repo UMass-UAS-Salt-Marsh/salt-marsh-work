@@ -1,0 +1,6 @@
+---
+title: "readme"
+for: recalibrate_sites
+objective: find high tide times for a few sites. Use these times to derive water logger elevation at each logger. Take the mean and standard deviation of all logger surface elevations at each high tide time.
+analysis: selected_data table has (in order of columns left to right): date and time of high tides, water logger serial numbers, depth, elevation of logger, water surface elevation, mean of water surface elevation at each date_time, and standard deviation.
+---
