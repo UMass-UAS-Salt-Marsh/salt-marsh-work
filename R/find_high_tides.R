@@ -1,4 +1,4 @@
-find_high_tides <- function(file, start_date, end_date, quantile = 0.75, min_depth = 0.1) {
+find_high_tides <- function(file, start_date, end_date, quantile = 0, min_depth = 0.1) {
    
    # Load with headers
    data <- read_csv(file, col_names = TRUE, skip = 1)
@@ -22,7 +22,6 @@ find_high_tides <- function(file, start_date, end_date, quantile = 0.75, min_dep
    
    
    
-   
    # DEBUG PRINTS here:
    print(paste("Processing file:", basename(file)))
    print("Filtered data preview:")
@@ -31,7 +30,7 @@ find_high_tides <- function(file, start_date, end_date, quantile = 0.75, min_dep
    print(str(filtered_data$depth))
    
    if (nrow(filtered_data) == 0 || all(is.na(filtered_data$depth))) {
-      warning(paste("No valid depth data for", basename(file)))
+      stop(paste("No valid depth data for", basename(file)))
       return(NULL)
    }
    
@@ -58,8 +57,9 @@ find_high_tides <- function(file, start_date, end_date, quantile = 0.75, min_dep
    
    focal_index <- outer(valid_peaks, -2:2, FUN = "+") |> as.vector() |> unique()
    focal_index <- focal_index[focal_index >= 1 & focal_index <= nrow(filtered_data)]
+   focal_index <- sort(focal_index)
    tide_data <- filtered_data[focal_index, ]
    
-   peak_datetimes <- filtered_data$date_time[valid_peaks]
+   peak_datetimes <- tide_data$date_time
    return(peak_datetimes)
 }

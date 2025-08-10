@@ -13,7 +13,7 @@
 #'
 #' @examples
 #' 
-calculate_water_surface_elevation <- function(file, common_high_tides, start_date, end_date, quantile = 0.75, min_depth = 0.1) {
+calculate_water_surface_elevation <- function(file, common_high_tides, start_date, end_date, quantile = 0, min_depth = 0.1) {
    
    # Extract logger serial number
    logger_id <- substr(basename(file), 1, 8)

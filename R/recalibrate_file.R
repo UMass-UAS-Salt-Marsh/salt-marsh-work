@@ -12,8 +12,7 @@
 #'
 #' @return A data frame combining water surface elevation and logger stats for all valid files.
 #' @export
-recalibrate_file <- function(folder_path, deployment_file, start_date, end_date,
-                                                             quantile = 0.75, min_depth = 0.1) {
+recalibrate_file <- function(folder_path, deployment_file, common_high_tides, start_date, end_date, quantile = 0, min_depth = 0.1) {
    # Load deployment metadata
    deployments <- read.csv(deployment_file)
    deployments$Serial <- as.character(deployments$Serial)
@@ -48,14 +47,13 @@ recalibrate_file <- function(folder_path, deployment_file, start_date, end_date,
    
    all_results <- bind_rows(results_list)
    
-   logger_stats <- all_results %>%
-      group_by(logger_id) %>%
-      summarize(
+   all_results <- all_results %>%
+      group_by(date_time) %>%
+      mutate(
          mean_wse = mean(water_surface_elevation, na.rm = TRUE),
-         sd_wse = sd(water_surface_elevation, na.rm = TRUE)
-      )
-   
-   all_results <- left_join(all_results, logger_stats, by = "logger_id")
+         sd_wse = abs(water_surface_elevation - mean_wse)
+      ) %>%
+      ungroup()
    
    
    message("✅ Successfully processed ", success_count, " of ", total_files, " files.")
