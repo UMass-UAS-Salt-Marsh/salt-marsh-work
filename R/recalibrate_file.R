@@ -3,12 +3,12 @@
 #' Processes a folder of calibrated water logger CSV files, calculating water surface elevation
 #' near high tide using a supplied deployment metadata file and date range.
 #'
-#' @param folder_path Character. Path to folder containing CSV logger files.
-#' @param deployment_file Character. Path to the deployment metadata CSV file.
-#' @param start_date POSIXct. Start date-time for filtering.
-#' @param end_date POSIXct. End date-time for filtering.
-#' @param quantile Numeric. Quantile threshold for high tide (default = 0.75).
-#' @param min_depth Numeric. Minimum valid depth (meters) (default = 0.1).
+#' @param folder_path Character. Path to folder containing CSV logger files
+#' @param deployment_file Character. Path to the deployment metadata CSV file
+#' @param start_date POSIXct. Start date-time for filtering
+#' @param end_date POSIXct. End date-time for filtering
+#' @param quantile Numeric. Quantile threshold for selecting high tide peaks (dont need it so quantile = 0)
+#' @param min_depth Numeric. Minimum valid depth (meters) (default = 0.1)
 #'
 #' @return A data frame combining water surface elevation and logger stats for all valid files.
 #' @export
@@ -51,7 +51,8 @@ recalibrate_file <- function(folder_path, deployment_file, common_high_tides, st
       group_by(date_time) %>%
       mutate(
          mean_wse = mean(water_surface_elevation, na.rm = TRUE),
-         sd_wse = abs(water_surface_elevation - mean_wse)
+         sd_wse = sd(water_surface_elevation, na.rm = TRUE),
+         difference_wse = abs(water_surface_elevation - mean_wse)
       ) %>%
       ungroup()
    

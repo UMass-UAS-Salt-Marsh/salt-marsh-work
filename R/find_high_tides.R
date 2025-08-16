@@ -1,3 +1,15 @@
+#' find_high_tides
+#'
+#' @param file 
+#' @param start_date POSIXct. Start of the date-time window to analyze.
+#' @param end_date POSIXct. End of the date-time window to analyze.
+#' @param quantile Numeric. Quantile threshold for selecting high tide peaks (dont need it so quantile = 0)
+#' @param min_depth Numeric. Minimum valid depth (meters) to include in calculations (default: 0.1)
+#'
+#' @returns
+#' @export
+#'
+#' @examples
 find_high_tides <- function(file, start_date, end_date, quantile = 0, min_depth = 0.1) {
    
    # Load with headers
@@ -19,47 +31,24 @@ find_high_tides <- function(file, start_date, end_date, quantile = 0, min_depth 
    filtered_data <- data %>%
       filter(date_time >= start_date & date_time <= end_date & depth >= min_depth)
    
+   # Option 2: No smoothing (Ben advocates for this)
+   smoothed_y <- filtered_data$depth
    
-   
-   
-   # DEBUG PRINTS here:
-   print(paste("Processing file:", basename(file)))
-   print("Filtered data preview:")
-   print(head(filtered_data))
-   print("Depth column structure:")
-   print(str(filtered_data$depth))
-   
-   if (nrow(filtered_data) == 0 || all(is.na(filtered_data$depth))) {
-      stop(paste("No valid depth data for", basename(file)))
-      return(NULL)
+   # robust peaks
+   peaks <- findpeaks(smoothed_y, minpeakheight = min_depth, minpeakdistance = 12)
+   if (is.null(peaks)) {
+      peak_df <- tibble(date_time = as.POSIXct(character()), depth = numeric())
+   } else {
+      valid_peaks <- peaks[,2]
+      
+      peak_df <- filtered_data[valid_peaks, ] %>%
+         mutate(date = as.Date(date_time)) %>%
+         group_by(date) %>%
+         slice_max(order_by = depth, n = 2) %>%
+         ungroup()
    }
    
-   
-   
-   
-   
-   
-   
-   
-   # Smooth depth
-   bw <- 1 # bandwidth in hours
-   lag <- difftime(filtered_data$date_time[2], filtered_data$date_time[1], units = "hours") |> as.numeric()
-   npoints <- bw * 2 / lag
-   f <- npoints / nrow(filtered_data)
-   smoothed <- lowess(filtered_data$depth, f = f)
-   
-   smoothed_depth <- smoothed$y
-   before <- dplyr::lag(smoothed_depth, default = -Inf)
-   after  <- dplyr::lead(smoothed_depth, default = -Inf)
-   peaks  <- which(smoothed_depth > before & smoothed_depth > after)
-   threshold <- quantile(smoothed_depth, quantile, na.rm = TRUE)
-   valid_peaks <- peaks[smoothed_depth[peaks] > threshold]
-   
-   focal_index <- outer(valid_peaks, -2:2, FUN = "+") |> as.vector() |> unique()
-   focal_index <- focal_index[focal_index >= 1 & focal_index <= nrow(filtered_data)]
-   focal_index <- sort(focal_index)
-   tide_data <- filtered_data[focal_index, ]
-   
-   peak_datetimes <- tide_data$date_time
+   # Always return peak datetimes (empty if no peaks)
+   peak_datetimes <- peak_df$date_time
    return(peak_datetimes)
 }

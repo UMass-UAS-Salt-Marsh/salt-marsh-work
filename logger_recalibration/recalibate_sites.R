@@ -2,6 +2,7 @@ library(dplyr)
 library(lubridate)
 library(purrr)
 library(readr)
+library(pracma) # This is used to find peaks accurately
 
 # Parameters
 folder_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/Loggers"
@@ -13,47 +14,31 @@ quantile <- 0
 
 # Set start date and end date
 start_date <- as.POSIXct("2022-09-15 00:00:00")
-end_date <- as.POSIXct("2022-10-05 23:59:59")
+end_date   <- as.POSIXct("2022-10-05 23:59:59")
 
 source("R/find_high_tides.R")
 source("R/calculate_water_surface_elevation.R")
 source("R/recalibrate_file.R")
+source("R/find_common_high_tides.R")
 
-files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
-selected_files <- files[1:5]
-
-selected_files <- file.path(folder_path, c("21410933_cal.csv", "21410929_cal.csv", "21410927_cal.csv", "21410921_cal.csv", "20358395_cal.csv", "21384536_cal.csv"))
-
-all_peak_times <- lapply(selected_files, function(file) {
-   peaks <- find_high_tides(file, start_date, end_date)
-   if (length(peaks) > 0) return(peaks) else return(NULL)
-})
-
-# Remove NULL entries
-all_peak_times <- Filter(Negate(is.null), all_peak_times)
-
-# Combine and filter peak times
-all_times <- as.POSIXct(unlist(all_peak_times), origin = "1970-01-01", tz = "America/New_York")
-time_counts <- table(all_times)
-
-# Filter to common tides
-common_counts <- time_counts[time_counts >= 3]
-
-# Convert the names back using the original timezone of your data
-common_high_tides <- as.POSIXct(names(common_counts), tz = "America/New_York")
-
+common_high_tides <- find_common_high_tides(folder_path, deployment_file, start_date, end_date)
 
 # Run folder processor
 all_results <- recalibrate_file(folder_path, deployment_file, common_high_tides, start_date, end_date)
 
 selected_data <- all_results %>%
-   select(date_time, logger_id, depth, elevation, water_surface_elevation, mean_wse, sd_wse)
+   select(date_time, logger_id, depth, elevation, water_surface_elevation, mean_wse, sd_wse, difference_wse)
 
 # View result
 print(head(selected_data))
 
 
-library(ggplot2)
+
+
+
+
+
+library(ggplot2) # This is to plot the 5 files used for common hight tides
 
 raw_data_list <- lapply(selected_files, function(file) {
    df <- read_csv(file, col_names = TRUE, skip = 1, show_col_types = FALSE)

@@ -6,7 +6,7 @@
 #' @param file Character. Path to the CSV file from a water level logger.
 #' @param start_date POSIXct. Start of the date-time window to analyze.
 #' @param end_date POSIXct. End of the date-time window to analyze.
-#' @param quantile Numeric. Quantile threshold for selecting high tide peaks (default: 0.75).
+#' @param quantile Numeric. Quantile threshold for selecting high tide peaks (dont need it so quantile = 0)
 #' @param min_depth Numeric. Minimum valid depth (meters) to include in calculations (default: 0.1).
 #'
 #' @return A data frame with datetime, depth, water surface elevation, logger ID, and elevation.
