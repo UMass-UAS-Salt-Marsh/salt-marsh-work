@@ -21,7 +21,11 @@ source("R/calculate_water_surface_elevation.R")
 source("R/recalibrate_file.R")
 source("R/find_common_high_tides.R")
 
-common_high_tides <- find_common_high_tides(folder_path, deployment_file, start_date, end_date)
+results <- find_common_high_tides(folder_path, deployment_file, start_date, end_date, quantile = 0, min_depth = 0.1)
+
+common_high_tides <- results$common_high_tides
+selected_files    <- results$selected_files
+all_peak_times    <- results$all_peak_times
 
 # Run folder processor
 all_results <- recalibrate_file(folder_path, deployment_file, common_high_tides, start_date, end_date)
@@ -44,7 +48,7 @@ raw_data_list <- lapply(selected_files, function(file) {
    df <- read_csv(file, col_names = TRUE, skip = 1, show_col_types = FALSE)
    
    # Pick column positions
-   date_col_index <- names(data)[2]
+   date_col_index <- names(df)[2]
    depth_col_index <- grep("depth", names(df), ignore.case = TRUE)[1]
    
    df <- df %>%
