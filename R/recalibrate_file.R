@@ -52,10 +52,22 @@ recalibrate_file <- function(folder_path, deployment_file, common_high_tides, st
       mutate(
          mean_wse = mean(water_surface_elevation, na.rm = TRUE),
          sd_wse = sd(water_surface_elevation, na.rm = TRUE),
-         difference_wse = abs(water_surface_elevation - mean_wse)
+         difference_wse = water_surface_elevation - mean_wse
       ) %>%
       ungroup()
    
+   logger_error <- all_results |> 
+      group_by(logger_id) |>
+      summarize(
+         mean_wse_diff = mean(difference_wse, na.rm = TRUE),
+         sd_wse_diff = sd(difference_wse, na.rm = TRUE)
+      ) |>
+      mutate(
+         ratio = abs(sd_wse_diff / mean_wse_diff)
+      )
+   
+   all_results <- all_results %>%
+      left_join(logger_error, by = "logger_id")
    
    message("✅ Successfully processed ", success_count, " of ", total_files, " files.")
    return(all_results)

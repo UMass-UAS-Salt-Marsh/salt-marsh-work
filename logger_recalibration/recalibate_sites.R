@@ -3,10 +3,13 @@ library(lubridate)
 library(purrr)
 library(readr)
 library(pracma) # This is used to find peaks accurately
+library(ggplot2) # This is to plot data
+library(tidyverse)
 
 # Parameters
 folder_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/Loggers"
 deployment_file <- "C:/Users/Ben Philpot/Downloads/15Sep2022_RED_ArrayDataSheet - Sheet3.csv"
+spatial_file_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/15Sep2022_RED_ArrayDataSheet.csv"
 
 # Set minimum valid depth (meters)
 min_depth <- 0.1
@@ -20,6 +23,7 @@ source("R/find_high_tides.R")
 source("R/calculate_water_surface_elevation.R")
 source("R/recalibrate_file.R")
 source("R/find_common_high_tides.R")
+source("R/spatial_plotting.R")
 
 results <- find_common_high_tides(folder_path, deployment_file, start_date, end_date, quantile = 0, min_depth = 0.1)
 
@@ -31,67 +35,15 @@ all_peak_times    <- results$all_peak_times
 all_results <- recalibrate_file(folder_path, deployment_file, common_high_tides, start_date, end_date)
 
 selected_data <- all_results %>%
-   select(date_time, logger_id, depth, elevation, water_surface_elevation, mean_wse, sd_wse, difference_wse)
+   select(date_time, logger_id, depth, elevation, water_surface_elevation, mean_wse, sd_wse, difference_wse, mean_wse_diff, sd_wse_diff, ratio)
 
 # View result
 print(head(selected_data))
 
+# How to plot:
+p1 <- plot_logger_error(selected_data, spatial_file_path)
+print(p1)
 
+# p2 <- plot_high_tides(selected_files, all_peak_times, start_date, end_date)
+# print(p2)
 
-
-
-
-
-library(ggplot2) # This is to plot the 5 files used for common hight tides
-
-raw_data_list <- lapply(selected_files, function(file) {
-   df <- read_csv(file, col_names = TRUE, skip = 1, show_col_types = FALSE)
-   
-   # Pick column positions
-   date_col_index <- names(df)[2]
-   depth_col_index <- grep("depth", names(df), ignore.case = TRUE)[1]
-   
-   df <- df %>%
-      mutate(
-         date_time = parse_date_time(df[[date_col_index]], orders = "mdy IMS p"),
-         depth = as.numeric(df[[depth_col_index]]),
-         file = basename(file)
-      ) %>%
-      filter(date_time >= start_date & date_time <= end_date) %>%
-      select(date_time, depth, file)
-   
-   return(df)
-})
-
-raw_data_df <- bind_rows(raw_data_list)
-
-# Step 2: Create data frame of high tide peaks for plotting
-peaks_df <- purrr::map2_df(
-   all_peak_times,
-   basename(selected_files[seq_along(all_peak_times)]),
-   ~ data.frame(
-      file = .y,
-      date_time = as.POSIXct(.x, origin = "1970-01-01", tz = "America/New_York")
-   )
-)
-
-# Match peak times to depths from raw data
-# (This will find the exact matching rows in raw_data_df)
-peaks_df <- peaks_df %>%
-   left_join(raw_data_df, by = c("file", "date_time"))
-
-# Step 3: Plot
-ggplot(raw_data_df, aes(x = date_time, y = depth)) +
-   geom_line(color = "black") +
-   geom_point(data = peaks_df, aes(x = date_time, y = depth),
-              color = "blue", size = 3) +
-   facet_wrap(~ file, scales = "free_y") +
-   labs(
-      title = "Water Depth with High Tide Peaks",
-      x = "Time",
-      y = "Depth (m)"
-   ) +
-   theme_minimal() +
-   theme(
-      plot.title = element_text(hjust = 0.5)
-   )
