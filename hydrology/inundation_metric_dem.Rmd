@@ -1,0 +1,122 @@
+---
+title: "inundation_metric_dem"
+author: "emily"
+date: "2025-06-24"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+
+#set working directory to project root
+knitr::opts_knit$set(root.dir = here::here())
+
+knitr::opts_chunk$set(echo = TRUE)
+setwd(here::here())
+library(tidyverse)
+library(readr)
+library(readxl)
+library(VulnToolkit)
+library(mblm)
+library(dplyr)
+library(terra)
+library(ggplot2)
+
+```
+
+```{r read metrics}
+#this file is found in "/Data_AllSites/Derived Raster/Inundation Maps from Elevation Models/Prediction Raster on Inundation Metrics" which is found in the drive folder
+
+four_sites <- readRDS("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Derived Raster/Inundation Maps from Elevation Models/Prediction Raster on Inundation Metrics/four_sites.Rds")
+
+```
+
+```{r read dem}
+#used to create the DEM as an object. Look within the "Data_AllSites/Original Raster/UAS LiDAR DTM" to find DTMs for each site
+
+dtm <- terra::rast("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Original Raster/UAS LiDAR DTM/RR/RR_26May2022_CSF2012_DTM_clipped_v3.tif")
+
+```
+
+```{r prop time predict raster}
+#The next three chunks are all the same with the linear model being different each time due to the change of the metric. 
+
+#filter data for site where you pulled your desired dem from
+data<-four_sites |>
+   filter(Site == "RED")
+
+#metric linear model for raster creation using Proportional_Time_Inundated as metric, any calculated metric can be used in place of Proportional_Time_Inundated
+prop_time_model <- lm(Proportion_Time_Inundated~Elevation, data = data)    
+names(dtm) <- "Elevation"
+
+#raster prediction creation
+pti <- predict(dtm, prop_time_model)
+
+```
+
+```{r med time raster predict}
+data<-four_sites |>
+   filter(Site == "RED")
+
+med_time_model <- lm(Median_Time_Inundated~Elevation, data = data)
+names(dtm) <- "Elevation" 
+
+pti1 <- predict(dtm, med_time_model)
+```
+
+```{r depth 95 raster predict}
+data<-four_sites |>
+   filter(Site == "RED")
+
+depth_95_model <- lm(Percentile_95_Depth~Elevation, data = data)
+names(dtm) <- "Elevation" 
+
+pti2 <- predict(dtm, depth_95_model)
+```
+
+```{r visual plots}
+#plots used to visualize the prediction raster
+
+plot(pti,
+     range = c(-2, 1),
+     box = FALSE,
+     axes = FALSE,
+     col = colorRampPalette(c("red","green","blue"))(100),
+     main = "Proportion Time Inundated")
+
+plot(pti1,
+     box = FALSE,
+     axes = FALSE,
+     col = colorRampPalette(c("red", "green", "blue"))(100),
+     main = "Median Time Inundated")
+
+plot(pti2,
+     range = c(-2, 1.1),
+     box = FALSE,
+     axes = FALSE,
+     col = colorRampPalette(c("red", "green", "blue"))(100), 
+     main = "Percentile 95 Depth")
+
+```
+
+```{r}
+
+plot1 <- ggplot(pti, aes(x = x, y = y, fill = value)) +
+  geom_raster() +
+  scale_fill_viridis_c()
+
+```
+
+```{r write out_tif}
+#This is used to write out your created raster so it can be downloaded to your chosen folder for the raster
+
+#Example: out_tif_metric <- writeRaster(raster, "path to where you want the file/name_of_file.tif")
+
+out_tif_prop_time <- writeRaster(pti, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/WES/WES_output_raster_Proportion_Time_Inundated.tif", overwrite = TRUE)
+
+out_tif_med_time <- writeRaster(pti1, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/WES/WES_output_raster_Median_Time_Inundated.tif", overwrite = TRUE)
+
+out_tif_95_depth <- writeRaster(pti2, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/WES/WES_output_raster_Percentile_95_Depth.tif", overwrite = TRUE)
+```
+
