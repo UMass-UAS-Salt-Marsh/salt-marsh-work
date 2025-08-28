@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SAGA_METADATA>
+  <DATABASE></DATABASE>
+  <SOURCE></SOURCE>
+  <HISTORY saga-version="9.9.1">
+    <TOOL library="ta_preprocessor" id="4" name="Fill Sinks (Wang &amp; Liu)">
+      <OPTION type="grid_system" id="PARAMETERS_GRID_SYSTEM" name="Grid System">
+        <CELLSIZE>0.25</CELLSIZE>
+        <XMIN>413191.3512</XMIN>
+        <YMIN>4613421.8303</YMIN>
+        <XMAX>413912.8512</XMAX>
+        <YMAX>4614038.0803</YMAX>
+      </OPTION>
+      <OPTION type="double" id="MINSLOPE" name="Minimum Slope [Degree]">0.000001</OPTION>
+      <INPUT type="grid" id="ELEV" name="DEM" system="PARAMETERS_GRID_SYSTEM"/>
+      <OUTPUT type="grid" id="FILLED" name="Filled DEM">temp_dem [no sinks]</OUTPUT>
+    </TOOL>
+  </HISTORY>
+  <FILE></FILE>
+  <DESCRIPTION></DESCRIPTION>
+  <PROJECTION>
+    <WKT2>PROJCRS["NAD83 / UTM zone 19N",BASEGEODCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]],ID["EPSG",6269]],PRIMEM["Greenwich",0,ANGLEUNIT["Degree",0.0174532925199433]]],CONVERSION["UTM zone 19N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-69,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]],ID["EPSG",16019]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]</WKT2>
+    <PROJ>+proj=utm +zone=19 +datum=NAD83 +units=m +no_defs +type=crs</PROJ>
+    <CODE>-1</CODE>
+  </PROJECTION>
+</SAGA_METADATA>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SAGA_METADATA>
+  <DATABASE></DATABASE>
+  <SOURCE>
+    <GDAL_DRIVER>GTiff</GDAL_DRIVER>
+    <AREA_OR_POINT>Area</AREA_OR_POINT>
+    <Band>
+      <STATISTICS_APPROXIMATE>YES</STATISTICS_APPROXIMATE>
+      <STATISTICS_MAXIMUM>2.463942527771</STATISTICS_MAXIMUM>
+      <STATISTICS_MEAN>0.59231468084542</STATISTICS_MEAN>
+      <STATISTICS_MINIMUM>-0.22870698571205</STATISTICS_MINIMUM>
+      <STATISTICS_STDDEV>0.25693143879724</STATISTICS_STDDEV>
+      <STATISTICS_VALID_PERCENT>44.47</STATISTICS_VALID_PERCENT>
+    </Band>
+  </SOURCE>
+  <HISTORY saga-version="9.9.1">
+    <TOOL library="io_gdal" id="0" name="Import Raster">
+      <OPTION type="file" id="FILES" name="Files">"/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Original Raster/UAS LiDAR DTM/RR/RR_26May2022_CSF2012_DTM_clipped_v3.tif"</OPTION>
+      <OPTION type="choice" id="MULTIPLE" name="Multiple Bands Output" index="2">automatic</OPTION>
+      <OPTION type="text" id="SUBSETS" name="Subsets"/>
+      <OPTION type="text" id="SELECTION" name="Select from Multiple Bands"/>
+      <OPTION type="boolean" id="TRANSFORM" name="Transformation">true</OPTION>
+      <OPTION type="choice" id="RESAMPLING" name="Resampling" index="0">Nearest Neighbour</OPTION>
+      <OPTION type="choice" id="EXTENT" name="Extent" index="0">original</OPTION>
+      <OUTPUT type="grid_list" id="GRIDS" name="Grids">RR_26May2022_CSF2012_DTM_clipped_v3</OUTPUT>
+    </TOOL>
+  </HISTORY>
+  <FILE>/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Original Raster/UAS LiDAR DTM/RR/RR_26May2022_CSF2012_DTM_clipped_v3.tif</FILE>
+  <DESCRIPTION></DESCRIPTION>
+  <PROJECTION>
+    <WKT2>PROJCRS["NAD83 / UTM zone 19N",BASEGEODCRS["NAD83",DATUM["North American Datum 1983",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]]],CONVERSION["UTM zone 19N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",-69,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1],ID["EPSG",8805]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1]],ID["EPSG",26919]]</WKT2>
+    <PROJ>+proj=utm +zone=19 +datum=NAD83 +units=m +no_defs +type=crs</PROJ>
+    <CODE authority="EPSG">26919</CODE>
+  </PROJECTION>
+</SAGA_METADATA>
