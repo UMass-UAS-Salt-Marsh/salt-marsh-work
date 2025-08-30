@@ -1,3 +1,46 @@
+#' spatial_plotting
+#'
+#' Takes results and visualizes data
+#'
+#' @param selected_data results from recalibrate_sites
+#' @param spatial_file_path defined globally in recalibrate_sites, includes Easting and Northing data 
+#' @param start_date POSIXct. Start date-time for filtering
+#' @param end_date POSIXct. End date-time for filtering
+#' @param all_peak_times returned in recalibrate_sites, contains all peak times from raw data from all logger files
+#'
+#' @return 3 different graphs: p1 is for spatial logger error, p2 plots 5 common high tide files, and 
+#'          p3 plots all files projected against common high tide times (2 day time frame)
+#' @export
+map_logger_error <- function(selected_data, spatial_file_path) {
+   spatial_file <- read_csv(spatial_file_path)
+   spatial_file$Serial <- as.character(spatial_file$Serial)
+   
+   # Join summary table with spatial file
+   spatial_logger_error <- selected_data %>%
+      left_join(spatial_file, by = c("logger_id" = "Serial")) |>
+      filter(!is.na(Eastings), !is.na(Northings))
+   
+   
+   sf <- sf::st_as_sf(spatial_logger_error, coords = c("Eastings", "Northings"), crs = 26919)
+   
+   latlon <- sf |> sf::st_transform("epsg:4326")
+   
+   d <- cbind(spatial_logger_error, sf::st_coordinates(latlon))
+   
+   # Custom palette: neutral at extremes, strong at 0
+   pal <- colorNumeric(
+      palette = c("grey90", "red", "grey90"), # low, mid, high
+      domain  = c(-0.1, 0.1)
+   )
+      
+      p1 <- leaflet(d)|>
+         addProviderTiles("OpenStreetMap")|>
+         addCircleMarkers(~X, ~Y, radius = ~sd_wse_diff * 100, color  = ~pal(mean_wse_diff), fillOpacity = 0.8)
+   
+   return(p1)
+}
+
+
 plot_logger_error <- function(selected_data, spatial_file_path) {
    spatial_file <- read_csv(spatial_file_path)
    spatial_file$Serial <- as.character(spatial_file$Serial)
@@ -9,7 +52,7 @@ plot_logger_error <- function(selected_data, spatial_file_path) {
    # Plot
    p1 <- ggplot(spatial_logger_error, aes(x = Eastings, y = Northings)) +
       geom_point(aes(color = mean_wse_diff, size = sd_wse_diff)) +
-      scale_color_viridis_c(option = "plasma") +
+      scale_color_viridis_c(option = "turbo") +
       coord_equal() +
       theme_minimal() +
       labs(
@@ -22,7 +65,6 @@ plot_logger_error <- function(selected_data, spatial_file_path) {
    
    return(p1)
 }
-
 
 # didn't graph ratio, not sure what I am looking for when I do that????
 

@@ -1,4 +1,6 @@
 #' find_high_tides
+#' 
+#' This function finds the peaks (high tides) of a single file
 #'
 #' @param file 
 #' @param start_date POSIXct. Start of the date-time window to analyze.
@@ -10,7 +12,7 @@
 #' @export
 #'
 #' @examples
-find_high_tides <- function(file, start_date, end_date, quantile = 0, min_depth = 0.1) {
+find_high_tides <- function(file, start_date, end_date, quantile, min_depth) {
    
    # Load with headers
    data <- read_csv(file, col_names = TRUE, skip = 1)

@@ -1,6 +1,64 @@
 ---
-title: "readme"
-for: recalibrate_sites
-objective: find high tide times for a few sites. Use these times to derive water logger elevation at each logger. Take the mean and standard deviation of all logger surface elevations at each high tide time.
-analysis: selected_data table has (in order of columns left to right): date and time of high tides, water logger serial numbers, depth, elevation of logger, water surface elevation, mean of water surface elevation at each date_time, and standard deviation.
+title: "recalibrate_sites"
+output: water surface elevation and statistics of all loggers at high tide times
+description: The find_high_tides function uses local max pracma library to find high tides from raw logger data.
+The find_common_high_tides function then takes the 5 lowest elevation logger files and uses the script above to find high tide times. After filtering for depth > 0.1, the high tides are clustered and the median value is taken as the common high tide time.
+The reclabirate_file function processes a folder of calibrated water logger CSV files, and applies the calculate_water_surface_elevation function to each file to find water surface elevation and other statistics.
+The spatial_plotting function makes 3 different graphs: p1 is for spatial logger error, p2 plots 5 common high tide files, and p3 plots all files projected against common high tide times (2 day time frame)
 ---
+
+library(dplyr)
+library(lubridate)
+library(purrr)
+library(readr)
+library(pracma) # This is used to find peaks accurately
+library(ggplot2) # This is to plot data
+library(tidyverse) # I dont even know what this is for or if it's needed
+library(leaflet)
+library(sf)
+
+# Parameters
+folder_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/Loggers"
+deployment_file <- "C:/Users/Ben Philpot/Downloads/15Sep2022_RED_ArrayDataSheet - Sheet3.csv"
+spatial_file_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/15Sep2022_RED_ArrayDataSheet.csv"
+
+# Set minimum valid depth (meters)
+min_depth <- 0.1
+quantile <- 0
+
+# Set start date and end date
+start_date <- as.POSIXct("2022-09-15 00:00:00")
+end_date   <- as.POSIXct("2022-10-05 23:59:59")
+
+source("R/find_high_tides.R")
+source("R/calculate_water_surface_elevation.R")
+source("R/recalibrate_file.R")
+source("R/find_common_high_tides.R")
+source("R/spatial_plotting.R")
+
+results <- find_common_high_tides(folder_path, deployment_file, start_date, end_date, quantile = 0, min_depth = 0.1)
+
+common_high_tides <- results$common_high_tides
+selected_files    <- results$selected_files
+all_peak_times    <- results$all_peak_times
+
+# Run folder processor
+all_results <- recalibrate_file(folder_path, deployment_file, common_high_tides, start_date, end_date)
+
+selected_data <- all_results %>%
+   select(date_time, logger_id, depth, elevation, water_surface_elevation, mean_wse, sd_wse, difference_wse, mean_wse_diff, sd_wse_diff, ratio)
+
+# View result
+print(head(selected_data))
+
+# This plots spatial logger error (red means mean_wse_diff is closer to 0):
+p1 <- map_logger_error(selected_data, spatial_file_path)
+print(p1)
+
+# This plots 5 common high tide files:
+p2 <- plot_high_tides(selected_files, all_peak_times, start_date, end_date)
+print(p2)
+
+# This plots all files projected against common high tide times (2 day time frame):
+p3 <- plot_all_loggers_with_high_tides(folder_path, common_high_tides, start_date, end_date)
+print(p3)

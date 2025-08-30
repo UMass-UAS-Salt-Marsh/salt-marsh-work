@@ -1,7 +1,7 @@
-#' process_calibrated_folder_water_logger_elevation
+#' recalibrate_file
 #'
-#' Processes a folder of calibrated water logger CSV files, calculating water surface elevation
-#' near high tide using a supplied deployment metadata file and date range.
+#' Processes a folder of calibrated water logger CSV files, calculating water surface elevation, sd, and mean
+#' near high tide using a supplied deployment metadata file, common high tide times.
 #'
 #' @param folder_path Character. Path to folder containing CSV logger files
 #' @param deployment_file Character. Path to the deployment metadata CSV file
@@ -12,7 +12,7 @@
 #'
 #' @return A data frame combining water surface elevation and logger stats for all valid files.
 #' @export
-recalibrate_file <- function(folder_path, deployment_file, common_high_tides, start_date, end_date, quantile = 0, min_depth = 0.1) {
+recalibrate_file <- function(folder_path, deployment_file, common_high_tides, start_date, end_date, quantile, min_depth) {
    # Load deployment metadata
    deployments <- read.csv(deployment_file)
    deployments$Serial <- as.character(deployments$Serial)

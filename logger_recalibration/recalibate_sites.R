@@ -5,6 +5,8 @@ library(readr)
 library(pracma) # This is used to find peaks accurately
 library(ggplot2) # This is to plot data
 library(tidyverse) # I dont even know what this is for or if it's needed
+library(leaflet)
+library(sf)
 
 # Parameters
 folder_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/Loggers"
@@ -40,15 +42,14 @@ selected_data <- all_results %>%
 # View result
 print(head(selected_data))
 
-# This plots spatial logger error:
-p1 <- plot_logger_error(selected_data, spatial_file_path)
+# This plots spatial logger error (red means mean_wse_diff is closer to 0):
+p1 <- map_logger_error(selected_data, spatial_file_path)
 print(p1)
 
 # This plots 5 common high tide files:
 p2 <- plot_high_tides(selected_files, all_peak_times, start_date, end_date)
 print(p2)
 
-# This plots all files projected against common high tide times:
+# This plots all files projected against common high tide times (2 day time frame):
 p3 <- plot_all_loggers_with_high_tides(folder_path, common_high_tides, start_date, end_date)
 print(p3)
-

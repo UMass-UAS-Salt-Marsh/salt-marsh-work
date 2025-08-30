@@ -1,5 +1,9 @@
 #' find_common_high_tides
 #'
+#' This function takes the 5 files of lowest elevation, fidns all the local max points, 
+#' and takes median high tide time of each cluster to find common high tide times. 
+#' This function also adds -2:2 nearpoints.
+#'
 #' @param folder_path 
 #' @param deployment_file 
 #' @param start_date POSIXct. Start of the date-time window to analyze.
@@ -9,7 +13,7 @@
 #' @export
 #'
 #' @examples
-find_common_high_tides <- function(folder_path, deployment_file, start_date, end_date, quantile = 0, min_depth = 0.1) {
+find_common_high_tides <- function(folder_path, deployment_file, start_date, end_date, quantile, min_depth) {
    
    # Load deployment metadata
    deployments <- read.csv(deployment_file)

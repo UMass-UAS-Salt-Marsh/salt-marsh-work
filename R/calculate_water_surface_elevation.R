@@ -1,7 +1,7 @@
 #' calculate_water_surface_elevation
 #'
-#' This function processes a single water logger CSV file, smooths the depth readings,
-#' identifies high tide peaks, and calculates water surface elevation at those points.
+#' This function processes a single water logger CSV file and calculates water surface elevation at common high tide times by adding
+#' elevation and depth.
 #' 
 #' @param file Character. Path to the CSV file from a water level logger.
 #' @param start_date POSIXct. Start of the date-time window to analyze.
@@ -13,7 +13,7 @@
 #'
 #' @examples
 #' 
-calculate_water_surface_elevation <- function(file, common_high_tides, start_date, end_date, quantile = 0, min_depth = 0.1) {
+calculate_water_surface_elevation <- function(file, common_high_tides, start_date, end_date, quantile, min_depth) {
    
    # Extract logger serial number
    logger_id <- substr(basename(file), 1, 8)
