@@ -18,7 +18,15 @@ Within this folder contains different folders for each site. Choose a .tif file
 found within a folder to read it into R.
 
 Only overland flow analysis has been made for Red River. So a lot of shapefiles
-needed for this analysis are already made so you can pull those files from
+needed for this analysis are already made so you can pull those files this 
+filepath "~UAS Data Collection/Red River/RR_Analysis/Hydrology".
+
+For other sites, you will have to make the stream networks and boundary shapefiles
+to be used. Boundaries can be found in "SaltMUAS_share/Data_AllSites/Original Vector/Site Footprint", 
+you can also make this in QGIS as well if you don't trust the masks in that folder.
+
+The gap vector needs to be the point where you believe the outflow point is for 
+the watershed. This can be made in QGIS pretty easily. 
 
 
 
