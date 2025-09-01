@@ -41,7 +41,11 @@ plot(wall_dtm)
 out_wall_dtm<- writeRaster(wall_dtm, "out_wall_dtm.tif",
                            overwrite = TRUE)
 
-#setting env with rsaga 
+
+
+#setting env with rsaga, the path is where you have downloaded rsaga to your
+#computer and modules are found within the folder to rsaga. This might be specific
+#to your computer so you might have to look up how to do this if this doesn't work.
 env <- rsaga.env(
    path = "/Applications/SAGA.app/Contents/MacOS",
    modules = "/Applications/SAGA.app/Contents/libs"
@@ -69,6 +73,9 @@ fill_dem<- terra::rast("/Users/emily/Library/CloudStorage/OneDrive-UniversityofM
 plot(fill_dem)
 
 
+####this stuff is to verify what to did above
+
+
 ##compared to prior filled dem
 check_fill<- rast("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/UAS Data Collection/Red River/RR_Analysis/Hydrology/RR_WaterFlowRouting/SinksFilled_Red_May2022_CSF2012_Thin25cm_TriNN25cm.sdat")
 plot(check_fill)
@@ -86,7 +93,8 @@ plot(fill_depth != 0)
 
 
 
-####carve channels section
+####carve channels section (Originally made for culvert but change object names
+####just be aware to change it in other places in the script)
 
 
 # filled dtm read in
@@ -97,7 +105,7 @@ dem_in <- terra::rast("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@um
 #instead of a culvert/ditch)
 
 
-#read in ditch (this was made in QGIS, a shapefile where the ditch/culvert was)
+#read in ditch (this was made in QGIS, a shapefile where the channel was)
 cul_shp <- st_read("/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/overland_flow/RR_culvert_cross.shp")
 
 #covert to line to points
@@ -115,15 +123,15 @@ st_xy_cul <- cul_shp_pts |>
 en_xy_cul<- cul_shp_pts |>
    slice(4)
 
-#split start coordinates into x and y collums
+#split start coordinates into x and y columns
 st_coords_cul <- st_coordinates(st_xy_cul) %>%
    cbind(id = st_xy_cul$id)
 
-#split end points into x and y points
+#split end points into x and y columns
 en_coords_cul <- st_coordinates(en_xy_cul) %>%
    cbind(id = en_xy_cul$id)
 
-#defineing x and y points for everything
+#defining x and y points for everything
 x1<- st_coords_cul[1,1]
 x2<- en_coords_cul[1,1]
 
@@ -173,7 +181,7 @@ burn_culvert <- function(x1, x2, y1, y2, dem_in, dem_out){
    #Rasterize points into DEM using elevation as value for each cell
    dem_out <- rasterize(cul_coords, dem_in , values = elev, update = TRUE)
    
-   #visualize
+   #visualize the channel
    if (FALSE) {
       v <- values(dem_elev) 
       v[!is.na(v)]
