@@ -1,0 +1,24 @@
+This script follows the guidelines written out in "Flow Modeling in R". The 
+filepath to these guidelines are "~/Research Plan/Flow Modeling Workflow". 
+
+This script contains script for filling in the sinks in a chosen dem and burning
+in a channel into a raster. I specifically focused on creating and burning a channel
+for a culvert found in Red River site. 
+
+Comments are made on each line to help explain what the line means. 
+
+
+
+Data location:
+
+Filepath to dem(desire dtms for this analysis):
+"~SaltMUAS_share/Data_AllSites/Original Raster/UAS LiDAR DTM"
+
+Within this folder contains different folders for each site. Choose a .tif file
+found within a folder to read it into R.
+
+Only overland flow analysis has been made for Red River. So a lot of shapefiles
+needed for this analysis are already made so you can pull those files from
+
+
+
