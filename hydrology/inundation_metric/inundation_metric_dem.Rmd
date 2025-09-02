@@ -76,9 +76,7 @@ pti2 <- predict(dtm, depth_95_model)
 ```
 
 ```{r visual plots}
-#plots used to visualize the prediction raster, range can be changed to any 2 numbers 
-#of your choosing or a range is not needed but it's good to use if you want to compare 
-#different sites' rasters to standardize the range of the colors.
+#plots used to visualize the prediction raster
 
 plot(pti,
      range = c(-2, 1),
@@ -99,6 +97,14 @@ plot(pti2,
      axes = FALSE,
      col = colorRampPalette(c("red", "green", "blue"))(100), 
      main = "Percentile 95 Depth")
+
+```
+
+```{r}
+
+plot1 <- ggplot(pti, aes(x = x, y = y, fill = value)) +
+  geom_raster() +
+  scale_fill_viridis_c()
 
 ```
 

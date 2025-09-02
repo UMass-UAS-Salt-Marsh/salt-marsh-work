@@ -1,0 +1,226 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={inundation\_metric\_dem},
+  pdfauthor={emily},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{inundation\_metric\_dem}
+\author{emily}
+\date{2025-06-24}
+
+\begin{document}
+\maketitle
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#this file is found in "/Data\_AllSites/Derived Raster/Inundation Maps from Elevation Models/Prediction Raster on Inundation Metrics" which is found in the drive folder}
+
+\NormalTok{four\_sites }\OtherTok{\textless{}{-}} \FunctionTok{readRDS}\NormalTok{(}\StringTok{"/Users/emily/Library/CloudStorage/GoogleDrive{-}ekmiller@umass.edu/.shortcut{-}targets{-}by{-}id/0B6{-}MI{-}dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS\_share/Data\_AllSites/Derived Raster/Inundation Maps from Elevation Models/Prediction Raster on Inundation Metrics/four\_sites.Rds"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#used to create the DEM as an object. Look within the "Data\_AllSites/Original Raster/UAS LiDAR DTM" to find DTMs for each site}
+
+\NormalTok{dtm }\OtherTok{\textless{}{-}}\NormalTok{ terra}\SpecialCharTok{::}\FunctionTok{rast}\NormalTok{(}\StringTok{"/Users/emily/Library/CloudStorage/GoogleDrive{-}ekmiller@umass.edu/.shortcut{-}targets{-}by{-}id/0B6{-}MI{-}dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS\_share/Data\_AllSites/Original Raster/UAS LiDAR DTM/WES/WES\_20May2022\_CSF2012\_DTM\_clipped\_v2.tif"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#The next three chunks are all the same with the linear model being different each time due to the change of the metric. }
+
+\CommentTok{\#filter data for site where you pulled your desired dem from}
+\NormalTok{data}\OtherTok{\textless{}{-}}\NormalTok{four\_sites }\SpecialCharTok{|\textgreater{}}
+   \FunctionTok{filter}\NormalTok{(Site }\SpecialCharTok{==} \StringTok{"WES"}\NormalTok{)}
+
+\CommentTok{\#metric linear model for raster creation using Proportional\_Time\_Inundated as metric, any calculated metric can be used in place of Proportional\_Time\_Inundated}
+\NormalTok{prop\_time\_model }\OtherTok{\textless{}{-}} \FunctionTok{lm}\NormalTok{(Proportion\_Time\_Inundated}\SpecialCharTok{\textasciitilde{}}\NormalTok{Elevation, }\AttributeTok{data =}\NormalTok{ data)    }
+\FunctionTok{names}\NormalTok{(dtm) }\OtherTok{\textless{}{-}} \StringTok{"Elevation"}
+
+\CommentTok{\#raster prediction creation}
+\NormalTok{pti }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(dtm, prop\_time\_model)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{data}\OtherTok{\textless{}{-}}\NormalTok{four\_sites }\SpecialCharTok{|\textgreater{}}
+   \FunctionTok{filter}\NormalTok{(Site }\SpecialCharTok{==} \StringTok{"WES"}\NormalTok{)}
+
+\NormalTok{med\_time\_model }\OtherTok{\textless{}{-}} \FunctionTok{lm}\NormalTok{(Median\_Time\_Inundated}\SpecialCharTok{\textasciitilde{}}\NormalTok{Elevation, }\AttributeTok{data =}\NormalTok{ data)}
+\FunctionTok{names}\NormalTok{(dtm) }\OtherTok{\textless{}{-}} \StringTok{"Elevation"} 
+
+\NormalTok{pti1 }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(dtm, med\_time\_model)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{data}\OtherTok{\textless{}{-}}\NormalTok{four\_sites }\SpecialCharTok{|\textgreater{}}
+   \FunctionTok{filter}\NormalTok{(Site }\SpecialCharTok{==} \StringTok{"WES"}\NormalTok{)}
+
+\NormalTok{depth\_95\_model }\OtherTok{\textless{}{-}} \FunctionTok{lm}\NormalTok{(Percentile\_95\_Depth}\SpecialCharTok{\textasciitilde{}}\NormalTok{Elevation, }\AttributeTok{data =}\NormalTok{ data)}
+\FunctionTok{names}\NormalTok{(dtm) }\OtherTok{\textless{}{-}} \StringTok{"Elevation"} 
+
+\NormalTok{pti2 }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(dtm, depth\_95\_model)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#plots used to visualize the prediction raster}
+
+\FunctionTok{plot}\NormalTok{(pti,}
+     \AttributeTok{box =} \ConstantTok{FALSE}\NormalTok{,}
+     \AttributeTok{axes =} \ConstantTok{FALSE}\NormalTok{,}
+     \AttributeTok{col =} \FunctionTok{colorRampPalette}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"red"}\NormalTok{, }\StringTok{"green"}\NormalTok{, }\StringTok{"blue"}\NormalTok{))(}\DecValTok{100}\NormalTok{),}
+     \AttributeTok{main =} \StringTok{"Proportion\_Time\_Inundated"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{inundation_metric_dem_files/figure-latex/visual plots-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{(pti1,}
+     \AttributeTok{box =} \ConstantTok{FALSE}\NormalTok{,}
+     \AttributeTok{axes =} \ConstantTok{FALSE}\NormalTok{,}
+     \AttributeTok{col =} \FunctionTok{colorRampPalette}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"red"}\NormalTok{, }\StringTok{"green"}\NormalTok{, }\StringTok{"blue"}\NormalTok{))(}\DecValTok{100}\NormalTok{),}
+     \AttributeTok{main =} \StringTok{"Median\_Time\_Inundated"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{inundation_metric_dem_files/figure-latex/visual plots-2.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{(pti2,}
+     \AttributeTok{box =} \ConstantTok{FALSE}\NormalTok{,}
+     \AttributeTok{axes =} \ConstantTok{FALSE}\NormalTok{,}
+     \AttributeTok{col =} \FunctionTok{colorRampPalette}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"red"}\NormalTok{, }\StringTok{"green"}\NormalTok{, }\StringTok{"blue"}\NormalTok{))(}\DecValTok{100}\NormalTok{), }
+     \AttributeTok{main =} \StringTok{"Percentile\_95\_Depth"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{inundation_metric_dem_files/figure-latex/visual plots-3.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#This is used to write out your created raster so it can be downloaded to your chosen folder for the raster}
+
+\CommentTok{\#Example: out\_tif\_metric \textless{}{-} writeRaster(raster, "path to where you want the file/name\_of\_file.tif")}
+
+\NormalTok{out\_tif\_prop\_time }\OtherTok{\textless{}{-}} \FunctionTok{writeRaster}\NormalTok{(pti, }\StringTok{"/Users/emily/Library/CloudStorage/OneDrive{-}UniversityofMassachusetts/salt\_marsh\_data/Testing repo/salt\_marsh\_work/hydrology/Data/WES/WES\_output\_raster\_Proportion\_Time\_Inundated.tif"}\NormalTok{, }\AttributeTok{overwrite =} \ConstantTok{TRUE}\NormalTok{)}
+
+\NormalTok{out\_tif\_med\_time }\OtherTok{\textless{}{-}} \FunctionTok{writeRaster}\NormalTok{(pti1, }\StringTok{"/Users/emily/Library/CloudStorage/OneDrive{-}UniversityofMassachusetts/salt\_marsh\_data/Testing repo/salt\_marsh\_work/hydrology/Data/WES/WES\_output\_raster\_Median\_Time\_Inundated.tif"}\NormalTok{, }\AttributeTok{overwrite =} \ConstantTok{TRUE}\NormalTok{)}
+
+\NormalTok{out\_tif\_95\_depth }\OtherTok{\textless{}{-}} \FunctionTok{writeRaster}\NormalTok{(pti2, }\StringTok{"/Users/emily/Library/CloudStorage/OneDrive{-}UniversityofMassachusetts/salt\_marsh\_data/Testing repo/salt\_marsh\_work/hydrology/Data/WES/WES\_output\_raster\_Percentile\_95\_Depth.tif"}\NormalTok{, }\AttributeTok{overwrite =} \ConstantTok{TRUE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+
+\end{document}

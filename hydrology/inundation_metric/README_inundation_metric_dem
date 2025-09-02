@@ -1,0 +1,27 @@
+This script is for creating rasters based off the inundation metrics that were 
+calculated from "calculate_inundation_metrics.R". The added comments go more in 
+depth.
+
+The "four_sites" file can be found in "Data_AllSites/Derived Raster/
+Inundation Maps from Elevation Models/four_sites.Rds".
+
+The dems are located in "Data_AllSites/Original Raster/UAS LiDAR DTM" and each
+site has its own folder with a dtm in it.
+
+"r read metrics" Block:
+This block is used for reading in the four_sites file.
+
+"read dem" Block:
+Used to read in your chosen dem
+
+"prop time predict raster" Block:
+Used to create a prediction raster based on Proportion_Time_Inundated metric that
+was calculated from the four_sites file. For this block the metric can be switched
+with any of the other calculated metrics from four_sites. This is shown through 
+the "med time raster predict" and "depth 95 raster predict" blocks.
+
+"visual plots" Block:
+This block is used to show the rasters that you made from the previous blocks.
+
+"write out_tif" Block:
+Used to write out the raster you created and put it in a folder of your choosing. 

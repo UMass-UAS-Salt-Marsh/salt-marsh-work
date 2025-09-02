@@ -22,7 +22,6 @@ library(dplyr)
 ```
 
 ```{r read metrics}
-#this file should be in the hydrology folder within the salt_marsh_work directory
 four_sites<-readRDS("hydrology/Data/four_sites.Rds")
 
 ```
@@ -30,31 +29,31 @@ four_sites<-readRDS("hydrology/Data/four_sites.Rds")
 ```{r read dem}
 library(terra)
 
-#used to create the DEM as an object. Look within the "Data_AllSites/Original Raster/UAS Photogrammetry DEM" to find DEMs for each site (I believe that picking the "newest" raster is the best but I am not sure)
-dem <- terra::rast("Path/to/DEM")
+#path to wanted DEM
+dem <- terra::rast("/Users/emily/Library/CloudStorage/GoogleDrive-ekmiller@umass.edu/.shortcut-targets-by-id/0B6-MI-dco6FLWkZmTDZ4MFhRU1k/7. SaltMUAS_share/Data_AllSites/Original Raster/UAS Photogrammetry DEM/OTH/27Apr2021_OTH_Low_RGB_DEM.tif")
 
 ```
 
 
 ```{r prop time predict raster}
-#The next three chunks are all the same with the linear model being different each time due to the change of the metric. 
+#sort four_sites by what site you want
 data<-four_sites |>
-   filter(Site == "which site you want")
+   filter(Site == "OTH")
 
-#metric linear model for raster creation using Proportional_Time_Inundated as metric, any calculated metric can be used in place of Proptional_Time_Inundated
+#metric model
 prop_time_model <- lm(Proportion_Time_Inundated~Elevation, data = data)    
 
 names(dem) <- "Elevation"
 
-#raster prediction creation
 pti <- predict(dem, prop_time_model)
 
 ```
 
 
 ```{r med time raster predict}
+#sort four_sites by what site you want
 data<-four_sites |>
-   filter(Site == "which site you want")
+   filter(Site == "OTH")
 
 #metric model
 med_time_mode <- lm(Median_Time_Inundated~Elevation, data = data)
@@ -66,8 +65,9 @@ pti1 <- predict(dem, med_time_model)
 
 
 ```{r depth 95 raster predict}
+#sort four_sites by what site you want
 data<-four_sites |>
-   filter(Site == "which site you want")
+   filter(Site == "OTH")
 
 #metric model
 depth_95_model <- lm(Percentile_95_Depth~Elevation, data = data)
@@ -78,6 +78,8 @@ pti2 <- predict(dem, depth_95_model)
 ```
 
 ```{r}
+#show created raster with title of metric
+
 plot(pti, main = "Proportion_Time_Inundated")
 plot(pti1, main = "Median_Time_Inundated")
 plot(pti2, main = "Percentile_95_Depth")
@@ -85,9 +87,8 @@ plot(pti2, main = "Percentile_95_Depth")
 ```
 
 ```{r write out_tif}
-#This is used to write out your created raster so it can be downloaded to your chosen folder for the raster
 
-#Example: out_tif_metric <- writeRaster(raster, "path to where you want the file")
+#out_tif_metric <- writeRaster(raster, "path to where you want the file")
 
 out_tif_prop_time <- writeRaster(pti, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Proportion_Time_Inundated.tif")
 
@@ -95,6 +96,6 @@ out_tif_med_time <- writeRaster(pti1, "/Users/emily/Library/CloudStorage/OneDriv
 
 out_tif_95_depth <- writeRaster(pti2, "/Users/emily/Library/CloudStorage/OneDrive-UniversityofMassachusetts/salt_marsh_data/Testing repo/salt_marsh_work/hydrology/Data/OTH/output_raster_Percentile_95_Depth.tif")
 
-
 ```
+
 
