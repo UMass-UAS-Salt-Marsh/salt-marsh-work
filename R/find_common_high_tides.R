@@ -3,9 +3,10 @@
 #' This function takes the 5 files of lowest elevation, fidns all the local max points, 
 #' and takes median high tide time of each cluster to find common high tide times. 
 #' This function also adds -2:2 nearpoints.
+#' 
 #'
-#' @param folder_path 
-#' @param deployment_file 
+#' @param calibrated_dir  
+#' @param deployments
 #' @param start_date POSIXct. Start of the date-time window to analyze.
 #' @param end_date POSIXct. End of the date-time window to analyze.
 #'
@@ -13,38 +14,41 @@
 #' @export
 #'
 #' @examples
-find_common_high_tides <- function(folder_path, deployment_file, start_date, end_date, quantile, min_depth) {
+find_common_high_tides <- function(calibrated_dir, deployments, min_depth,
+                                   n_loggers=5, min_count=3) {
    
-   # Load deployment metadata
-   deployments <- read.csv(deployment_file)
-   deployments$Serial <- as.character(deployments$Serial)
-   assign("deployments", deployments, envir = .GlobalEnv)  # makes deployments accessible in your function
    
    # Step 1: Get the 5 lowest-elevation serials
    lowest_serials <- deployments %>%
-      filter(!is.na(Serial), !is.na(Elevation)) %>%
-      arrange(Elevation) %>%
-      slice(1:5) %>%
-      pull(Serial)
+      filter(!is.na(serial), !is.na(elevation)) %>%
+      arrange(elevation) %>%
+      slice(seq_len(n_loggers)) %>%
+      pull(serial)
 
+   
+   
    # Step 2: list all files
-   files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+   files <- list.files(calibrated_dir, pattern = "\\.xlsx$", full.names = TRUE)
 
    # Step 3: match by exact serial number at the start of filename
-   selected_files <- files[basename(files) %in% paste0(lowest_serials, "_cal.csv")]
+   selected_files <- files[basename(files) %in% paste0(lowest_serials, "_cal.xlsx")]
 
    all_peak_times <- lapply(selected_files, function(file) {
      
-       peaks <- find_high_tides(file, start_date, end_date, quantile = 0, min_depth = 0.1)
+       peaks <- find_high_tides(file, deployments, min_depth = min_depth)
       if (length(peaks) > 0) return(peaks) else return(NULL)
    })
-
+   
+   # Note the original tz is wrong (UTC) but we are going to use it universally
+   # Otherwise things get confusing
+   original_tz <- lubridate::tz(all_peak_times[[1]][1])
+   
+   
    # Remove NULL entries
    all_peak_times <- Filter(Negate(is.null), all_peak_times)
 
    # Combine and filter peak times
-   all_times <- as.POSIXct(unlist(all_peak_times), origin = "1970-01-01", tz = "America/New_York")
-   
+   all_times <- as.POSIXct(unlist(all_peak_times), origin = "1970-01-01", tz = original_tz)
    
    
    # Step 4: Cluster times within tolerance
@@ -71,7 +75,7 @@ find_common_high_tides <- function(folder_path, deployment_file, start_date, end
    
    # Step 7: Keep only tides that appear in >= 3 files
    official_common_high_tides <- official_high_tides[count_in_files >= 3]
-   official_common_high_tides <- as.POSIXct(official_common_high_tides, origin = "1970-01-01", tz = "America/New_York")
+   official_common_high_tides <- as.POSIXct(official_common_high_tides, origin = "1970-01-01", tz = original_tz)
    official_common_high_tides <- sort(unique(official_common_high_tides))
    
    
@@ -124,8 +128,9 @@ find_common_high_tides <- function(folder_path, deployment_file, start_date, end
    common_high_tides <- sort(unique(do.call(c, lapply(official_common_high_tides_clean, function(ht) {
       ht + seq(-2, 2) * 600 # 600 seconds on each side
    }))))
-   common_high_tides <- as.POSIXct(common_high_tides, origin = "1970-01-01", tz = "America/New_York")
    
+   common_high_tides <- as.POSIXct(common_high_tides, origin = "1970-01-01", tz = original_tz)
+  
    
    return(list(
       common_high_tides = common_high_tides,

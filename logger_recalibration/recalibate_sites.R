@@ -8,6 +8,12 @@ library(tidyverse) # I dont even know what this is for or if it's needed
 library(leaflet)
 library(sf)
 
+
+# Source all R files in /R
+a <- list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE) |> 
+   lapply(source)
+
+
 # Parameters
 folder_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/Red_River/Loggers"
 deployment_file <- "C:/Users/Ben Philpot/Downloads/15Sep2022_RED_ArrayDataSheet - Sheet3.csv"
@@ -15,26 +21,20 @@ spatial_file_path <- "C:/Users/Ben Philpot/OneDrive/Desktop/Water_Logger_Folder/
 
 # Set minimum valid depth (meters)
 min_depth <- 0.1
-quantile <- 0
 
 # Set start date and end date
 start_date <- as.POSIXct("2022-09-15 00:00:00")
 end_date   <- as.POSIXct("2022-10-05 23:59:59")
 
-source("R/find_high_tides.R")
-source("R/calculate_water_surface_elevation.R")
-source("R/recalibrate_file.R")
-source("R/find_common_high_tides.R")
-source("R/spatial_plotting.R")
 
-results <- find_common_high_tides(folder_path, deployment_file, start_date, end_date, quantile = 0, min_depth = 0.1)
+results <- find_common_high_tides(folder_path, deployment_file, min_depth = min_depth)
 
 common_high_tides <- results$common_high_tides
 selected_files    <- results$selected_files
 all_peak_times    <- results$all_peak_times
 
 # Run folder processor
-all_results <- recalibrate_file(folder_path, deployment_file, common_high_tides, start_date, end_date)
+all_results <- assess_water_logger_errors(folder_path, deployment_file, common_high_tides, start_date, end_date)
 
 selected_data <- all_results %>%
    select(date_time, logger_id, depth, elevation, water_surface_elevation, mean_wse, sd_wse, difference_wse, mean_wse_diff, sd_wse_diff, ratio)

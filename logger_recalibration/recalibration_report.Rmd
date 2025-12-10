@@ -1,0 +1,190 @@
+---
+title: "Water Logger Secondary Calibration"
+output: html_document
+date: "2025-09-12"
+params:
+   site: "RED"
+---
+
+
+```{r setup, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(readr)
+library(lubridate)
+library(tidyverse)
+library(readr)
+library(readxl)
+library(VulnToolkit)
+library(mblm)
+library(purrr)
+library(pracma) # This is used to find peaks accurately
+library(ggplot2) # This is to plot data
+library(leaflet)
+library(htmltools)
+library(sf)
+
+root.dir <- here::here()
+knitr::opts_knit$set(root.dir = root.dir)
+
+# Convert params list to objects 
+for(n in names(params))
+   assign(n, params[[n]])
+
+```
+
+```{r more setup, include=FALSE}
+
+
+# Source all R files in /R
+a <- list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE) |> 
+   lapply(source)
+
+
+
+sites <- readr::read_tsv("hydrology/Data/sites.txt", show_col_types = FALSE) |>
+   select(site, site_name)
+
+sites$site <- toupper(sites$site)
+sites$site[sites$site == "RR"] <- "RED"
+
+selected_sites <- c("RED", "OTH", "WES", "WEL") 
+sites <- sites[match(selected_sites, sites$site), ]
+sites$deployment_file_name <- c("15Sep2022_RED_Deployments.csv",
+                                "OTH_LoggerArray_Pull.csv",
+                                "15Aug2022_WES_ArrayDataSheet.csv",
+                                "19Oct2022_WEL_Array_withFloodingMetrics.csv")
+
+stopifnot(is.character(site), length(site)  == 1)
+site <- toupper(site)
+
+
+stopifnot(site %in% sites$site)
+
+i <- which(sites$site == site)
+site_name <- sites$site_name[i]
+min_depth <- 0.1
+```
+
+
+```{r process data, include=FALSE}
+site <- sites$site[i]
+
+site_data_dir <- file.path("hydrology/Data/", site)
+calibrated_dir <- file.path(site_data_dir, "Calibrated Data")
+deployment_file <- file.path(site_data_dir, sites$deployment_file_name[i])
+
+deployments <- read_water_logger_deployments(deployment_file)
+
+
+results <- find_common_high_tides(calibrated_dir, deployments, min_depth = min_depth)
+
+common_high_tides <- results$common_high_tides
+selected_files    <- results$selected_files
+all_peak_times    <- results$all_peak_times
+
+# Run folder processor
+d <- assess_water_logger_errors(calibrated_dir, deployments, common_high_tides, min_depth = min_depth)
+
+
+# add lat lon and drop sites with NA
+spatial <- prep_spatial_data(d, deployments)
+
+
+# Table of loggers and their errors
+spatial |>
+   mutate(mean_wse_diff = round(mean_wse_diff, 4), sd_wse_diff = round(sd_wse_diff, 4)) |>
+   select(`Serial No.` = serial, n = n, `Mean diff.` = mean_wse_diff, `SD diff.` = sd_wse_diff) |> 
+   knitr::kable()
+
+# Number of common high tides: `r length(common_high_tides)`  
+```
+   
+## `r site_name`  
+
+
+Min,Mean, Max number of high tides with sufficient depth:
+`r min(spatial$n)`,  `r mean(spatial$n) |> signif(3)`, `r max(spatial$n)`    
+Mean absolute difference: `r mean(abs(spatial$mean_wse_diff)) |> signif(3)`   
+Mean SD in difference: `r mean(spatial$sd_wse_diff) |> signif(3)`   
+Number of loggers used: `r nrow(spatial)`   
+   
+   
+### Map of logger difference and standard deviation
+   
+This shows the mean absolute difference between the water elevation 
+estimated at each logger and the consensus water elevation across all 
+loggers.  Yellow means the logger is, on average, correct.  Red means
+it is, on average under estimating the elevation, while purple indicates 
+over estimation.
+   
+The size of the circle corresponds to the standard deviation (SD) in the
+difference with large circles indicating more variation.   SD ranged from
+`r  min(spatial$sd_wse_diff, na.rm = TRUE) |> signif(4)` 
+to
+`r  max(spatial$sd_wse_diff, na.rm = TRUE) |> signif(4)`.
+   
+   
+   
+```{r interactive map, echo=FALSE, cache=FALSE}
+   
+   # This plots spatial logger error (red means mean_wse_diff is closer to 0):
+   p1 <- map_logger_error(spatial[!is.na(spatial$sd_wse_diff), ], deployments, opacity = .7, max_radius_pixels = 200)
+   p1
+   
+```
+
+## High tides
+
+
+```{r high tide selection, echo=FALSE}
+   
+   # This plots 5 common high tide files:
+   p2 <- plot_high_tides(selected_files, common_high_tides, deployments)
+   print(p2)
+   
+```
+   
+Plots of the depth over the deployment for the five lowest elevation loggers
+that were used to indentify high tides.  Blue circles indicate the depth
+at the identified common high tides.
+
+---------------
+   
+```{r high tides all loggers, echo = FALSE, out.width = "100%", fig.height=7}
+   # This plots all files projected against common high tide times (2 day time frame):
+   start <- min(deployments$date_time_deployed)
+   end <-  start + lubridate::make_difftime(2 * 3600 * 24, units = "days")
+   
+   p3 <- plot_all_loggers_with_high_tides(calibrated_dir, common_high_tides, 
+                                          start, end, min_depth = min_depth) +
+      theme(
+         axis.title.x = element_blank(), 
+         axis.text.x = element_blank(),  
+         axis.title.y = element_blank(), 
+         axis.text.y = element_blank())
+   
+   print(p3)
+
+```
+
+The depth of all loggers for the first two days of the deployment with the
+common high tides indicated in red.
+The blue line shows the minimum depth required (`r min_depth` m) 
+to include a record in the calculations.
+
+
+
+---------------------
+   
+The mean and standard deviation between a loggers water surface elevation and
+the consensus water surface elevation across all high tides where the logger
+reported a depth of at least `r min_depth` meters.
+
+```{r table}
+knitr::kable(spatial)
+
+```
+
+
