@@ -77,12 +77,12 @@ if(FALSE){
 # resolution doubled in each round
 
 
-res <- c(0.1, 0.1, 0.20, 0.05)
-threshold <- c(0.01, 0.06, 0.12, .005)
+res <- c(0.05, 0.1, 0.1, 0.20)
+threshold <- c(.005, 0.01, 0.06, 0.12)
 rigidness <- 2
 
 
-level <- 4
+level <- 1
 ground_class <- classify_ground(filtered, last_returns = TRUE,
                             algorithm = csf(class_threshold = threshold[level],
                                             cloth_resolution = res[level],

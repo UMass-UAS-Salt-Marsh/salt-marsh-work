@@ -1,0 +1,12 @@
+site, type, date, path, preferred
+rr, cloud, 2022-08-10, "X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\2022\LiDAR\10Aug2022_Low\RESEPI-5FFC59-2022-08-10-20-26-50\clouds\ppk_07Nov2022_cloud_1.las", 1
+rr, cloud, 2022-08-10, "X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\2022\LiDAR\10Aug2022_Low\RESEPI-5FFC59-2022-08-10-20-26-50\clouds\ppk_cloud_1.las", 0
+rr, cloud, 2022-05-14, "X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\2022\LiDAR\26May2022_Low\RESEPI-5FFC59-2022-05-26-22-14-33\clouds\ppk_processed14Oct2022_cloud_1.las", 1
+nor,cloud, 2024-10-06, "X:\projects\uas\sites\nor\lidar_point_cloud\2024_10_06_low_hesaixt32\RESEPI-A84717-2024-10-06-12-46-16\clouds\NOR_2024_10_06_low_lidar_pointcloud.las", 1
+nor, cloud, 2024-05-24 , "X:\projects\uas\sites\nor\lidar_point_cloud\2024_05_24_low_hesaixt32\RESEPI-A84717-2024-05-24-22-51-29\clouds\NOR_PointCloud_24May2024.las", 1
+peg, cloud, 2024-04-19,  "X:\projects\uas\sites\peg\lidar_point_cloud\2024_04_19_low_hesaixt32\RESEPI-A84717-2024-04-19-19-13-05\clouds\PEG_PointCloud_19Apr2024.las", 1
+peg, cloud, 2024-09-23, "X:\projects\uas\sites\peg\lidar_point_cloud\2024_09_23_low_hesaixt32\RESEPI-A84717-2024-09-23-13-46-23\clouds\PEG_PointCloud_23Sep2024.las", 1
+wel, cloud, 2024-06-01, "X:\projects\uas\sites\wel\lidar_point_cloud\2024_06_01_low_hesaixt32\RESEPI-A84717-2024-06-01-20-12-47\clouds\WEL_PointCloud_01Jun2024.las", 1
+wel, cloud, 2022-08-02, "X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Wellfleet Bay\2022\LiDAR\LiDAR_WEL_02Aug2022\RESEPI-5FFC59-2022-08-02-13-39-18\clouds\ppk_07Nov2022_cloud_1.las", 1
+wel, cloud, 2022-05-20, "X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Wellfleet Bay\2022\LiDAR\LiDAR_Wellfleet_20May2022\RESEPI-5FFC59-2022-05-20-17-17-50\clouds\ppk_AllTransects_14Jun2022_220to310.las",1
+multiple, ecp, , "X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx", 1
