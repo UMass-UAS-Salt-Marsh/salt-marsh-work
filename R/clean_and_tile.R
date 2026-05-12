@@ -23,39 +23,43 @@ if(FALSE){
 #' But while evaluating multiple parameters for the simulated cloth filter
 #' it is helpful to not have to rerun this step with each parameter set.
 #'
-#' @param path to a single .las file but note it must be in a folder with 
-#' no other las files as all las files in the folder will be added to the 
-#' input catalog
+#' @param input  path to a single .las file or a direcory.  If a directory 
+#' all las files in the directory will be processed as one data set.
 #' @param output_dir Path to the directory for output files one per tile.
 #'  name will be "{ID}_{XLEFT}_{YBOTTOM}_clean.las"
 #' @param verbose If `TRUE` update user with progress.  `FALSE` will remove
 #' some but not all messages.
+#' @param chunk_size Set the chunk size (tile dimension) in meters
+#' @param chunk_buffer Sets the chunk (tile) buffer in meters
 #'
 #' @returns
 #' @export
 #'
 #' @examples
-clean_and_tile <- function(path, output_dir, verbose = TRUE){
+clean_and_tile <- function(input, output_dir, verbose = TRUE,  chunk_size = 200, 
+                           chunk_buffer = 20, skip_if_output_exists = TRUE){
    
-   data_dir <- dirname(path)    
-   n_las_files <- list.files(data_dir, pattern = "\\.las$") |> length()
-   if(n_las_files != 1)
-      stop("Expected one and only one .las file in the input directory.")
    
-   ctg <- readLAScatalog(data_dir)
+   # Check for las files in output dir 
+   n_output_tiles  <- list.files(output_dir, pattern = "\\.las$") |> length()
+   if (n_output_tiles > 0) {
+      
+     if (skip_if_output_exists) {
+        message("clean_and_tile() output already exists. Skipping dir: ", ouput_dir)
+        return(readLAScatalog(output_dir))
+      }
+    
+     stop(n_output_tiles, " cleaned tiles already exist in: ", output_dir, " Delete to rerun.")  
+   }
+   
+   
+   ctg <- readLAScatalog(input)
    # Set (square) chunk size in meters
-   opt_chunk_size(ctg) <- 400
+   opt_chunk_size(ctg) <- chunk_size
    # And buffer to read around chunk when processing
-   opt_chunk_buffer(ctg) <- 20
+   opt_chunk_buffer(ctg) <- chunk_buffer
    
    opt_output_files(ctg) <- file.path(output_dir,  "{ID}_{XLEFT}_{YBOTTOM}_clean")
-   
-
-
-   npts <- length(las@data[[1]])
-   if (npts == 0) stop("Input LAS contains zero points.")
-   
-   if (verbose) message(sprintf("Point cloud contains %s points", format(npts, big.mark = ",")))
    
    
    clean <- function(x) {
@@ -67,5 +71,6 @@ clean_and_tile <- function(path, output_dir, verbose = TRUE){
    
    las_clean <- catalog_map(ctg, clean)
    
+   return(las_clean)
    
 }
