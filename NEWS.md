@@ -1,6 +1,25 @@
 2026-05-13
 ==========
 
+*   Lidar Phase 0 cleanup:
+    extracted `evaluate_dtm()`, `visualize_dtm()`, `update_path()`,
+    `clean_column_names()`, `clean_dates()`, and three plot helpers
+    out of `lidar/02.R` into one-function-per-file modules under `R/`.
+    Finished `evaluate_dtm()` so it returns per-point residuals plus
+    summary stats broken out by ECP `type`.
+
+*   Fixed two silent bugs in `R/rasterize_ground.R`:
+    `alogrithm` typo meant lidR was falling back to its default
+    interpolator instead of the intended `knnidw`,
+    and a `terra::crop(..., terra::ext(chunk))` line referenced an
+    undefined `chunk` and discarded its result.
+    **Existing DTMs were produced with the default `tin()` algorithm
+    and will need re-rasterization before Phase 1 evaluation.**
+
+*   Added `.lintr` configured for the project's 3-space indent and
+    with `object_usage_linter` disabled
+    (false-positive-prone in NSE-heavy tidyverse code without a `NAMESPACE`).
+
 *   Initial project documentation:
     added `CLAUDE.md` describing the repo's two pipelines (hydrology and lidar) and conventions,
     and a `dev/` directory (`work_plan.md`, `worklog.md`) for active plans and detailed development history.

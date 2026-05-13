@@ -45,7 +45,7 @@ clean_and_tile <- function(input, output_dir, verbose = TRUE,  chunk_size = 200,
    if (n_output_tiles > 0) {
       
      if (skip_if_output_exists) {
-        message("clean_and_tile() output already exists. Skipping dir: ", ouput_dir)
+        message("clean_and_tile() output already exists. Skipping dir: ", output_dir)
         return(readLAScatalog(output_dir))
       }
     

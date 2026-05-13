@@ -94,18 +94,7 @@ clean_and_tile(paths$input, paths$cleaned_catalog_dir, chunk_size = 200, chunk_b
 
 
 # Find ground with several parameters - output to raster
-update_path <- function(path, args){
-   # Given a named list of arguments substitute each argument name within
-   # square brackets in the path with the argument value
-   # eg path = ".[test]."  with args = list(test = "this_test")  will result in ".this_test."
-   n <- names(args)
-   for(i in seq_along(n)) {
-      path <- gsub(paste0("[", n[i], "]"), args[[i]], path, fixed = TRUE )
-   }
-   path
-}
-stopifnot(update_path(path = "adad[test]", list(test = "bop")) == "adadbop")
-
+# update_path() comes from R/update_path.R.
 
 # Make a raster for each parameter set
 models <- data.frame()
@@ -161,130 +150,17 @@ for(i in seq_len(nrow(csf_par))){
 }
 
 
-clean_column_names <- function(df) {
-   colnames(df) <- colnames(df) |>
-      gsub("[[:blank:]]+", "_", x = _) |> 
-      tolower()
-   df
-}
-
-clean_dates <- function(dates) {
-   if (lubridate::is.Date(dates))
-      return(dates)
-   
-   result <- rep(lubridate::as_date((NA)), length(dates))
-   
-   # Excel decimal dates
-   num <- suppressWarnings(as.numeric(dates))
-   sv_num <- !is.na(num)
-   result[sv_num] <-  as.Date(num[sv_num], origin = "1899-12-30")
-   
-   # e.g. 07Aug2024
-   sv_dmy <- grepl("^[[:digit:]]{1,2}[[:alpha:]]+[[:digit:]]{2,4}$", dates )
-   result[sv_dmy] <- as.Date(dates[sv_dmy], format = "%d%b%Y")
-   
-   # Warn if some dates not processed
-   if (any(is.na(result))) {
-      bad_dates <- dates[is.na(result)]
-      n_bad <- length(bad_dates)
-      warning(n_bad, " dates were not processed. First bad date input: ", bad_dates[1])
-   }
-   
-   return(result)
-}
-
-
-# Assess errors 
+# Assess errors
+# clean_column_names(), clean_dates(), visualize_dtm(), and evaluate_dtm()
+# all come from R/.
 
 # Read elevation control points
 ecp <- readxl::read_xlsx(paths$ecp) |> clean_column_names()
 ecp$date <- clean_dates(ecp$date)
 ecp$site <- tolower(ecp$site)
 
-# ecp <- dplyr::select(ecp, northing, easting, elevation, date, site)
-
 i <- 1
 
-
 site_dtm <- models$dtm[i]
-site_ecp <- ecp[ecp$site == site & ! ecp$type %in% "Logger Array" , ]
-
-
-
-visualize_dtm <- function(dtm, ecp) {
-   # Visualize GCP with leaflet
-   
-   if(is.character(dtm) && length(dtm) == 1 && file.exists(dtm)) {
-      dtm <- terra::rast(dtm)
-   }
-   if(!inherits(dtm, "SpatRaster")  || terra::nlyr(dtm) != 1) {
-      stop("Expected dtm or the file it points to, to be a single band raster.")
-   }
-   
-   coords <- dplyr::select(ecp, x = easting, y = northing, elevation, date) |> as.data.frame() 
-   
-   
-   coords_sf <- sf::st_as_sf(coords, coords = c("x", "y"), crs = terra::crs(dtm))
-   
-   # 1. Transform sf object to EPSG:4326 (WGS84) if it isn't already
-   wgs84_pts <- sf::st_transform(coords_sf, 4326)
-   
-   # 2. Create the map
-   leaflet::leaflet(data = wgs84_pts) |>
-      leaflet::addTiles() |>  # Add default OpenStreetMap tiles
-      leaflet::addMarkers(popup = ~elevation) 
-   
-   
-   
-}
-
-
-
-evaluate_dtm <- function(dtm, ecp) {
-   
-   if(is.character(dtm) && length(dtm) == 1 && file.exists(dtm)) {
-      dtm <- terra::rast(dtm)
-   }
-   if(!inherits(dtm, "SpatRaster")  && terra::nlyr(dtm) == 1) {
-      stop("Expected dtm or the file it points to, to be a single band raster.")
-   }
-   
-   coords <- dplyr::select(ecp, x = easting, y = northing, elevation, date) |> as.data.frame() 
-   
-   
-   
-   values <- terra::extract(dtm, coords[ , c("x", "y")], method = "bilinear", ID = FALSE) 
-   values <- values[, 1]
-   
-   cor(values, ecp$elevation, use = "complete")
- 
-   d <- cbind(ecp, data.frame(predicted = values))
-   p <- ggplot(d, aes(y = predicted, x = elevation, color = type)) + geom_point()
-   p
-   
-   offset_model <- lm(predicted ~ 1 + offset(elevation), data = d)
-   
-   offset <- coef(offset_model)[1] |> as.numeric()
-   d$adjusted_pred <- d$predicted - offset
-   d$diff <- d$adjusted_pred - d$elevation
-   
-   plot(dtm)
-   
-   
-   result <- list()
-   
-   
-
-   
-   
-   
-}
-
-
-
-
-
-
-
-
+site_ecp <- ecp[ecp$site == site & !ecp$type %in% "Logger Array", ]
 

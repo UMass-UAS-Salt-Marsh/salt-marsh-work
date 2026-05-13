@@ -19,6 +19,54 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-05-13 — branch main
 
+### Phase 0 cleanup — extract lidar helpers into R/, fix bugs
+
+Per `dev/work_plan.md` Phase 0.
+Worked through the four tracked tasks (#1–#4).
+
+**Extracted from `lidar/02.R` into one-function-per-file R/ modules:**
+
+- `R/update_path.R` — bracketed-placeholder substitution.
+  Dropped the inline `stopifnot()` self-test;
+  the example covers it.
+- `R/clean_column_names.R` — lowercase + space-to-underscore.
+- `R/clean_dates.R` — handles Excel serial dates and DMonY strings.
+- `R/visualize_dtm.R` — leaflet map of ECPs.
+  Cleaned up styling but kept the existing behavior
+  (which only renders the ECPs, not the DTM —
+  the name is aspirational).
+- `R/evaluate_dtm.R` — finished out: returns `list(points, summary, offset, plots)`.
+  Fixed the `&& nlyr == 1` bug
+  (should have been `|| nlyr != 1`,
+  matching `visualize_dtm()`'s validation).
+  Stats are reported overall and broken out by ECP `type`,
+  with `adj_*` columns showing residuals after subtracting the global offset.
+- `R/summarize_residuals.R` — helper called by `evaluate_dtm()`.
+- `R/plot_pred_vs_obs.R`, `R/plot_residual_hist.R`, `R/plot_residual_map.R` —
+  the three plot helpers, one per file per the new convention.
+
+**Bug fixes in existing files:**
+
+- `R/clean_and_tile.R:48` — `ouput_dir` typo corrected.
+- `R/rasterize_ground.R:44` — `alogrithm` typo corrected.
+  lidR was silently falling back to its default (`tin()`);
+  the intended `knnidw(k=10, p=2, rmax=0.5)` is now actually applied.
+  **Existing DTMs on disk were produced with `tin()` and will need re-rasterization before Phase 1 evaluation.**
+- `R/rasterize_ground.R:46` — removed
+  `terra::crop(raster, terra::ext(chunk), snap = "out")`,
+  which referenced an undefined `chunk` and discarded its result.
+  Dead code.
+- `lidar/02.R` — removed the inline definitions of the five extracted helpers;
+  callers now use the `R/` versions sourced at script start.
+
+**Linting setup (per the new convention):**
+
+- Added top-level `.lintr` with two project deviations from lintr defaults:
+  `indentation_linter(indent = 3L)` to match the project's 3-space indent,
+  and `object_usage_linter = NULL` to suppress the false-positive avalanche from NSE column references in dplyr/ggplot2 and from cross-file function calls (lintr lints one file at a time and doesn't know the rest of `R/` will be sourced together).
+- All nine new R files lint clean under this config.
+- Pre-existing lint hits in `clean_and_tile.R`, `rasterize_ground.R`, and `lidar/02.R` on lines this commit didn't touch are left for a future dedicated cleanup commit.
+
 ### Adopt BirdFlowR-inspired conventions + start NEWS.md
 
 After reviewing BirdFlowR's `.github/CONTRIBUTING.md`, folded four of

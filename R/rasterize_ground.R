@@ -41,10 +41,10 @@ rasterize_ground <- function(input,  # directory with one or more .las if mulipl
       # plot(ground_class, color = "Classification")
       
       
-      raster <- rasterize_terrain(las = ground_class, res = raster_res, pkg = "terra", alogrithm =  knnidw(k = 10, p = 2, rmax = 0.5))
-      
-      terra::crop(raster, terra::ext(chunk), snap = "out")
-      
+      raster <- rasterize_terrain(las = ground_class, res = raster_res,
+                                  pkg = "terra",
+                                  algorithm = knnidw(k = 10, p = 2, rmax = 0.5))
+
       return(raster)
    }
    
