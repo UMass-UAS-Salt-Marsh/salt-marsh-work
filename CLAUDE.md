@@ -49,7 +49,87 @@ Separate exploratory scripts by another collaborator for finding common high tid
 - `lidar/data/` is also gitignored except for `paths.csv` and `RedRiver_11May2022.csv` (a small GCP file).
 - Elevation control points live in `X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx` (use rows with `type = "training"`).
 
-## Style
+## Style and workflow
 
-- The project uses base R pipe (`|>`), not magrittr `%>%`. Indent is 3 spaces (per `salt-marsh-work.Rproj`).
-- Function docs are roxygen-style even though the repo isn't a package — preserve this so the eventual package migration is cheap.
+### Coding style
+
+Follow the [tidyverse style guide](https://style.tidyverse.org/)
+with the project-specific deviations noted below.
+When the style guide and this section conflict, this section wins.
+
+**Project-specific deviations:**
+
+- **Indent is 3 spaces**, not 2 (per `salt-marsh-work.Rproj`).
+  Applies to function bodies, continuation lines, function-call argument alignment, and nested blocks.
+- **Pipe is base R `|>`**, not magrittr `%>%`.
+  New code must use `|>`; do not introduce `%>%`.
+- **Function docs are roxygen-style** (`#'` comments above each function)
+  even though the repo isn't a package —
+  preserve this so the eventual package migration is cheap.
+  Include `@param`, `@return`, and `@examples` where useful.
+  Use **Markdown formatting** inside roxygen (backticks for code, `[text](url)` for links, etc.) —
+  when the package migration happens we'll enable `Roxygen: list(markdown = TRUE)` in `DESCRIPTION` and the docs render correctly with no rewrites.
+
+**Tidyverse rules to apply (highlights):**
+
+- **Names**: `snake_case` for variables and functions;
+  nouns for variables, verbs for functions.
+  Avoid dots in object names (reserve `.` for S3 dispatch).
+- **Assignment**: `<-`, not `=`.
+  `=` is only for function-argument matching.
+- **Strings**: double quotes (`"x"`) unless the string contains a `"`.
+- **Spacing**: spaces around infix operators (`<-`, `=`, `==`, `+`, etc.), after commas, around `|>`.
+  No space before a comma; no space inside parentheses except after a comma.
+  One blank line between functions; never more than two consecutive blank lines.
+- **Line length**: keep lines ≤ 80 characters.
+  Break long function calls so each argument sits on its own line, aligned to the opening paren.
+- **Comments**: use complete sentences starting with a capital letter when explaining *why*;
+  short lower-case fragments are fine for section dividers.
+  Don't restate what the code already says.
+- **Function structure**: when an argument list exceeds one line, put each argument on its own line.
+  Default values are encouraged where they aid readability.
+- **Return values**: rely on R's implicit return for the final expression;
+  reserve explicit `return()` for early exits.
+- **Booleans**: `TRUE` / `FALSE`, never `T` / `F`.
+- **Numeric literals**: use `1L` for integers when integer type matters;
+  use scientific notation (`1e6`) for large round numbers.
+
+The full tidyverse guide is at <https://style.tidyverse.org/>.
+If a rule there isn't repeated above, follow it.
+
+### File organization
+
+- **One function per file** in `R/`, with the filename matching the function name (per BirdFlowR convention).
+  When a workflow script (`lidar/02.R`, etc.) accumulates inline helpers that are reusable,
+  extract each into its own file under `R/`.
+
+### Linting
+
+- Before committing, lint files with new or changed R code: `lintr::lint("R/path/to/file.R")`.
+- Do **not** lint files that this commit didn't touch — drive-by lint cleanups belong in their own commit.
+
+### Markdown
+
+- Use **semantic line breaks** — one line per sentence or clause —
+  in `CLAUDE.md`, `NEWS.md`, `dev/*.md`, and READMEs.
+  Diff-friendly and makes review easier.
+  Apply to new and edited content;
+  existing prose reflows opportunistically when otherwise touched, not retroactively.
+
+### NEWS.md
+
+- Top-level `NEWS.md` is the user-facing changelog.
+  When a noteworthy change ships, add bullets to the **top** of the file under a new date heading.
+- Format follows BirdFlowR's `NEWS.md`:
+  setext-style date heading (`YYYY-MM-DD` underlined with `===`),
+  a blank line, asterisk bullets with 4-space hanging indent,
+  backticks around function names.
+- `NEWS.md` is terser than `dev/worklog.md` —
+  log file-by-file detail in the worklog,
+  surface only highlights in `NEWS.md`.
+
+### Branching
+
+Work on `main` for now;
+feature branches are unnecessary at the current scale.
+Revisit if collaboration grows.
