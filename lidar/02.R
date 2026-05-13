@@ -30,7 +30,7 @@ input_file_paths$file_size <- file.size(input_file_paths$path)
 input_file_paths$path <- gsub("\\\\", "/", input_file_paths$path)
 input_file_paths$preferred <- as.logical(input_file_paths$preferred)
 
-# Filter to preffered files
+# Filter to prefferred files
 input_file_paths <- input_file_paths[input_file_paths$preferred, ]
 
 # Cleanup leading and trailing junk
@@ -203,9 +203,40 @@ ecp$site <- tolower(ecp$site)
 
 # ecp <- dplyr::select(ecp, northing, easting, elevation, date, site)
 
+i <- 1
 
+
+site_dtm <- models$dtm[i]
 site_ecp <- ecp[ecp$site == site & ! ecp$type %in% "Logger Array" , ]
 
+
+
+visualize_dtm <- function(dtm, ecp) {
+   # Visualize GCP with leaflet
+   
+   if(is.character(dtm) && length(dtm) == 1 && file.exists(dtm)) {
+      dtm <- terra::rast(dtm)
+   }
+   if(!inherits(dtm, "SpatRaster")  || terra::nlyr(dtm) != 1) {
+      stop("Expected dtm or the file it points to, to be a single band raster.")
+   }
+   
+   coords <- dplyr::select(ecp, x = easting, y = northing, elevation, date) |> as.data.frame() 
+   
+   
+   coords_sf <- sf::st_as_sf(coords, coords = c("x", "y"), crs = terra::crs(dtm))
+   
+   # 1. Transform sf object to EPSG:4326 (WGS84) if it isn't already
+   wgs84_pts <- sf::st_transform(coords_sf, 4326)
+   
+   # 2. Create the map
+   leaflet::leaflet(data = wgs84_pts) |>
+      leaflet::addTiles() |>  # Add default OpenStreetMap tiles
+      leaflet::addMarkers(popup = ~elevation) 
+   
+   
+   
+}
 
 
 
@@ -218,35 +249,16 @@ evaluate_dtm <- function(dtm, ecp) {
       stop("Expected dtm or the file it points to, to be a single band raster.")
    }
    
-   coords <- dplyr::select(site_ecp, x = easting, y = northing, elevation, date) |> as.data.frame() 
-
-
-   if(FALSE) {
-      # Visualize GCP with leaflet
-      
-      
-      coords_sf <- sf::st_as_sf(coords, coords = c("x", "y"), crs = terra::crs(dtm))
-      
-      # 1. Transform sf object to EPSG:4326 (WGS84) if it isn't already
-      wgs84_pts <- sf::st_transform(coords_sf, 4326)
-      
-      # 2. Create the map
-      leaflet::leaflet(data = wgs84_pts) |>
-         leaflet::addTiles() |>  # Add default OpenStreetMap tiles
-         leaflet::addMarkers(popup = ~elevation) 
-      
-      
-      
-   }
+   coords <- dplyr::select(ecp, x = easting, y = northing, elevation, date) |> as.data.frame() 
    
    
    
    values <- terra::extract(dtm, coords[ , c("x", "y")], method = "bilinear", ID = FALSE) 
    values <- values[, 1]
    
-   cor(values, site_ecp$elevation, use = "complete")
+   cor(values, ecp$elevation, use = "complete")
  
-   d <- cbind(site_ecp, data.frame(predicted = values))
+   d <- cbind(ecp, data.frame(predicted = values))
    p <- ggplot(d, aes(y = predicted, x = elevation, color = type)) + geom_point()
    p
    
