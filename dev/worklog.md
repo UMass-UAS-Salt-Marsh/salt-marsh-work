@@ -19,6 +19,201 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-05-13 — branch main
 
+### Phase 0.5 — conditional LAS reprojection via LAStools
+
+Per `dev/work_plan.md` Phase 0.5.
+Discovered while preparing to re-run the CSF tuning grid that the
+rr 2022-08-10 source LAS is tagged horizontally as EPSG:32619
+(WGS 84 / UTM 19N) and vertically as EPSG:5030 (WGS 84
+ellipsoidal heights) —
+which would have introduced a ~28 m systematic offset against the
+NAVD88 ECPs and made CSF tuning meaningless.
+
+**Tooling notes captured for the project memory:**
+
+- LAStools' `las2las` *cannot* consume a `.gtx` geoid grid.
+  Its `-vertical_navd88` flag only stamps a metadata key;
+  it does not transform Z.
+  Confirmed by scanning `C:\tools\LAStools\bin\las2las_README.md`
+  for `geoid|gtx|navd|vertical|elevation_offset` —
+  the vertical flags are all metadata-only.
+- `lasvdatum` (also part of LAStools, at
+  `C:\tools\LAStools\bin\lasvdatum64.exe`) does the actual gtx
+  grid-based vertical transformation.
+  Its README's first example matches our exact use case:
+  `lasvdatum64 -i in.laz -epsg 26917 -vgrid g2012bu0.gtx -o out.laz`,
+  "convert from (UTM17 + NAD83 ellipsoidal)
+  to (UTM17 + NAVD88 Geoid12B)."
+- The GEOID12B `.gtx` files live at
+  `X:\legacy\gdrive\UMassAir User Resources\LASTools\Geoid Transformation GTX Files\geoid12b\`.
+  `g2012bu0.gtx` is the CONUS tile (24–58° N, 230–300° E) and
+  covers all four saltmarsh sites.
+
+**New code:**
+
+- `R/reproject_las.R` — wrapper that chains the two LAStools
+  binaries via `system2()`:
+  `las2las64 -target_epsg <n>` for horizontal,
+  then `lasvdatum64 -epsg <n> -vgrid <gtx>` for vertical
+  (forward direction:
+  ellipsoidal → NAVD88).
+  Skip-if-exists when `overwrite = FALSE`,
+  matching the `clean_and_tile()` pattern.
+  Roxygen docs note the WGS84 ↔ NAD83 ellipsoid offset
+  (~1–2 m in eastern CONUS) that this two-step workflow
+  implicitly accepts.
+- `R/las_needs_reprojection.R` — header check.
+  Reads horizontal EPSG via `lidR::epsg()` and parses
+  `header@VLR$GeoKeyDirectoryTag$tags` for GeoTIFF key 4096
+  (`VerticalCSTypeGeoKey`).
+  Returns `TRUE` if either axis differs from the target
+  (`26919` + `5703` by default),
+  or if the vertical key is absent.
+
+**Workflow integration:**
+
+- `lidar/02.R` — inserted a conditional block between the `RUN`
+  banner and `clean_and_tile()` that calls
+  `las_needs_reprojection(paths$input)` and,
+  if needed,
+  reprojects to
+  `<base_output>/reprojected/<basename>_epsg26919_navd88.las`
+  and reassigns `paths$input` to that file.
+  No manual toggle —
+  source clouds already in the target CRS pass through unchanged.
+- `paths.csv` deliberately left as the stable source-of-truth;
+  reprojected files are workflow cache only,
+  on the local RAID.
+
+**Linting:** both new files pass `lintr::lint()` clean under the
+project `.lintr`.
+
+**Environment note:**
+`Rscript` was not on PATH;
+user is adding `C:\Program Files\R\R-4.5.2\bin\x64` to the system
+PATH manually for all users.
+For this session I called `Rscript.exe` by full path
+to run lintr.
+
+### Phase 0.5 fix — `shQuote()` path args for LAStools on Windows
+
+First end-to-end run of `lidar/02.R` against the rr 2022-08-10
+source failed at Step 1 of `reproject_las()` with LAStools
+reporting `no input specified`.
+Root cause:
+base R's `system2()` on Windows does **not** quote args
+containing spaces.
+The project paths contain spaces in several places
+(`UAS Data Collection`, `Red River`,
+and the gtx grid's `UMassAir User Resources`),
+so LAStools saw the input path truncated at the first space
+and the rest of the path as stray positional args.
+
+Fix in `R/reproject_las.R`:
+wrap `input`, `intermediate`, `vgrid`, and `output` in
+`shQuote()` inside the two `system2(args = …)` vectors.
+Added a code comment explaining why `shQuote()` is needed so
+future readers don't try to "clean it up."
+Re-lint clean.
+
+### Phase 0.5 fix — add `-force` to las2las for WGS84→NAD83
+
+Second run got past the arg-quoting issue but `las2las`
+emitted "SERIOUS WARNING: horizontal datum of source and
+target incompatible" and aborted before writing the
+intermediate file.
+LAStools flags any reprojection between datums it considers
+different
+(here WGS 84 / UTM 19N → NAD 83 / UTM 19N)
+and requires `-force` to proceed.
+This is exactly the WGS84 ↔ NAD83 frame caveat already
+documented in the function's roxygen
+(~1–2 m offset in eastern CONUS,
+accepted by the historical UMassAir workflow).
+
+Fix in `R/reproject_las.R`:
+added `-force` to the `las2las` `args` vector,
+with a code comment cross-referencing the roxygen caveat
+so the choice is auditable.
+`lasvdatum` was not affected
+(it operates on the already-relabeled file
+and does not raise the same warning).
+Re-lint clean.
+
+### Phase 0.5 redesign — PDAL as default, LAStools as alternative
+
+Discussion of the WGS 84 ↔ NAD 83 frame error revealed that the
+~1–2 m offset is real but only matters for absolute NAVD 88
+deliverables;
+for CSF parameter tuning the offset model in `evaluate_dtm()`
+absorbs it.
+User chose hybrid option (c):
+make PDAL the default
+(no frame error;
+proper PROJ-pipeline transformation in one pass)
+and retain the LAStools path explicitly for reproducing
+historical output.
+PDAL install route is OSGeo4W
+(user has had bad past experiences with multiple PROJ
+installations conflicting on the same system,
+and OSGeo4W provides a coordinated stack).
+Subprocess isolation
+(R never loads PDAL's PROJ;
+PDAL never loads R's PROJ)
+mitigates the conflict risk regardless.
+
+**Restructure into dispatcher + two helpers:**
+
+- `R/reproject_las.R` — public dispatcher.
+  Signature
+  `reproject_las(input, output, target_epsg = 26919, vgrid, overwrite = FALSE, method = c("pdal", "lastools"), ...)`.
+  Skip-if-exists short-circuit lives here so it applies
+  uniformly across methods;
+  method-specific args
+  (`pdal`, `las2las`, `lasvdatum`, `intermediate`,
+  `keep_intermediate`)
+  pass through `...` to the chosen helper.
+- `R/reproject_las_pdal.R` — new.
+  Writes a small PDAL pipeline JSON
+  (readers.las → filters.reprojection → writers.las)
+  to a tempfile,
+  then calls `pdal pipeline <json>` via `system2()` with
+  `PROJ_DATA = dirname(vgrid)` set on the subprocess only
+  (no system-wide env var changes,
+  so R's PROJ stays unaffected).
+  Target PROJ string is built as
+  `sf::st_crs(target_epsg)$proj4string` plus
+  `+geoidgrids=<basename(vgrid)> +vunits=m`.
+  Output gets `a_srs = "EPSG:<target_epsg>+5703"`
+  (compound CRS for NAD83/UTM 19N + NAVD88 height).
+  Default `pdal` path is `"C:/OSGeo4W/bin/pdal.exe"`.
+  Requires `sf` (already a transitive dep via lidR)
+  and `jsonlite`
+  (CRAN, may need install).
+- `R/reproject_las_lastools.R` — moved from the previous
+  `R/reproject_las.R`,
+  function renamed
+  `reproject_las()` → `reproject_las_lastools()`.
+  Logic unchanged
+  (`shQuote()` on path args,
+  `-force` on `las2las`),
+  but the WGS84↔NAD83 frame caveat in the roxygen now
+  explicitly states that `reproject_las_pdal()` does not
+  carry this error
+  and is the recommended path for new output.
+
+`lidar/02.R` needed no change —
+its call to `reproject_las()` now picks up the new PDAL
+default automatically.
+
+User will install PDAL via OSGeo4W tomorrow and test then.
+Code shipped today is untested against a real PDAL
+install;
+PDAL pipeline JSON syntax,
+`out_srs` PROJ string construction,
+and `a_srs` compound-EPSG behavior may need iteration.
+All three files lint clean under the project `.lintr`.
+
 ### Phase 0 cleanup — extract lidar helpers into R/, fix bugs
 
 Per `dev/work_plan.md` Phase 0.

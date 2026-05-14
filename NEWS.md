@@ -1,6 +1,27 @@
 2026-05-13
 ==========
 
+*   Added conditional LAS reprojection to the lidar pipeline.
+    `R/reproject_las.R` is a public dispatcher
+    (`method = c("pdal", "lastools")`,
+    default `"pdal"`).
+    The PDAL helper (`R/reproject_las_pdal.R`) does the full
+    datum-aware transformation in a single PROJ pipeline
+    (WGS 84 → NAD 83 frame shift via PROJ's bundled grids,
+    plus ellipsoidal → NAVD 88 via a GEOID12B `.gtx`);
+    PDAL will be installed via OSGeo4W.
+    The LAStools helper (`R/reproject_las_lastools.R`,
+    chains `las2las64` + `lasvdatum64`)
+    is retained so historical output produced by the established
+    UMassAir workflow can be reproduced and audited;
+    it carries a ~1–2 m WGS 84 ↔ NAD 83 frame-realization
+    error in 3D in eastern CONUS that the PDAL path does not.
+    `R/las_needs_reprojection.R` reads the LAS header and only
+    triggers reprojection when the source isn't already in the
+    target CRS;
+    `lidar/02.R` calls both automatically before
+    `clean_and_tile()`.
+
 *   Lidar Phase 0 cleanup:
     extracted `evaluate_dtm()`, `visualize_dtm()`, `update_path()`,
     `clean_column_names()`, `clean_dates()`, and three plot helpers

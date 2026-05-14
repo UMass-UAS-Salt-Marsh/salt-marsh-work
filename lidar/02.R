@@ -89,6 +89,26 @@ csf_par <- data.frame(csf_res =  c(0.05, 0.1, 0.1, 0.20),
 #-------------------------------------------------------------------------------#
 
 
+# Conditional reprojection: source clouds tagged WGS84/UTM 19N + WGS84
+# ellipsoidal heights are reprojected to NAD83/UTM 19N + NAVD88 (via
+# GEOID12B) using LAStools (`las2las` then `lasvdatum`).  See
+# `R/reproject_las.R` for the caveat on the WGS84<->NAD83 ellipsoid
+# offset.  `reproject_las()` is idempotent (skip-if-exists), so re-runs
+# of this script are cheap.
+if (las_needs_reprojection(paths$input)) {
+   paths$reprojected_dir <- file.path(paths$base_output, "reprojected")
+   dir.create(paths$reprojected_dir, recursive = TRUE,
+              showWarnings = FALSE)
+   reprojected_path <- file.path(
+      paths$reprojected_dir,
+      sub("\\.las$", "_epsg26919_navd88.las",
+          basename(paths$input), ignore.case = TRUE)
+   )
+   paths$input <- reproject_las(paths$input, reprojected_path,
+                                target_epsg = 26919)
+}
+
+
 # Create cleaned tiles - once per site.  Everything else will use these
 clean_and_tile(paths$input, paths$cleaned_catalog_dir, chunk_size = 200, chunk_buffer = 20)
 
