@@ -105,7 +105,12 @@ If a rule there isn't repeated above, follow it.
 
 ### Linting
 
-- Before committing, lint files with new or changed R code: `lintr::lint("R/path/to/file.R")`.
+- Defer linting until just before commit, not after every edit.
+  Mid-development iterations skip lintr;
+  when the work is ready to commit,
+  run `lintr::lint("R/path/to/file.R")` on each file with new or changed R code,
+  fix any hits,
+  and only then commit.
 - Do **not** lint files that this commit didn't touch — drive-by lint cleanups belong in their own commit.
 
 ### Markdown
