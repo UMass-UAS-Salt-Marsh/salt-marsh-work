@@ -16,8 +16,12 @@
 #'   `las2las` (horizontal) and `lasvdatum` (vertical) binaries.
 #'   Retained so historical output produced by the established
 #'   UMassAir workflow can be recreated and audited.
-#'   Carries a ~1–2 m WGS 84 ↔ NAD 83 frame-realization error
-#'   in 3D in eastern CONUS;
+#'   **Requires a paid LAStools license** — `lasvdatum` is one of
+#'   LAStools' commercial-only tools and will fail with
+#'   `ERROR:license failure` on a free install.
+#'   Also carries a residual WGS 84 ↔ NAD 83 vertical
+#'   frame-realization error
+#'   (a few cm to ~1 m in eastern CONUS);
 #'   see [`reproject_las_lastools()`] for the full caveat.
 #'
 #' The skip-if-exists short-circuit lives in the dispatcher,

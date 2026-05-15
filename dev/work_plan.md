@@ -253,66 +253,77 @@ and are called from `lidar/02.R`:
    not a primary input,
    and lives only on the local RAID.
 
-**Status — both methods are currently untested.**
+**Status — PDAL works end-to-end; LAStools is blocked by licensing.**
 
-Code is written and lints clean,
-but neither path has produced a reprojected LAS end-to-end yet:
-
-- **`method = "lastools"`** got partway through testing earlier
-  in the day.
-  Fixed two issues uncovered by partial runs
-  (Windows arg-quoting via `shQuote()`,
-  then the `-force` flag for the WGS 84 ↔ NAD 83 datum
-  incompatibility warning),
-  but never reached a clean run that produced a final output
-  file before we restructured around PDAL as the default.
-  Treat as "should work but unverified."
-- **`method = "pdal"`** is brand new and has never run —
-  PDAL is not yet installed.
-  PDAL pipeline JSON syntax,
-  the `out_srs` PROJ string construction,
-  and the compound `a_srs = "EPSG:26919+5703"` may need
-  iteration after the first real run.
+- **`method = "pdal"`** ✅ tested successfully on 2026-05-15.
+  Produced
+  `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`
+  after iterating through three Windows-specific PDAL
+  integration issues:
+  (1) `system2(env = …)` is silently dropped on Windows,
+  so the `PROJ_DATA=` arg was passed as a positional arg
+  to PDAL — fixed by switching to `Sys.setenv()` with an
+  `on.exit()` restore;
+  (2) initial `PROJ_DATA` pointed only at the gtx directory,
+  hiding `proj.db` and breaking every CRS lookup — fixed by
+  setting `PROJ_DATA` to a `;`-separated path including
+  OSGeo4W's `C:/OSGeo4W/share/proj` *and* the gtx directory;
+  (3) install-time MOTW blocks on OSGeo4W binaries
+  resolved with `Get-ChildItem … | Unblock-File` plus some
+  per-binary manual unblocking.
+- **`method = "lastools"`** ❌ blocked by LAStools licensing.
+  Fixed Step 1 by switching to `-proj_epsg <source> <target>`
+  (which delegates to PROJ and avoids the
+  "horizontal datum incompatible" abort that the older
+  `-target_epsg <target> -force` recipe hit).
+  Step 2 fails with `ERROR:license failure` because
+  `lasvdatum` is a commercial-only LAStools tool;
+  the free install can't run it.
+  The historical UMassAir workflow must have had a licensed
+  install.
+  Without a license this method cannot complete end-to-end
+  on this machine.
+  Code is left in place and documented so a licensed reader
+  can run it,
+  but **PDAL is the working method on this machine.**
 
 **Install / setup tasks for tomorrow before testing:**
 
 - [ ] Install PDAL via OSGeo4W.
    Expected install location: `C:\OSGeo4W\bin\pdal.exe`
    (override via the `pdal` arg if installed elsewhere).
-- [ ] `install.packages("jsonlite")` in R if not already
-   installed
-   (used by `reproject_las_pdal()` to write the pipeline JSON).
+- [x] `install.packages("jsonlite")` — done.
 - [ ] Add `C:\Program Files\R\R-4.5.2\bin\x64` to **System** PATH
    so `Rscript` is available from any shell
-   (carried over from earlier in the session;
-   user is doing this manually for all-users scope).
+   (user is doing this manually for all-users scope;
+   not blocking, since RStudio sources from R's install dir
+   directly).
 
-**Test plan for tomorrow:**
+**Test plan results (2026-05-15):**
 
-- [ ] First end-to-end run with `method = "pdal"` (default).
-   Run `lidar/02.R`;
-   the conditional reprojection block auto-triggers because the
-   rr 2022-08-10 source is in EPSG:32619 + EPSG:5030.
-   Expected output:
-   `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`,
-   then the re-cleaned tiles and four DTMs in the new CRS.
+- [x] Standalone test of `reproject_las()` with default
+   `method = "pdal"` —
+   ran successfully after the three Windows integration fixes
+   noted in Status above.
+   Produced
+   `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`.
 - [ ] Verify the PDAL output by reading the file's header
    (CRS keys updated to EPSG:26919 + EPSG:5703,
    min/max Z dropped by ~28 m from the geoid separation,
    ~1–2 m frame-realization correction applied to XY too).
-- [ ] Smoke-test the LAStools path
-   (`method = "lastools"`)
-   on the same input,
-   writing to a separate output path
-   (e.g. `*_lastools.las`)
-   so the two outputs can be diffed.
-   This is the first clean end-to-end run for `lastools` and
-   verifies the `shQuote()` + `-force` fixes,
-   and gives us a baseline diff for the
-   WGS 84 ↔ NAD 83 frame error
-   (PDAL output minus LAStools output ≈ the frame offset).
-- [ ] **Stale artifact cleanup already handled** by the user;
-   no automatic deletion in the driver.
+- [x] Smoke-test the LAStools path
+   (`method = "lastools"`).
+   Step 1 (`las2las -proj_epsg`) ran cleanly after replacing
+   the older `-target_epsg`/`-force` recipe.
+   Step 2 (`lasvdatum`) failed with `ERROR:license failure` —
+   that tool is commercial-only and not part of the free
+   LAStools install.
+   No diff against PDAL output is available.
+- [x] **Stale artifact cleanup already handled** by the user.
+- [ ] End-to-end `lidar/02.R` run — not yet attempted.
+   With PDAL working, the conditional reprojection block in
+   `lidar/02.R` should trigger and produce the same output
+   path, then re-cleaned tiles and four DTMs in the new CRS.
 
 **Other sites deferred.**
 Only rr 2022-08-10 is in scope for this phase per the user's

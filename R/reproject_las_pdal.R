@@ -24,11 +24,17 @@
 #'
 #' **PROJ_DATA isolation.**
 #' The geoid grid is found by setting `PROJ_DATA` to the grid's
-#' directory in the `pdal` subprocess **only**
-#' (passed via `system2(..., env = ...)`).
-#' R's own PROJ search path is never modified,
-#' so this function does not interact with PROJ versions that
-#' `sf`, `terra`, or `lidR` may have loaded.
+#' directory.
+#' Base R's `system2(env = ...)` is not honored on Windows
+#' (the env arg gets passed as a positional argument instead of
+#' as an environment variable),
+#' so we set `PROJ_DATA` via `Sys.setenv()` for the duration of
+#' the PDAL call and restore the previous value on exit.
+#' R's PROJ_DATA is therefore set transiently while PDAL runs and
+#' restored afterwards;
+#' in practice this does not interfere with `sf` / `terra` /
+#' `lidR` because those packages cache their PROJ data path at
+#' package load and do not re-read `PROJ_DATA` mid-session.
 #'
 #' **Install location.**
 #' PDAL is expected at `pdal` (default
@@ -58,6 +64,12 @@
 #'    file.
 #' @param pdal Path to the `pdal` executable.
 #'    Default `"C:/OSGeo4W/bin/pdal.exe"`.
+#' @param proj_data_dir Path to PROJ's data directory
+#'    (the one containing `proj.db`).
+#'    Default `"C:/OSGeo4W/share/proj"`,
+#'    matching the OSGeo4W install layout.
+#'    Combined with `dirname(vgrid)` on `PROJ_DATA` so PROJ can
+#'    find both its CRS database and the geoid grid.
 #'
 #' @return The `output` path, invisibly.
 #'
@@ -87,7 +99,9 @@ reproject_las_pdal <- function(input,
                                vgrid,
                                target_vertical_epsg = 5703L,
                                overwrite = FALSE,
-                               pdal = "C:/OSGeo4W/bin/pdal.exe") {
+                               pdal = "C:/OSGeo4W/bin/pdal.exe",
+                               proj_data_dir =
+                                  "C:/OSGeo4W/share/proj") {
 
    stopifnot(
       is.character(input), length(input) == 1L,
@@ -97,7 +111,9 @@ reproject_las_pdal <- function(input,
       length(target_vertical_epsg) == 1L,
       file.exists(input),
       file.exists(vgrid),
-      file.exists(pdal)
+      file.exists(pdal),
+      dir.exists(proj_data_dir),
+      file.exists(file.path(proj_data_dir, "proj.db"))
    )
 
    if (!requireNamespace("sf", quietly = TRUE)) {
@@ -157,14 +173,37 @@ reproject_las_pdal <- function(input,
       pipeline_json
    )
 
-   # PROJ_DATA is set on the subprocess only, so R's PROJ search
-   # path stays untouched.
+   # Point PROJ at *both* OSGeo4W's PROJ data directory (which
+   # contains `proj.db`, PROJ's main CRS database) and the geoid
+   # grid's directory.  `PROJ_DATA` is a `;`-separated search
+   # path on Windows; both entries are needed because pointing
+   # only at the gtx dir hides `proj.db` and breaks every CRS
+   # lookup.
+   #
+   # Base R's `system2(env = ...)` is not honored on Windows
+   # (it gets passed as a positional arg instead of as an
+   # environment variable), so we set `PROJ_DATA` via
+   # `Sys.setenv()` and restore the previous value on exit.
+   # The subprocess inherits R's environment.
    gtx_dir <- normalizePath(dirname(vgrid), winslash = "/",
                             mustWork = TRUE)
+   proj_data_dir <- normalizePath(proj_data_dir, winslash = "/",
+                                  mustWork = TRUE)
+   new_proj_data <- paste(proj_data_dir, gtx_dir,
+                          sep = .Platform$path.sep)
+   old_proj_data <- Sys.getenv("PROJ_DATA", unset = NA_character_)
+   Sys.setenv(PROJ_DATA = new_proj_data)
+   on.exit({
+      if (is.na(old_proj_data)) {
+         Sys.unsetenv("PROJ_DATA")
+      } else {
+         Sys.setenv(PROJ_DATA = old_proj_data)
+      }
+   }, add = TRUE)
+
    exit <- system2(
       pdal,
-      args = c("pipeline", shQuote(pipeline_json)),
-      env = paste0("PROJ_DATA=", gtx_dir)
+      args = c("pipeline", shQuote(pipeline_json))
    )
 
    if (exit != 0L || !file.exists(output)) {

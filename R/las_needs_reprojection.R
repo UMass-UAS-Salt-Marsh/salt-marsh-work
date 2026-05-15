@@ -1,20 +1,45 @@
 #' Test whether a LAS file is already in the project's target CRS
 #'
-#' Reads the LAS header and compares the horizontal EPSG (from
-#' `lidR::epsg()`) and the vertical CS type (GeoTIFF GeoKey 4096,
-#' `VerticalCSTypeGeoKey`,
-#' parsed from `header@VLR$GeoKeyDirectoryTag$tags`) against the
-#' supplied targets.
-#' Returns `TRUE` if **either** axis differs from the target.
+#' Reads the LAS header and compares the horizontal and vertical
+#' EPSG codes against the supplied targets.
+#' Returns `TRUE` if **either** axis differs from the target,
+#' or if either cannot be determined from the header.
 #'
 #' Used to decide whether [`reproject_las()`] needs to run for a
 #' given source file.
 #' A `FALSE` return is a strong signal that no reprojection is
 #' needed;
-#' a `TRUE` return triggers the two-step LAStools reprojection.
+#' a `TRUE` return triggers reprojection.
 #'
-#' If the vertical CS geokey is absent from the header, the
-#' function treats the vertical CS as unknown and returns `TRUE`
+#' **Two header formats are supported,**
+#' since LAS files can store their CRS either way:
+#'
+#' 1. **GeoTIFF GeoKey directory** (LAS 1.0 – 1.3,
+#'    typical of LAStools / RESEPI output).
+#'    The horizontal EPSG comes from key `3072`
+#'    (`ProjectedCSTypeGeoKey`)
+#'    and the vertical from key `4096`
+#'    (`VerticalCSTypeGeoKey`),
+#'    both parsed from
+#'    `header@VLR$GeoKeyDirectoryTag$tags`.
+#' 2. **WKT VLR** (LAS 1.4 with the `WKT` global-encoding bit
+#'    set,
+#'    typical of PDAL output).
+#'    The compound WKT is read from
+#'    `header@VLR[["WKT OGC CS"]][["WKT OGC COORDINATE SYSTEM"]]`,
+#'    then scanned for `AUTHORITY["EPSG","NNN"]` entries.
+#'    A target code is considered present if it appears anywhere
+#'    in the WKT;
+#'    this is safe in practice because top-level CRS EPSG codes
+#'    (e.g. `26919`, `5703`) do not collide with the nested
+#'    authority codes used for datums, ellipsoids, primes, and
+#'    units.
+#'
+#' The two methods are tried in order;
+#' a missing field in the first method falls through to the
+#' second.
+#' If neither yields a match, the axis is recorded as missing
+#' and `TRUE` is returned
 #' (safer to reproject than to silently use a mismatched file).
 #'
 #' @param input Path to the `.las` file to inspect.
@@ -46,17 +71,49 @@ las_needs_reprojection <- function(input,
    )
 
    header <- lidR::readLASheader(input)
-   horiz <- lidR::epsg(header)
 
-   tags <- header@VLR$GeoKeyDirectoryTag$tags
+   horiz <- NA_integer_
    vert <- NA_integer_
+
+   # Method 1: parse the GeoTIFF GeoKey directory.
+   tags <- header@VLR$GeoKeyDirectoryTag$tags
    if (!is.null(tags)) {
       keys <- vapply(tags, function(t) t$key, integer(1L))
       vals <- vapply(tags, function(t) t[["value offset"]],
                      integer(1L))
-      hit <- which(keys == 4096L)
-      if (length(hit) == 1L) {
-         vert <- vals[hit]
+      hit_h <- which(keys == 3072L)
+      if (length(hit_h) == 1L) {
+         horiz <- vals[hit_h]
+      }
+      hit_v <- which(keys == 4096L)
+      if (length(hit_v) == 1L) {
+         vert <- vals[hit_v]
+      }
+   }
+
+   # Method 2: scan the WKT VLR for target EPSG authority codes.
+   # Only consulted if at least one axis is still unknown.
+   if (is.na(horiz) || is.na(vert)) {
+      wkt_vlr <- header@VLR[["WKT OGC CS"]]
+      wkt <- if (!is.null(wkt_vlr)) {
+         wkt_vlr[["WKT OGC COORDINATE SYSTEM"]]
+      } else {
+         NULL
+      }
+      if (!is.null(wkt) && nchar(wkt) > 0L) {
+         all_auth <- regmatches(
+            wkt,
+            gregexpr('AUTHORITY\\["EPSG","\\d+"\\]', wkt)
+         )[[1]]
+         codes <- as.integer(sub(
+            'AUTHORITY\\["EPSG","(\\d+)"\\]', "\\1", all_auth
+         ))
+         if (is.na(horiz) && target_epsg %in% codes) {
+            horiz <- target_epsg
+         }
+         if (is.na(vert) && target_vertical_epsg %in% codes) {
+            vert <- target_vertical_epsg
+         }
       }
    }
 

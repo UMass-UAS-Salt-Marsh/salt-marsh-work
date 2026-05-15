@@ -7,18 +7,35 @@
 #' historical output produced by the same recipe can be recreated
 #' and audited.
 #'
+#' **Requires a paid LAStools license.**
+#' `las2las` is part of LAStools' free / open-source set,
+#' but `lasvdatum` is one of the **commercial-only** tools and
+#' will fail with `ERROR:license failure` on a free LAStools
+#' install.
+#' Without a licensed `lasvdatum` this method cannot complete
+#' end-to-end —
+#' Step 1 succeeds, Step 2 aborts.
+#' If a license is not available,
+#' use [`reproject_las_pdal()`] instead
+#' (the default for [`reproject_las()`]).
+#'
 #' Steps:
 #'
-#' 1. **`las2las64 -target_epsg <n> -force`** —
-#'    horizontal reprojection of XY only.
-#'    LAStools' `las2las` does not transform Z when changing
+#' 1. **`las2las64 -proj_epsg <source> <target>`** —
+#'    horizontal reprojection of XY only,
+#'    delegated to PROJ via las2las's "Recommended" `-proj_epsg`
+#'    flag.
+#'    This is what actually applies the WGS 84 ↔ NAD 83 datum
+#'    shift on the horizontal axis;
+#'    the older `-target_epsg <target>` flag aborts with a
+#'    SERIOUS WARNING for cross-datum reprojection even with
+#'    `-force`,
+#'    while `-proj_epsg` avoids that branch entirely because
+#'    PROJ knows the relationship between the two datums.
+#'    Z passes through unchanged
+#'    (LAStools' `las2las` does not transform Z when changing
 #'    horizontal datum;
-#'    its `-vertical_*` flags only stamp metadata.
-#'    `-force` overrides the
-#'    "horizontal datum of source and target incompatible" warning
-#'    that LAStools raises when source and target use different
-#'    geodetic datums
-#'    (here WGS 84 vs NAD 83).
+#'    its `-vertical_*` flags only stamp metadata).
 #' 2. **`lasvdatum64 -epsg <n> -vgrid <gtx>`** —
 #'    grid-based vertical transformation from ellipsoidal to
 #'    orthometric heights using a GTX geoid grid.
@@ -29,19 +46,26 @@
 #' to NAD83 / UTM 19N + NAVD88
 #' (EPSG:26919 + EPSG:5703 via GEOID12B).
 #'
-#' **Caveat — WGS 84 ↔ NAD 83 frame offset.**
-#' The GEOID12B grid is referenced to NAD 83 ellipsoidal heights,
-#' but `las2las -target_epsg` does not convert Z from WGS 84
-#' ellipsoidal to NAD 83 ellipsoidal.
-#' In eastern CONUS the WGS 84 ↔ NAD 83 frame-realization offset
-#' is ~1–2 m in 3D
+#' **Caveat — vertical WGS 84 ↔ NAD 83 frame offset remains.**
+#' Step 1 (PROJ-based) applies the WGS 84 → NAD 83 frame shift to
+#' the horizontal axis,
+#' but `las2las` still does not transform Z when changing
+#' horizontal datum,
+#' so the Z values handed to `lasvdatum` are still WGS 84
+#' ellipsoidal heights.
+#' GEOID12B is referenced to NAD 83 ellipsoidal heights,
+#' so the geoid grid is being applied to coordinates from the
+#' wrong reference frame.
+#' In eastern CONUS the WGS 84 ↔ NAD 83 vertical frame offset
+#' is a few cm to ~1 m
 #' (plate motion accumulated since the frames were tied at epoch
 #' 1997).
-#' This LAStools two-step workflow carries that error;
+#' This LAStools two-step workflow carries that residual vertical
+#' error;
 #' the PDAL workflow ([`reproject_las_pdal()`]) does not.
-#' Accepted here because it matches the historical UMassAir
-#' process and downstream stats fit a residual offset that
-#' absorbs most of the bias.
+#' Accepted here because it matches (and improves on) the
+#' historical UMassAir process and downstream stats fit a
+#' residual offset that absorbs most of the bias.
 #'
 #' See the LAStools READMEs at
 #' `C:\\tools\\LAStools\\bin\\las2las_README.md` and
@@ -55,6 +79,11 @@
 #' @param vgrid Path to the `.gtx` geoid grid file used by
 #'    `lasvdatum`.
 #'    Default points at the project-stored GEOID12B CONUS tile.
+#' @param source_epsg Integer EPSG code for the source horizontal
+#'    CRS.
+#'    If `NULL` (default),
+#'    read from the LAS header via `lidR::epsg()`.
+#'    Pass explicitly if the header is missing or wrong.
 #' @param overwrite If `FALSE` (default) and `output` already
 #'    exists, skip both shell calls and return `output`
 #'    invisibly.
@@ -95,6 +124,7 @@ reproject_las_lastools <- function(input,
                                    output,
                                    target_epsg,
                                    vgrid,
+                                   source_epsg = NULL,
                                    overwrite = FALSE,
                                    intermediate = NULL,
                                    las2las =
@@ -121,6 +151,20 @@ reproject_las_lastools <- function(input,
       return(invisible(output))
    }
 
+   # Read the source horizontal EPSG from the LAS header if the
+   # caller did not pass one explicitly.  `-proj_epsg` needs both
+   # source and target codes, and reading the header is reliable
+   # for the RESEPI/PPK deliveries we work with.
+   if (is.null(source_epsg)) {
+      source_epsg <- lidR::epsg(lidR::readLASheader(input))
+      if (is.na(source_epsg) || is.null(source_epsg)) {
+         stop("reproject_las_lastools(): could not read source ",
+              "EPSG from `", input, "`; pass `source_epsg` ",
+              "explicitly.")
+      }
+   }
+   source_epsg <- as.integer(source_epsg)
+
    dir.create(dirname(output), recursive = TRUE,
               showWarnings = FALSE)
 
@@ -137,17 +181,18 @@ reproject_las_lastools <- function(input,
    # `shQuote()` is required because base R's `system2()` does not
    # quote args on Windows, and several of the project paths contain
    # spaces (e.g. "UAS Data Collection", "UMassAir User Resources").
-   # `-force` tells LAStools to proceed past its "horizontal datum of
-   # source and target incompatible" warning, which it raises when
-   # source and target use different geodetic datums (here WGS 84
-   # vs NAD 83).  See the WGS84<->NAD83 frame caveat in this
-   # function's roxygen docs.
+   # `-proj_epsg <source> <target>` delegates the transformation to
+   # PROJ.  This is the "Recommended" path in the las2las README and
+   # is what makes the WGS 84 -> NAD 83 horizontal datum shift
+   # actually happen.  The older `-target_epsg <target>` flag aborted
+   # with a SERIOUS WARNING for incompatible datums even when
+   # paired with `-force`; `-proj_epsg` avoids that branch entirely
+   # because PROJ knows the relationship between the two datums.
    step1 <- system2(
       las2las,
       args = c("-i", shQuote(input),
-               "-target_epsg", target_epsg,
-               "-o", shQuote(intermediate),
-               "-force")
+               "-proj_epsg", source_epsg, target_epsg,
+               "-o", shQuote(intermediate))
    )
    if (step1 != 0L || !file.exists(intermediate)) {
       stop("`las2las` failed (exit ", step1, ") for input: ",

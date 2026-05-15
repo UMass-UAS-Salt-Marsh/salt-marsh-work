@@ -17,6 +17,123 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-05-15 — branch main
+
+### Phase 0.5 wrap-up — PDAL works, LAStools blocked by licensing
+
+First end-to-end testing of the reprojection helpers after the
+2026-05-13 restructure into a PDAL-default dispatcher.
+Standalone test of `reproject_las()` against the
+rr 2022-08-10 source
+(`X:/legacy/.../ppk_07Nov2022_cloud_1.las`).
+
+**PDAL path: works end-to-end after three Windows-specific fixes.**
+
+1. **`system2(env = ...)` is dropped on Windows.**
+   Our first PDAL run errored with
+   `(PDAL Error) Command 'proj_data=x:/legacy/gdrive/umassair' not recognized` —
+   base R's `system2` does not honor `env` on Windows;
+   the `PROJ_DATA=<dir>` string was passed as a positional
+   argument and PDAL tried to interpret it as a subcommand
+   name.
+   Fixed in `R/reproject_las_pdal.R` by replacing the `env`
+   arg with `Sys.setenv()` + `on.exit()` restore.
+   The transient PROJ_DATA mutation in R's own env does not
+   interfere with `sf` / `terra` / `lidR` because those
+   packages cache their PROJ data dir at load.
+2. **PROJ_DATA needed both OSGeo4W's data dir AND the gtx
+   dir.**
+   Second run failed with
+   `proj_create_from_database: Cannot find proj.db`.
+   Pointing PROJ_DATA at only the geoid grid directory hid
+   `proj.db` (PROJ's main CRS database).
+   Fixed by setting PROJ_DATA to a `;`-separated path:
+   `C:/OSGeo4W/share/proj` (where `proj.db` lives in the
+   OSGeo4W install) plus `dirname(vgrid)`.
+   Added a new `proj_data_dir` arg to
+   `reproject_las_pdal()`
+   (default `"C:/OSGeo4W/share/proj"`)
+   with a `dir.exists()` + `file.exists(.../proj.db)`
+   guard.
+3. **OSGeo4W binaries blocked by Mark-of-the-Web (MOTW).**
+   Pre-test pain: `gdal.exe` and other OSGeo4W binaries
+   threw "For your protection your administrator is not
+   allowing access" on launch.
+   Initially looked like AppLocker
+   (the effective policy via
+   `Get-AppLockerPolicy -Effective -Xml` was almost empty
+   except for a Copilot deny rule),
+   but turned out to be MOTW.
+   `Get-ChildItem C:\OSGeo4W -Recurse | Unblock-File` from
+   an elevated PowerShell cleared most;
+   a few stragglers needed per-binary right-click → Unblock.
+   Standalone `pdal --version` works from a plain PowerShell
+   (no OSGeo4W shell needed),
+   so no env-wrapper batch file is required.
+
+PDAL test now produces
+`E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`.
+
+**LAStools path: Step 1 fixed, Step 2 blocked by licensing.**
+
+- **Step 1 fix.** Original `las2las64 -target_epsg <n> -force`
+  recipe was aborting with
+  `SERIOUS WARNING: horizontal datum of source and target incompatible`
+  even with `-force`.
+  Replaced with **`las2las64 -proj_epsg <source> <target>`**,
+  which delegates the transformation to PROJ and avoids the
+  LAStools-native datum incompatibility branch entirely
+  (the las2las README marks `-proj_epsg` as "Recommended").
+  Added an optional `source_epsg` arg to
+  `reproject_las_lastools()`;
+  if omitted, the source EPSG is read from the LAS header
+  via `lidR::epsg()`.
+  Re-running with `-proj_epsg 32619 26919` produces a clean
+  intermediate LAS.
+- **Step 2 blocker.** `lasvdatum64` is one of LAStools'
+  **commercial-only** tools and exits with
+  `ERROR:license failure` on a free LAStools install.
+  Without a paid license the LAStools two-step workflow
+  cannot complete end-to-end on this machine.
+  The historical UMassAir workflow must have used a
+  licensed install.
+
+**Documentation updates:**
+
+- `R/reproject_las_lastools.R` — roxygen now opens with a
+  bold "Requires a paid LAStools license" callout pointing
+  to `reproject_las_pdal()` as the working alternative.
+  Step 1 description updated to reflect the `-proj_epsg`
+  switch.
+  Vertical caveat softened from
+  "~1–2 m in 3D" to
+  "a few cm to ~1 m vertical residual" since the horizontal
+  frame shift is now applied properly via PROJ.
+- `R/reproject_las.R` (dispatcher) — same license callout
+  on the `"lastools"` method bullet.
+- `R/reproject_las_pdal.R` — new `proj_data_dir` parameter
+  documented;
+  PROJ_DATA-isolation paragraph rewritten to reflect the
+  Sys.setenv approach
+  (since `system2(env=...)` is unreliable on Windows).
+- `lidar/readme.md` — LAStools install location
+  (`C:\tools\LAStools\bin\`) and a license-requirement
+  callout added.
+  Small wording fixes (double space, PDAL acronym
+  expansion).
+- `CLAUDE.md` — committed earlier today
+  (`f1cd5a1 Defer linting to commit time`):
+  defer `lintr::lint()` to the pre-commit step rather than
+  after every edit.
+
+**Conclusion:**
+PDAL is the working method.
+The LAStools method is left in place,
+documented as license-gated and currently inert on this
+machine.
+End-to-end `lidar/02.R` run with the new PDAL path is the
+next concrete step.
+
 ## 2026-05-13 — branch main
 
 ### Phase 0.5 — conditional LAS reprojection via LAStools
