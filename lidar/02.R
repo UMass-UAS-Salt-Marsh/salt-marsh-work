@@ -214,16 +214,22 @@ for (i in seq_len(nrow(csf_grid))) {
 }
 
 
-# Assess errors
-# clean_column_names(), clean_dates(), visualize_dtm(), and evaluate_dtm()
-# all come from R/.
+# -- Phase 1 prep: sample DTMs at ECP locations ------------------------
+# Warm the per-DTM CSV cache (`<dtm-stem>_ecp.csv`) at the end of this
+# long-running pipeline so the formal evaluation in
+# `lidar/03_evaluate_dtm.R` opens fast.  `sample_dtm()` is
+# skip-if-exists; re-running this block is cheap.
+#
+# `R/load_ecp.R` is a future task; for now we inline the ECP read.
+# Filter excludes `Logger Array` (loggers sit above the marsh surface);
+# Berm, EVP, and Training points are kept since all represent real
+# ground elevation suitable for DTM evaluation.
 
-# Read elevation control points
 ecp <- readxl::read_xlsx(paths$ecp) |> clean_column_names()
 ecp$date <- clean_dates(ecp$date)
 ecp$site <- tolower(ecp$site)
-
-i <- 1
-
-site_dtm <- csf_results$dtm[i]
 site_ecp <- ecp[ecp$site == site & !ecp$type %in% "Logger Array", ]
+
+for (d in csf_results$dtm) {
+   sample_dtm(d, site_ecp)
+}
