@@ -12,372 +12,44 @@
 
 ## Current state (what already exists)
 
+- **Step 0: conditional reprojection** — `R/reproject_las.R`
+  dispatcher routes to `reproject_las_pdal()` (PDAL, default,
+  working) or `reproject_las_lastools()` (license-gated, currently
+  inert on this machine because `lasvdatum` requires a paid
+  LAStools license).  `R/las_needs_reprojection.R` decides whether
+  to run by reading the LAS header
+  (handles both GeoTIFF-keyed and LAS 1.4 WKT-encoded CRSes).
+  See `lidar/readme.md` "CRS, datum, and frame shift considerations"
+  for the geodetic discussion.
 - **Step 1: clean & tile** — `R/clean_and_tile.R` filters to last
-  returns, removes noise via `sor`, writes cleaned tiles. Skips if
-  output exists.
+  returns, removes noise via `lidR::sor()`, writes cleaned tiles.
+  Skips if output tiles already exist.
 - **Step 2: rasterize ground** — `R/rasterize_ground.R` runs CSF
   classification with `(class_threshold, cloth_resolution, rigidness)`
   then `rasterize_terrain(knnidw)`. Writes one GeoTIFF per parameter
   set.
-- **Driver** — `lidar/02.R` reads `lidar/data/paths.csv`, picks the
-  preferred cloud for `site = "rr"` (currently hardcoded), runs Step 1
-  once, then loops Step 2 over 4 CSF parameter combinations
-  (`lidar/02.R:80–83`). 4 DTMs land in
-  `E:/uas_scratch/lidar/<site>/<date>/zzzraster/csf_th*_res*_rgd*_*m.tif`.
-- **Step 3 (validation): partial.** `evaluate_dtm()` and
-  `visualize_dtm()` are drafted inline in `lidar/02.R:214–281` but
-  not yet extracted to `R/`, not finished (`evaluate_dtm()` builds an
-  offset model and a residual column but returns nothing), and not yet
-  looped over the parameter grid.
-- **Step 4 (veg strata): not started.** Nothing yet.
+- **Driver** — `lidar/02.R` consolidates run-level parameters
+  (`workers`, `chunk_size`, `chunk_buffer`, `site`, `csf_grid`) at
+  the top, runs the conditional reprojection step, then Step 1
+  once, then loops Step 2 over each row of `csf_grid`.  Outputs
+  under `E:/uas_scratch/lidar/<site>/<date>/`:
+  reprojected LAS in `reprojected/`,
+  cleaned tiles in `zzzcleaned/`,
+  DTMs in `zzzraster/csf_*.tif`.
+- **Step 3 (validation): partial.** `R/evaluate_dtm.R` returns
+  `list(points, summary, offset, plots)` with stats overall and
+  broken out by ECP `type`.  Not yet looped over the parameter
+  grid; `R/load_ecp.R` not yet written; no `lidar/03_*.R` driver.
+- **Step 4 (veg strata): not started.**
+
+Phase 0 (initial cleanup) and Phase 0.5 (reprojection) are both
+complete; see `dev/worklog.md` entries on 2026-05-13 and 2026-05-15
+for the detailed history.
+The only Phase 0.5 task still outstanding is the first
+end-to-end `lidar/02.R` run with the PDAL reprojection in place,
+which is in progress at time of writing.
 
 ## Plan
-
-### Phase 0 — quick cleanups (before adding new work)
-
-- [ ] Extract `evaluate_dtm()` and `visualize_dtm()` from `lidar/02.R`
-  into `R/evaluate_dtm.R` and `R/visualize_dtm.R`. Keep roxygen-style
-  headers for eventual package migration.
-- [ ] Also extract the `update_path()`, `clean_column_names()`, and
-  `clean_dates()` helpers (currently inline at `lidar/02.R:97–194`)
-  into `R/`. Small, reusable, no reason to keep inline.
-- [ ] Fix the typo at `R/clean_and_tile.R:48` (`ouput_dir` → `output_dir`).
-- [ ] Fix the `&&` → `&` bug at `R/rasterize_ground.R` (lines 248 in
-  the draft `evaluate_dtm`) and the unused `chunk` reference at
-  `rasterize_ground.R:46` (it crops to `ext(chunk)` but `chunk` isn't
-  in scope inside `catalog_map`'s function — likely a leftover; either
-  pass `las` or drop the crop).
-
-### Phase 0.5 — reproject source LAS into the analysis CRS
-
-The current Red River source (`rr` 2022-08-10,
-`ppk_07Nov2022_cloud_1.las`)
-is tagged horizontally as **EPSG:32619** (WGS 84 / UTM 19N)
-and vertically as **EPSG:5030** (WGS 84 ellipsoid heights).
-The ECPs and downstream analyses use NAD83 / UTM 19N (EPSG:26919)
-horizontally and NAVD88 vertically.
-Without reprojection,
-the DTM-vs-ECP residuals will carry a ~28 m systematic offset
-from the geoid separation
-plus the small NAD83↔WGS84 horizontal shift,
-making CSF parameter tuning meaningless.
-
-**Target CRS:**
-- Horizontal: **EPSG:26919** (NAD83 / UTM 19N)
-- Vertical: **NAVD88** via the **GEOID12B** grid
-  (`g2012bu0.gtx`, the CONUS tile covering 40–58° N, 281–300° E;
-  Red River at ~41.7° N, ~290° E falls in this tile).
-- Grid path: `X:\legacy\gdrive\UMassAir User Resources\LASTools\Geoid Transformation GTX Files\geoid12b\g2012bu0.gtx`.
-
-**Tooling — locked in: hybrid (PDAL default, LAStools alternative).**
-
-Two reprojection paths are supported via a dispatcher with
-`method = c("pdal", "lastools")`,
-default `"pdal"`.
-
-**Method `"pdal"` (default, recommended for new output).**
-PDAL with a PROJ pipeline that does the full datum-aware
-transformation in a single pass:
-
-- horizontal: WGS 84 → NAD 83 with the WGS84↔NAD83 frame shift
-  applied
-  (PROJ's bundled NADCON5 / ITRF grids),
-- vertical: ellipsoidal → NAVD 88 via the GEOID12B `.gtx` grid.
-
-The PROJ string for the target is built as
-`sf::st_crs(target_epsg)$proj4string` plus
-`+geoidgrids=<basename(vgrid)> +vunits=m`,
-and the grid is found by setting `PROJ_DATA` to the gtx
-directory in the `pdal` subprocess only
-(no system-wide env var changes,
-so R's own PROJ stays unaffected).
-This eliminates the WGS84↔NAD83 frame-realization error
-(~1–2 m in eastern CONUS)
-that the LAStools workflow carries.
-
-PDAL will be installed via **OSGeo4W**.
-The user prefers OSGeo4W over conda because they have had bad
-experiences with multiple PROJ installations conflicting on
-the same system.
-Subprocess isolation
-(R never loads PDAL's PROJ;
-PDAL never loads R's PROJ)
-mitigates this risk regardless,
-but OSGeo4W is the chosen route.
-Expected install location: `C:\OSGeo4W\bin\pdal.exe`.
-The user will install PDAL tomorrow and we will test then.
-
-**Method `"lastools"` (alternative; kept for reproducibility).**
-The two-step LAStools workflow described below.
-Retained so we can recreate and understand historical output
-produced by the established UMassAir process,
-which used this approach:
-
-1. **`las2las64 -target_epsg 26919 -force`** —
-   horizontal reprojection of XY only.
-   `-force` overrides LAStools' "horizontal datum of source and
-   target incompatible" warning
-   (raised because LAStools does not apply a datum shift
-   between WGS 84 and NAD 83).
-   Z passes through unchanged.
-2. **`lasvdatum64 -epsg 26919 -vgrid g2012bu0.gtx`** —
-   grid-based vertical transformation from ellipsoidal to
-   NAVD 88 orthometric heights.
-   `lasvdatum`'s own README confirms this exact use case:
-   "convert from (UTM17 + NAD83 ellipsoidal)
-   to (UTM17 + NAVD88 Geoid12B)."
-
-**Known caveat for `method = "lastools"`:**
-the GEOID12B grid is referenced to NAD 83 ellipsoidal heights,
-but `las2las -target_epsg` does not convert Z from WGS 84
-ellipsoidal to NAD 83 ellipsoidal.
-In eastern CONUS the WGS 84 ↔ NAD 83 frame-realization offset
-is ~1–2 m in 3D
-(plate-motion drift since the two reference frames were tied
-at epoch 1997).
-The LAStools workflow carries this error;
-`method = "pdal"` does not.
-
-**Implementation:**
-the shell calls are wrapped in three R files
-that live under `R/`
-and are called from `lidar/02.R`:
-
-- [x] **`R/reproject_las.R`** — public dispatcher:
-
-   ```r
-   reproject_las(
-      input,
-      output,
-      target_epsg = 26919L,
-      vgrid       = "<g2012bu0.gtx path>",
-      overwrite   = FALSE,
-      method      = c("pdal", "lastools"),
-      ...
-   )
-   ```
-
-   Dispatches to one of two private helpers based on `method`.
-   `...` is forwarded to the helper so its method-specific args
-   (e.g. `pdal` path, `las2las`/`lasvdatum` paths,
-   `intermediate`, `keep_intermediate`) are accessible without
-   cluttering the dispatcher's signature.
-   Skip-if-exists short-circuit lives in the dispatcher,
-   so it applies uniformly across methods.
-
-- [x] **`R/reproject_las_pdal.R`** — PDAL helper:
-
-   ```r
-   reproject_las_pdal(
-      input, output, target_epsg, vgrid, overwrite,
-      pdal = "C:/OSGeo4W/bin/pdal.exe"
-   )
-   ```
-
-   Writes a small PDAL pipeline JSON to a tempfile
-   (readers.las → filters.reprojection → writers.las),
-   calls `pdal pipeline <json>` via `system2()`,
-   and sets `PROJ_DATA = dirname(vgrid)` on the subprocess only
-   so PROJ finds the `.gtx` grid by basename.
-   Output gets `a_srs = "EPSG:<target_epsg>+5703"`
-   (compound CRS for NAD83/UTM 19N + NAVD88 height).
-
-- [x] **`R/reproject_las_lastools.R`** — LAStools helper
-   (renamed from the existing one-file implementation;
-   logic preserved):
-
-   ```r
-   reproject_las_lastools(
-      input, output, target_epsg, vgrid, overwrite,
-      intermediate      = NULL,
-      las2las           = "C:/tools/LAStools/bin/las2las64.exe",
-      lasvdatum         = "C:/tools/LAStools/bin/lasvdatum64.exe",
-      keep_intermediate = FALSE
-   )
-   ```
-
-   Calls the two binaries via `system2()` with `shQuote()` on
-   path args and `-force` on the `las2las` step
-   (override the WGS 84 ↔ NAD 83 incompatibility warning).
-   Roxygen documents the WGS84↔NAD83 frame caveat that this
-   method carries.
-
-- [x] **`R/las_needs_reprojection.R`** — small helper that reads
-   the LAS header and returns `TRUE` if either the horizontal or
-   vertical CRS doesn't match the project targets:
-
-   ```r
-   las_needs_reprojection(
-      input,
-      target_epsg          = 26919,
-      target_vertical_epsg = 5703   # NAVD88 height
-   )
-   ```
-
-   Reads via `lidR::readLASheader()` for the horizontal EPSG and
-   parses the GeoTIFF GeoKey directory in the header VLR for the
-   `VerticalCSTypeGeoKey` (key 4096) to get the vertical EPSG.
-   Returns `FALSE` only when both match; otherwise `TRUE`.
-   Prints a one-line message describing the found-vs-expected pair
-   so the workflow log shows why reprojection was triggered.
-
-- [x] **Workflow integration in `lidar/02.R`** — automatic, no
-   manual toggle.
-   After `paths$input` is selected from `paths.csv` and before
-   `clean_and_tile()` runs, insert:
-
-   ```r
-   if (las_needs_reprojection(paths$input)) {
-      paths$reprojected_dir <- file.path(paths$base_output,
-                                         "reprojected")
-      dir.create(paths$reprojected_dir, recursive = TRUE,
-                 showWarnings = FALSE)
-      reprojected <- file.path(
-         paths$reprojected_dir,
-         sub("\\.las$", "_epsg26919_navd88.las",
-             basename(paths$input), ignore.case = TRUE)
-      )
-      paths$input <- reproject_las(paths$input, reprojected,
-                                   target_epsg = 26919)
-   }
-   ```
-
-   `reproject_las()` itself skips when the output already exists
-   (idempotent), so re-running the script is cheap.
-   To force a re-reprojection, the user passes
-   `overwrite = TRUE` or deletes the cached file manually.
-
-- **`paths.csv` is left untouched** — it remains the stable
-   record of original sources.
-   The reprojected file is treated as a workflow cache,
-   not a primary input,
-   and lives only on the local RAID.
-
-**Status — PDAL works end-to-end; LAStools is blocked by licensing.**
-
-- **`method = "pdal"`** ✅ tested successfully on 2026-05-15.
-  Produced
-  `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`
-  after iterating through three Windows-specific PDAL
-  integration issues:
-  (1) `system2(env = …)` is silently dropped on Windows,
-  so the `PROJ_DATA=` arg was passed as a positional arg
-  to PDAL — fixed by switching to `Sys.setenv()` with an
-  `on.exit()` restore;
-  (2) initial `PROJ_DATA` pointed only at the gtx directory,
-  hiding `proj.db` and breaking every CRS lookup — fixed by
-  setting `PROJ_DATA` to a `;`-separated path including
-  OSGeo4W's `C:/OSGeo4W/share/proj` *and* the gtx directory;
-  (3) install-time MOTW blocks on OSGeo4W binaries
-  resolved with `Get-ChildItem … | Unblock-File` plus some
-  per-binary manual unblocking.
-- **`method = "lastools"`** ❌ blocked by LAStools licensing.
-  Fixed Step 1 by switching to `-proj_epsg <source> <target>`
-  (which delegates to PROJ and avoids the
-  "horizontal datum incompatible" abort that the older
-  `-target_epsg <target> -force` recipe hit).
-  Step 2 fails with `ERROR:license failure` because
-  `lasvdatum` is a commercial-only LAStools tool;
-  the free install can't run it.
-  The historical UMassAir workflow must have had a licensed
-  install.
-  Without a license this method cannot complete end-to-end
-  on this machine.
-  Code is left in place and documented so a licensed reader
-  can run it,
-  but **PDAL is the working method on this machine.**
-
-**Install / setup tasks (status as of 2026-05-15):**
-
-- [x] Install PDAL via OSGeo4W.
-   Installed at `C:\OSGeo4W\bin\pdal.exe`.
-   First-run pain with MOTW
-   (~half of OSGeo4W binaries refused to launch with
-   "For your protection your administrator is not allowing
-   access");
-   resolved with elevated
-   `Get-ChildItem ... | Unblock-File` plus a few per-binary
-   manual unblocks.
-   Standalone `pdal --version` works from a plain shell
-   without needing the OSGeo4W env wrapper.
-- [x] `install.packages("jsonlite")`.
-- [ ] Add `C:\Program Files\R\R-4.5.2\bin\x64` to **System**
-   PATH so `Rscript` is available from any shell
-   (user is doing this manually for all-users scope;
-   not blocking,
-   since RStudio sources from R's install dir directly).
-
-**Test plan results (2026-05-15):**
-
-- [x] Standalone test of `reproject_las()` with default
-   `method = "pdal"` —
-   ran successfully after the four Windows integration fixes
-   noted in Status above.
-   Produced
-   `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`.
-- [x] Verified PDAL output header via `lasinfo64`.
-   WKT compound CRS reports
-   `NAD83 / UTM zone 19N + NAVD88 height`,
-   `AUTHORITY["EPSG","26919"]` horizontal,
-   `AUTHORITY["EPSG","5703"]` vertical.
-   Z bbox shifted ~+28.1 m
-   (matches expected GEOID12B separation at Red River).
-   XY bbox shifted < 5 mm —
-   PROJ treats legacy `EPSG:26919` (no realization) as
-   near-identical to WGS 84 horizontally,
-   so the frame shift is **not** applied with this target.
-   For absolute NAVD 88 deliverables,
-   switch the target to **`EPSG:6348`** (NAD 83(2011) /
-   UTM 19N);
-   PROJ will then pick a realization-specific ITRF + grid
-   transformation pipeline.
-   Tabled for now since CSF parameter ranking is unaffected
-   by sub-meter horizontal bias
-   (offset model in `evaluate_dtm()` absorbs it).
-- [x] Smoke-test the LAStools path
-   (`method = "lastools"`).
-   Step 1 (`las2las -proj_epsg`) ran cleanly after replacing
-   the older `-target_epsg`/`-force` recipe.
-   Step 2 (`lasvdatum`) failed with `ERROR:license failure` —
-   that tool is commercial-only and not part of the free
-   LAStools install.
-   No diff against PDAL output is available.
-- [x] **Stale artifact cleanup already handled** by the user.
-- [ ] **End-to-end `lidar/02.R` run — IN PROGRESS.**
-   Triggered after PDAL test verified; reprojection step is
-   a cache hit (output already exists),
-   so the work is `clean_and_tile()` + the four CSF
-   `rasterize_ground()` runs.
-   Expected products under
-   `E:/uas_scratch/lidar/rr/2022_08_10/`:
-   `zzzcleaned/*.las` and four DTMs in
-   `zzzraster/csf_th*_res*_rgd*_*m.tif`.
-
-**Housekeeping** (not phase work, captured here for context):
-the `lidar/02.R` driver got a documentation header,
-a consolidated top-of-file parameters block
-(`workers`, `chunk_size`, `chunk_buffer`, `site`,
-`csf_grid`),
-several real bug fixes
-(`models$dtm` per-iteration overwrite,
-mis-parenthesized site validation,
-dead `paths$old_base_output`),
-and identifier renames for clarity
-(`models` → `csf_results`,
-`output_raster` → `output_path`).
-See `dev/worklog.md` 2026-05-15 entries for the full account.
-
-**Other sites deferred.**
-Only rr 2022-08-10 is in scope for this phase per the user's
-direction; other sites' clouds will be reprojected one at a time
-as Phase 3 reaches them.
-The same `reproject_las()` function will be reused;
-only the `vgrid` may need to change for sites that fall outside the
-`g2012bu0.gtx` tile footprint
-(per `geoid12b.inf`,
-the CONUS lower-48 tile g2012bu0 covers 24–58° N, 230–300° E,
-which includes all four saltmarsh sites,
-so the default should hold).
 
 ### Phase 1 — finish DTM evaluation (Goal 1)
 
