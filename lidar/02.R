@@ -84,7 +84,8 @@ plan(multisession, workers = workers)
 
 
 # Source functions
-a <- lapply(list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE), source)
+invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
+                            full.names = TRUE), source))
 
 
 # Read table of available input files
@@ -179,36 +180,36 @@ clean_and_tile(paths$input, paths$cleaned_catalog_dir,
 # update_path() comes from R/update_path.R.
 
 # Make a raster for each parameter set
-models <- data.frame()
+csf_results <- data.frame()
 for (i in seq_len(nrow(csf_grid))) {
-   models[i, ] <- NA
-   models$site[i] <- site
-   models$date[i] <- date
+   csf_results[i, ] <- NA
+   csf_results$site[i] <- site
+   csf_results$date[i] <- date
 
    params <- as.list(csf_grid[i, , drop = FALSE]) # csf parameters
 
    for (n in names(params)) {
-      models[[n]][i] <- params[[n]]
+      csf_results[[n]][i] <- params[[n]]
    }
 
 
-   output_raster <- update_path(paths$ground_raster_template, params)
+   output_path <- update_path(paths$ground_raster_template, params)
 
-   models$dtm[i] <- output_raster
+   csf_results$dtm[i] <- output_path
 
    # Full argument list for rasterize_ground
    args <- c(list(input = paths$cleaned_catalog_dir,
-                  output = output_raster,
+                  output = output_path,
                   chunk_size = chunk_size,
                   chunk_buffer = chunk_buffer),
              params)
 
-   if (!file.exists(output_raster)) {
+   if (!file.exists(output_path)) {
       message("Starting ground rasterization ", lubridate::now())
       ground <- do.call(rasterize_ground, args)
       message("Done ground rasterization ", lubridate::now())
    } else {
-      message("Skipping DTM. ", output_raster, " already exists. ")
+      message("Skipping DTM. ", output_path, " already exists. ")
    }
 }
 
@@ -224,5 +225,5 @@ ecp$site <- tolower(ecp$site)
 
 i <- 1
 
-site_dtm <- models$dtm[i]
+site_dtm <- csf_results$dtm[i]
 site_ecp <- ecp[ecp$site == site & !ecp$type %in% "Logger Array", ]
