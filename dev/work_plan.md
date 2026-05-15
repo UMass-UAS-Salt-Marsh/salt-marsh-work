@@ -287,30 +287,53 @@ and are called from `lidar/02.R`:
   can run it,
   but **PDAL is the working method on this machine.**
 
-**Install / setup tasks for tomorrow before testing:**
+**Install / setup tasks (status as of 2026-05-15):**
 
-- [ ] Install PDAL via OSGeo4W.
-   Expected install location: `C:\OSGeo4W\bin\pdal.exe`
-   (override via the `pdal` arg if installed elsewhere).
-- [x] `install.packages("jsonlite")` — done.
-- [ ] Add `C:\Program Files\R\R-4.5.2\bin\x64` to **System** PATH
-   so `Rscript` is available from any shell
+- [x] Install PDAL via OSGeo4W.
+   Installed at `C:\OSGeo4W\bin\pdal.exe`.
+   First-run pain with MOTW
+   (~half of OSGeo4W binaries refused to launch with
+   "For your protection your administrator is not allowing
+   access");
+   resolved with elevated
+   `Get-ChildItem ... | Unblock-File` plus a few per-binary
+   manual unblocks.
+   Standalone `pdal --version` works from a plain shell
+   without needing the OSGeo4W env wrapper.
+- [x] `install.packages("jsonlite")`.
+- [ ] Add `C:\Program Files\R\R-4.5.2\bin\x64` to **System**
+   PATH so `Rscript` is available from any shell
    (user is doing this manually for all-users scope;
-   not blocking, since RStudio sources from R's install dir
-   directly).
+   not blocking,
+   since RStudio sources from R's install dir directly).
 
 **Test plan results (2026-05-15):**
 
 - [x] Standalone test of `reproject_las()` with default
    `method = "pdal"` —
-   ran successfully after the three Windows integration fixes
+   ran successfully after the four Windows integration fixes
    noted in Status above.
    Produced
    `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`.
-- [ ] Verify the PDAL output by reading the file's header
-   (CRS keys updated to EPSG:26919 + EPSG:5703,
-   min/max Z dropped by ~28 m from the geoid separation,
-   ~1–2 m frame-realization correction applied to XY too).
+- [x] Verified PDAL output header via `lasinfo64`.
+   WKT compound CRS reports
+   `NAD83 / UTM zone 19N + NAVD88 height`,
+   `AUTHORITY["EPSG","26919"]` horizontal,
+   `AUTHORITY["EPSG","5703"]` vertical.
+   Z bbox shifted ~+28.1 m
+   (matches expected GEOID12B separation at Red River).
+   XY bbox shifted < 5 mm —
+   PROJ treats legacy `EPSG:26919` (no realization) as
+   near-identical to WGS 84 horizontally,
+   so the frame shift is **not** applied with this target.
+   For absolute NAVD 88 deliverables,
+   switch the target to **`EPSG:6348`** (NAD 83(2011) /
+   UTM 19N);
+   PROJ will then pick a realization-specific ITRF + grid
+   transformation pipeline.
+   Tabled for now since CSF parameter ranking is unaffected
+   by sub-meter horizontal bias
+   (offset model in `evaluate_dtm()` absorbs it).
 - [x] Smoke-test the LAStools path
    (`method = "lastools"`).
    Step 1 (`las2las -proj_epsg`) ran cleanly after replacing
@@ -320,10 +343,29 @@ and are called from `lidar/02.R`:
    LAStools install.
    No diff against PDAL output is available.
 - [x] **Stale artifact cleanup already handled** by the user.
-- [ ] End-to-end `lidar/02.R` run — not yet attempted.
-   With PDAL working, the conditional reprojection block in
-   `lidar/02.R` should trigger and produce the same output
-   path, then re-cleaned tiles and four DTMs in the new CRS.
+- [ ] **End-to-end `lidar/02.R` run — IN PROGRESS.**
+   Triggered after PDAL test verified; reprojection step is
+   a cache hit (output already exists),
+   so the work is `clean_and_tile()` + the four CSF
+   `rasterize_ground()` runs.
+   Expected products under
+   `E:/uas_scratch/lidar/rr/2022_08_10/`:
+   `zzzcleaned/*.las` and four DTMs in
+   `zzzraster/csf_th*_res*_rgd*_*m.tif`.
+
+**Housekeeping** (not phase work, captured here for context):
+the `lidar/02.R` driver got a documentation header,
+a consolidated top-of-file parameters block
+(`workers`, `chunk_size`, `chunk_buffer`, `site`,
+`csf_grid`),
+several real bug fixes
+(`models$dtm` per-iteration overwrite,
+mis-parenthesized site validation,
+dead `paths$old_base_output`),
+and identifier renames for clarity
+(`models` → `csf_results`,
+`output_raster` → `output_path`).
+See `dev/worklog.md` 2026-05-15 entries for the full account.
 
 **Other sites deferred.**
 Only rr 2022-08-10 is in scope for this phase per the user's

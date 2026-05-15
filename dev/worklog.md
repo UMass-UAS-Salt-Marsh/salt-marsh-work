@@ -19,6 +19,86 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-05-15 — branch main
 
+### `lidar/02.R` cleanup — header, params block, bug fixes, renames
+
+Two commits' worth of housekeeping on `lidar/02.R` while the
+end-to-end pipeline run was in flight,
+plus a `CLAUDE.md` policy tweak.
+
+**Linting policy** (`f1cd5a1 Defer linting to commit time`).
+Updated the Linting subsection of `CLAUDE.md` to make explicit
+what the existing wording implied:
+defer `lintr::lint()` to the pre-commit step instead of running
+it after every edit.
+Mid-development iterations skip lintr;
+the final pre-commit pass lints any files with changed R code,
+fixes hits, and only then commits.
+
+**Refactor + bug fixes** (`a70a415 Refactor lidar/02.R …`).
+
+- Added a file-level header documenting the four-step pipeline
+  (conditional reprojection, clean + tile, CSF tuning loop,
+  partial DTM evaluation),
+  inputs, outputs, and cross-references to `lidar/readme.md`
+  (geodetic discussion) and `dev/work_plan.md` (Phase 1 scope).
+- Consolidated run-level parameters at the top:
+  `workers`, `chunk_size`, `chunk_buffer`, `site`,
+  and `csf_grid`
+  (renamed from the less clear `csf_par`).
+  All four downstream references to the old name updated.
+- Wired `workers` through `plan(multisession, ...)`,
+  and `chunk_size` + `chunk_buffer` through both
+  `clean_and_tile()` and `rasterize_ground()`.
+  `rasterize_ground()` had been silently inheriting its own
+  defaults rather than honoring the top-of-file values.
+- Rewrote the historical memory / workers comment block as
+  prose so it's more useful to a reader and no longer
+  triggers `lintr::commented_code_linter` false positives.
+- Bug fix: `models$dtm <- output_raster` inside the
+  rasterization loop was assigning the same path to every row
+  on every iteration,
+  so after the loop `models$dtm` was just the last iteration's
+  path repeated for all rows.
+  Fixed to `models$dtm[i] <- output_raster`.
+  The duplicate second `models <- data.frame()` loop further
+  down had been a workaround for this;
+  it's now deleted.
+- Bug fix: `if(! site == tolower(site) && nchar(site) <= 3 && nchar(site) >= 2)`
+  was mis-parenthesized — `!` bound to the equality check
+  only — so only uppercase-AND-short codes triggered the stop.
+  Re-parenthesized to
+  `if (!(site == tolower(site) && nchar(site) >= 2 && nchar(site) <= 3))`
+  and the error-message typo
+  ("2 or 2 character") corrected.
+- Dead code: `paths$old_base_output` set but never referenced.
+  Removed.
+- Dedup: the inline reprojection paragraph that duplicated
+  Step 1 in the new file header was trimmed to a one-line
+  pointer.
+- Style sweep on lines this commit was already touching:
+  trailing whitespace stripped,
+  long lines broken to ≤80 chars,
+  banner separator widths corrected,
+  `if(` and `for(` → `if (` / `for (`,
+  `paths$ecp` double spacing around `<-` fixed,
+  trailing blank lines at EOF removed.
+  File now lints clean.
+
+**Identifier renames** (`cf0afad Rename for clarity …`).
+
+- `models` → `csf_results`
+  (the variable is the results table indexed by CSF parameter
+  row,
+  not fitted statistical models).
+- `output_raster` → `output_path` in the tuning loop
+  (it's a file path, not a raster object).
+- `a <- lapply(list.files("R/"), source)` →
+  `invisible(lapply(...))`
+  (drop the throwaway `a` binding;
+  `invisible()` suppresses the return value directly).
+
+No behavior change in the rename commit.
+
 ### Phase 0.5 wrap-up — PDAL works, LAStools blocked by licensing
 
 First end-to-end testing of the reprojection helpers after the
@@ -27,7 +107,7 @@ Standalone test of `reproject_las()` against the
 rr 2022-08-10 source
 (`X:/legacy/.../ppk_07Nov2022_cloud_1.las`).
 
-**PDAL path: works end-to-end after three Windows-specific fixes.**
+**PDAL path: works end-to-end after four fixes.**
 
 1. **`system2(env = ...)` is dropped on Windows.**
    Our first PDAL run errored with
@@ -70,6 +150,25 @@ rr 2022-08-10 source
    Standalone `pdal --version` works from a plain PowerShell
    (no OSGeo4W shell needed),
    so no env-wrapper batch file is required.
+4. **`las_needs_reprojection()` did not understand LAS 1.4
+   WKT-encoded CRSes.**
+   After the PDAL run succeeded,
+   re-running the check on its own output reported
+   `needs reprojection = TRUE` —
+   because the function only parsed the GeoTIFF GeoKey
+   directory (`header@VLR$GeoKeyDirectoryTag$tags`),
+   which is empty in PDAL output.
+   PDAL writes LAS 1.4 with the global-encoding `WKT` bit set
+   and the CRS in a VLR named `WKT OGC CS`
+   (record ID 2112).
+   Fixed in `R/las_needs_reprojection.R` by trying the GeoKey
+   directory first
+   (covers RESEPI / LAStools sources)
+   then falling through to a WKT scan that looks for the
+   target `AUTHORITY["EPSG","NNN"]` codes in the WKT VLR.
+   Safe because top-level CRS EPSG codes
+   (26919 horizontal, 5703 vertical)
+   don't collide with nested datum/ellipsoid/unit authorities.
 
 PDAL test now produces
 `E:/uas_scratch/lidar/rr/2022_08_10/reprojected/ppk_07Nov2022_cloud_1_epsg26919_navd88.las`.
