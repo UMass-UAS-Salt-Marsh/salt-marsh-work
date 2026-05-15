@@ -53,32 +53,226 @@ which is in progress at time of writing.
 
 ### Phase 1 — finish DTM evaluation (Goal 1)
 
-Site: `rr` (Red River) — keep the current code's target. ECPs are
-matched ignoring date (saltmarsh elevation considered near-static
-yearly). Water-logger floor points are not used as ECPs.
+Site: `rr` (Red River) — keep the current code's target.
+ECPs are matched ignoring date
+(saltmarsh elevation considered near-static yearly).
+Water-logger floor points are not used as ECPs.
+
+End-to-end walkthrough of the intended workflow,
+with proposed signatures and verification points,
+lives in `dev/phase1_smoketest.md`.
+This section is the implementation plan;
+the smoke test is the manual run-through.
+
+**Two design decisions worth flagging up front:**
+
+1. **Pivot away from offset-correction.**
+   The existing `R/evaluate_dtm.R` was written when the source LAS
+   was in the wrong vertical datum,
+   so it fit and subtracted a global offset to absorb the ~28 m bias.
+   Now that PDAL applies GEOID12B correctly,
+   that offset model is no longer needed for bias correction.
+   Instead the evaluation **tests** that the residual bias is small
+   (and flags it as a finding if not);
+   metrics are reported on raw residuals,
+   not offset-adjusted ones.
+   The offset model itself stays as a diagnostic.
+
+2. **Split into assembly and reporting.**
+   The old `evaluate_dtm()` had two responsibilities
+   (assemble the DTM-at-ECP data,
+   then compute metrics and plots).
+   Splitting these gives a fast iteration loop:
+   the assembly is the expensive part
+   (raster I/O + `terra::extract()`),
+   so it caches to a CSV next to each DTM;
+   the reporting is fast,
+   so changes to metric definitions or plots can be tested
+   without re-extracting.
+   The two functions become `sample_dtm()` (assembly)
+   and `evaluate_dtm()` (reporting),
+   pairing cleanly:
+   `data <- sample_dtm(dtm, ecp); result <- evaluate_dtm(data)`.
+
+#### Plan items
 
 - [ ] **`R/load_ecp.R`** — single function that reads the ECP xlsx,
-  cleans columns, parses dates, lowercases site codes, and filters to
-  `type = "training"` (per readme line 39). Returns an sf object in
-  the cloud's CRS. ECPs marked "Logger Array" stay excluded per
-  `lidar/02.R:210`.
-- [ ] **Finish `evaluate_dtm(dtm, ecp)`** to return a tidy result list:
-  - per-point table: `easting, northing, elevation, predicted, residual, type`
-  - summary stats: n, bias (mean residual), MAE, RMSE, R², offset
-    (from `lm(predicted ~ 1 + offset(elevation))`) — reported overall
-    **and** broken out by ECP `type` (vegetation classes are expected
-    to be harder than bare surfaces).
-  - residual-vs-elevation plot, residual map, optional histogram
-- [ ] **`lidar/03_evaluate_dtm.R`** — new driver that loops over the
-  4 hand-picked CSF parameter combinations from `lidar/02.R:80–83`,
-  calls `evaluate_dtm()` on each, and writes:
-  - `lidar/output/<site>_<date>_dtm_eval.csv` — one row per
-    (parameter set × ECP-type bucket) with summary stats; plus an
-    "overall" row per parameter set.
-  - PNG residual plots per parameter set.
-- [ ] Inspect the results together before deciding whether to expand
-  the parameter search; pick the best parameter set per site and
-  record the choice + reasoning in `worklog.md`.
+  cleans columns,
+  parses dates,
+  lowercases site codes,
+  and filters to `type = "training"`
+  (per `lidar/readme.md`).
+  Returns an sf object in the cloud's CRS.
+  ECPs marked "Logger Array" stay excluded.
+  Optional `site` arg subsets to a single site code in one call.
+
+- [ ] **`R/sample_dtm.R`** — pure data assembly.
+  Takes one DTM (path or `terra::SpatRaster`) and the ECP sf
+  object;
+  returns the ECP data frame with **one additional column**,
+  `predicted` (no derived columns).
+  Caches that same frame to a CSV next to the DTM
+  (`<dtm-stem>_ecp.csv`) using the same skip-if-exists pattern as
+  `clean_and_tile()` and `reproject_las()`.
+  The function's return matches the on-disk cache exactly;
+  `residual` and `abs_residual` are computed inside
+  `evaluate_dtm()`,
+  not here,
+  so the assembly stays as close to raw data as possible.
+  Signature:
+  ```r
+  sample_dtm(dtm, ecp, output_csv = NULL, overwrite = FALSE)
+  ```
+
+- [ ] **Rework `R/evaluate_dtm.R`** to reporting-only.
+  Takes the data frame from `sample_dtm()` (single DTM or rbind of
+  several with a `dtm` column).
+  Computes `residual = predicted - elevation` and
+  `abs_residual = abs(residual)` internally
+  (they're not present on the input),
+  then derives the metrics and plots and returns a tidy result
+  list.
+  Drops the data-assembly path and the "subtract offset"
+  pre-correction;
+  the existing `adj_*` columns go away.
+
+  - **`points`** — per-point table:
+    `easting, northing, elevation, predicted, residual, abs_residual, type`
+    (input plus the two derived columns).
+
+  - **`summary`** — one row per class (`type`),
+    plus an "overall" row.
+    Columns:
+    - `n` — sample size
+      (essential context for every other metric).
+    - `mean_bias` — mean residual
+      (signed; should be near zero if PDAL got the geoid right).
+    - `median_bias` — robust complement to `mean_bias`;
+      large divergence flags skewed residuals.
+    - `mae` — mean absolute difference.
+    - `mad` — median absolute deviation;
+      robust counterpart to MAE,
+      insensitive to a few outliers in tall-veg classes.
+    - `rmse` — root mean squared error;
+      standard reference for vertical accuracy and what other
+      lidar-vs-ECP comparisons report.
+    - `max_abs` — max |Δ|;
+      worst case.
+    - `q25_abs`, `q75_abs`, `q95_abs` — quantiles of |Δ|;
+      characterize central spread and the upper tail without being
+      dominated by the single worst point.
+    - `pct_within_10cm`, `pct_within_20cm` — fraction of points
+      with |Δ| within those tolerances.
+      Direct usability statement
+      ("82% of bare ECPs within ±10 cm").
+    - `slope` — slope from `lm(predicted ~ observed)`;
+      should be ~1 if the DTM tracks ECPs cleanly.
+      Deviation from 1 hints at compression/stretch in Z
+      (e.g., DTM smoother in low areas than high).
+    - `bias_p` — p-value from one-sample t-test of residuals vs 0
+      (sign test alternative for non-normal residuals;
+      pick one,
+      document choice).
+      Flags whether the bias is statistically distinguishable
+      from zero.
+
+  - **`offset`** — kept as a diagnostic only.
+    `lm` fit of `predicted ~ 1 + offset(elevation)` summarizing the
+    global correction that *would* be applied if we wanted to
+    remove the bias.
+    Not used to adjust any other metric.
+
+  - **`plots`** — named list:
+    - `pred_vs_obs` — scatter of predicted vs observed with the
+      1:1 line,
+      faceted or colored by `type`.
+    - `residual_map` — spatial map of residuals
+      (already implemented).
+    - `residual_hist` — histogram of residuals,
+      faceted by `type`.
+    - `residual_vs_elevation` — scatter of residuals against
+      observed elevation,
+      colored by `type`.
+    - `qq_residuals` — Q-Q plot of residuals to flag non-normality
+      (matters for choosing between t-test and sign test for
+      `bias_p`).
+
+- [ ] **Wire `sample_dtm()` into `lidar/02.R`.**
+  Append a `load_ecp()` + per-DTM `sample_dtm()` loop after the
+  CSF tuning loop,
+  replacing the existing partial "Read elevation control points"
+  scaffold at the bottom of the file.
+  `lidar/02.R` already runs for a long time;
+  appending the extraction means the per-DTM CSV cache is warm by
+  the time the production run finishes,
+  so the reporting phase opens fast.
+
+- [ ] **`lidar/03_evaluate_dtm.R`** — new driver.
+  Re-runs the same `load_ecp()` + `sample_dtm()` loop at the top
+  (cache hit in the normal case,
+  so it's essentially instant;
+  rebuilds the cache transparently if DTMs were regenerated),
+  then calls `evaluate_dtm()` on each DTM's data and writes:
+
+  - `lidar/output/<site>_<date>/dtm_eval_summary.csv` — one row
+    per `(parameter set × class)`,
+    plus an "overall" row per parameter set.
+    All summary columns above.
+  - Per-DTM PNG plots in the same directory.
+
+  The duplication of the assembly loop between `02.R` and `03.R`
+  is intentional:
+  each driver is self-contained
+  (can be run from a cold start without depending on the other),
+  and the skip-if-exists CSV cache makes the duplication free in
+  the common case.
+
+- [ ] **Inspection and selection.**
+  Inspect the results together before deciding whether to expand
+  the parameter search.
+  Rank parameter sets two ways:
+
+  1. **By bare-class RMSE** (and by `pct_within_10cm` in bare class).
+     Bare ground is what the CSF is actually classifying,
+     so this is the cleanest signal.
+  2. **By all-class RMSE.**
+     Useful but biased upward by tall-veg classes where the lidar
+     can't see the marsh floor through the canopy —
+     those errors are vegetation-residual,
+     not CSF errors.
+
+  Pick the best parameter set per site and record the choice +
+  reasoning in `worklog.md`.
+
+#### Saltmarsh-specific notes for the report
+
+- **Tall-veg classes carry confounded error.**
+  In *Spartina alterniflora* tall form,
+  *Phragmites*,
+  *Iva*,
+  etc.,
+  the "DTM error" is really
+  `DTM error + residual vegetation the CSF didn't filter`.
+  Errors in those classes will be systematically positive
+  (predicted > observed) and depend on point density,
+  vegetation density,
+  and CSF aggressiveness.
+  Annotate so a reader doesn't read
+  "20 cm RMSE in tall Spartina" as "the CSF is wrong" —
+  the lidar simply can't see the marsh floor through the canopy
+  at every pixel.
+
+- **Sample-size context.**
+  ECPs in tall-veg classes are typically sparse compared to bare
+  or short-veg.
+  Always report metrics with `n` next to them so a 20 cm MAE on
+  n=5 doesn't read the same as one on n=500.
+
+- **Spatial coverage.**
+  Worth a quick look at whether ECPs are representative of the
+  marsh area or clustered in one zone —
+  if the latter,
+  the metrics generalize less than they look.
 
 ### Phase 2 — vegetation strata (Goal 2)
 
