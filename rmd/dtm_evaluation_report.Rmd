@@ -1,0 +1,190 @@
+---
+title: "DTM Evaluation — `r params$site` `r gsub('_', '-', params$date)`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    df_print: kable
+params:
+  site:     "rr"
+  date:     "2022_08_10"
+  eval_dir: "lidar/output/rr_2022_08_10"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.width = 8, fig.height = 5)
+library(here)
+setwd(here::here())
+
+summary_csv <- file.path(params$eval_dir, "dtm_eval_summary.csv")
+if (!file.exists(summary_csv)) {
+   stop("Summary CSV not found: ", summary_csv,
+        "\nRun lidar/03_evaluate_dtm.R first.")
+}
+all_summary <- read.csv(summary_csv, stringsAsFactors = FALSE)
+
+# DTM stems (unique, excluding the "overall" bookkeeping row).
+dtm_stems <- unique(all_summary$dtm)
+
+# Columns: keep pct_within_* whatever their exact names are.
+pct_cols  <- grep("^pct_within", colnames(all_summary), value = TRUE)
+
+# Plot names produced by 03_evaluate_dtm.R.
+plot_names <- c("pred_vs_obs", "residual_hist", "residual_map",
+                "residual_vs_elevation", "qq_residuals")
+plot_labels <- c(
+   pred_vs_obs           = "Predicted vs observed",
+   residual_hist         = "Residual histogram",
+   residual_map          = "Residual map",
+   residual_vs_elevation = "Residual vs elevation",
+   qq_residuals          = "Q-Q plot"
+)
+
+# Bias significance flag.
+overall_rows <- all_summary[all_summary$group == "overall", ]
+flagged_bias <- overall_rows[!is.na(overall_rows$bias_p) &
+                               overall_rows$bias_p < 0.05, "dtm"]
+
+# Helper: pretty-round a numeric column.
+rnd <- function(x, d = 3) round(as.numeric(x), d)
+```
+
+## Overview
+
+```{r overview}
+# Count ECPs from the summary (use n column for overall row of first DTM).
+n_ecp_overall <- overall_rows$n[1]
+n_dtms        <- length(dtm_stems)
+
+cat("**Site:**", params$site, " | ",
+    "**Date:**", gsub("_", "-", params$date), " | ",
+    "**DTMs evaluated:**", n_dtms, " | ",
+    "**ECPs (overall):**", n_ecp_overall)
+```
+
+```{r ecp_class_counts}
+# ECP counts by class (from first DTM's non-overall rows).
+class_rows <- all_summary[all_summary$dtm == dtm_stems[1] &
+                             all_summary$group != "overall", ]
+class_tbl  <- class_rows[, c("group", "n")]
+colnames(class_tbl) <- c("ECP class", "n")
+knitr::kable(class_tbl[order(-class_tbl$n), ],
+             row.names = FALSE,
+             caption = "ECP counts by class (Logger Array excluded).")
+```
+
+```{r bias_flag, results = "asis"}
+if (length(flagged_bias) > 0) {
+   cat("> **Note:** The following DTMs have a mean vertical bias",
+       "statistically distinguishable from zero (t-test p < 0.05):",
+       paste(flagged_bias, collapse = ", "),
+       ". Check the residual plots for systematic patterns.\n")
+} else {
+   cat("> Mean vertical bias is not statistically distinguishable",
+       "from zero in any DTM (t-test p ≥ 0.05 for all).\n")
+}
+```
+
+---
+
+## Rankings
+
+Bare-class RMSE (Berm + Training) reflects CSF ground-classification
+performance on surfaces where the lidar can actually see the floor.
+All-class RMSE is biased upward by tall-vegetation classes where
+unfiltered canopy returns inflate the apparent error.
+
+### Bare-class RMSE
+
+```{r bare_rank}
+bare_types <- c("Berm", "Training")
+bare_rows  <- all_summary[all_summary$group %in% bare_types, ]
+
+if (nrow(bare_rows) > 0) {
+   bare_rank <- aggregate(
+      rmse ~ dtm, data = bare_rows,
+      FUN = function(x) round(mean(x, na.rm = TRUE), 3)
+   )
+   bare_rank <- bare_rank[order(bare_rank$rmse), ]
+   colnames(bare_rank) <- c("DTM", "Mean RMSE (m)")
+   knitr::kable(bare_rank, row.names = FALSE)
+} else {
+   cat("_No Berm or Training rows found._")
+}
+```
+
+### Overall RMSE
+
+```{r overall_rank}
+show_cols <- c("dtm", "n", "mean_bias", "rmse", "mae", pct_cols)
+show_cols <- show_cols[show_cols %in% colnames(overall_rows)]
+rank_tbl  <- overall_rows[order(overall_rows$rmse), show_cols]
+rank_tbl$mean_bias <- rnd(rank_tbl$mean_bias, 3)
+rank_tbl$rmse      <- rnd(rank_tbl$rmse, 3)
+rank_tbl$mae       <- rnd(rank_tbl$mae, 3)
+for (pc in pct_cols) {
+   rank_tbl[[pc]] <- rnd(rank_tbl[[pc]], 1)
+}
+colnames(rank_tbl)[colnames(rank_tbl) == "dtm"]       <- "DTM"
+colnames(rank_tbl)[colnames(rank_tbl) == "mean_bias"] <- "Bias (m)"
+colnames(rank_tbl)[colnames(rank_tbl) == "rmse"]      <- "RMSE (m)"
+colnames(rank_tbl)[colnames(rank_tbl) == "mae"]       <- "MAE (m)"
+knitr::kable(rank_tbl, row.names = FALSE)
+```
+
+---
+
+## Full metrics table
+
+All metric columns, all DTMs and classes.
+
+```{r full_table}
+show <- all_summary
+show$mean_bias    <- rnd(show$mean_bias, 3)
+show$median_bias  <- rnd(show$median_bias, 3)
+show$rmse         <- rnd(show$rmse, 3)
+show$mae          <- rnd(show$mae, 3)
+show$mad          <- rnd(show$mad, 3)
+show$max_abs      <- rnd(show$max_abs, 3)
+show$q25_abs      <- rnd(show$q25_abs, 3)
+show$q75_abs      <- rnd(show$q75_abs, 3)
+show$q95_abs      <- rnd(show$q95_abs, 3)
+show$slope        <- rnd(show$slope, 3)
+show$bias_p       <- rnd(show$bias_p, 3)
+for (pc in pct_cols) show[[pc]] <- rnd(show[[pc]], 1)
+knitr::kable(show, row.names = FALSE)
+```
+
+---
+
+## Plots {.tabset}
+
+Five diagnostic plots per DTM.
+**Q-Q plot:** a straight line means residuals are roughly normal,
+which validates the t-test used for `bias_p`; heavy tails suggest
+using a sign test instead.
+
+```{r plots, results = "asis"}
+for (stem in dtm_stems) {
+   cat("\n### ", stem, "\n\n", sep = "")
+   for (pname in plot_names) {
+      png_path <- file.path(params$eval_dir,
+                            paste0(stem, "_", pname, ".png"))
+      if (file.exists(png_path)) {
+         label <- if (pname %in% names(plot_labels)) {
+            plot_labels[pname]
+         } else {
+            pname
+         }
+         cat("**", label, "**\n\n", sep = "")
+         cat("![](",
+             knitr::image_uri(png_path),
+             "){width=80%}\n\n",
+             sep = "")
+      }
+   }
+}
+```
