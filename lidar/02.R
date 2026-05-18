@@ -220,15 +220,10 @@ for (i in seq_len(nrow(csf_grid))) {
 # `lidar/03_evaluate_dtm.R` opens fast.  `sample_dtm()` is
 # skip-if-exists; re-running this block is cheap.
 #
-# `R/load_ecp.R` is a future task; for now we inline the ECP read.
-# Filter excludes `Logger Array` (loggers sit above the marsh surface);
-# Berm, EVP, and Training points are kept since all represent real
-# ground elevation suitable for DTM evaluation.
+# `load_ecp()` cleans, filters, and returns an sf object.
+# Logger Array excluded; Berm, EVP, and Training kept.
 
-ecp <- readxl::read_xlsx(paths$ecp) |> clean_column_names()
-ecp$date <- clean_dates(ecp$date)
-ecp$site <- tolower(ecp$site)
-site_ecp <- ecp[ecp$site == site & !ecp$type %in% "Logger Array", ]
+site_ecp <- load_ecp(paths$ecp, site = site)
 
 for (d in csf_results$dtm) {
    sample_dtm(d, site_ecp)
