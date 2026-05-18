@@ -1,77 +1,82 @@
-#' Score a DTM against elevation control points
+#' Evaluate a DTM against elevation control points
 #'
-#' Bilinearly samples a digital terrain model at each ECP's
-#' easting/northing, then reports per-point residuals and summary
-#' statistics — overall and broken out by ECP `type`. Vegetation
-#' classes are expected to be harder than bare-ground points, so the
-#' per-type breakout is the primary diagnostic.
+#' Pure reporting function: takes the assembled elevations frame
+#' from [`sample_dtm()`], computes residuals and a full metric
+#' set, and returns summary statistics plus diagnostic plots.
+#' Does *not* perform any raster I/O — that step lives in
+#' [`sample_dtm()`].
 #'
-#' The global offset is estimated as the mean residual
-#' `mean(predicted - elevation)` over all points. It approximates the
-#' systematic vertical bias of the DTM; adjusted residuals subtract
-#' it before computing MAE/RMSE so we can see how much of the error
-#' is bias vs. noise.
+#' Residuals are computed on raw predicted values
+#' (no bias-correction applied).
+#' The global offset (mean residual) is returned as a diagnostic
+#' showing what correction *would* be needed,
+#' but it is not subtracted from any metric.
+#' `bias_p` in the summary formally tests whether the mean bias
+#' is statistically distinguishable from zero
+#' (t-test on residuals vs 0).
 #'
-#' @param dtm Either a `terra::SpatRaster` (single-band) or a path to
-#'   a GeoTIFF.
-#' @param ecp A data frame of elevation control points with at least
-#'   `easting`, `northing`, `elevation`, and `type` columns.
+#' @param elevations Data frame from [`sample_dtm()`]
+#'   (or an rbind of several with a `dtm` identifier column).
+#'   Must contain `easting`, `northing`, `elevation`,
+#'   `predicted`, and `type` columns;
+#'   all other columns are passed through to `points`.
+#' @param tolerances Numeric vector of absolute-difference
+#'   thresholds (metres) for `pct_within_*` columns.
+#'   Default `c(0.10, 0.20)`.
+#' @param crs Integer EPSG code used to build the sf object for
+#'   `residual_map`.
+#'   Default `26919` (NAD83 / UTM 19N, the project standard).
 #'
-#' @return A list with elements:
-#' * `points` — per-ECP table with columns `easting`, `northing`,
-#'   `type`, `elevation`, `predicted`, `residual` (= predicted − observed),
-#'   and `adj_residual` (residual minus the global offset).
-#' * `summary` — one row per group (`"overall"` plus each `type`)
-#'   with `n`, `bias`, `mae`, `rmse`, `cor`, `adj_bias`, `adj_mae`,
-#'   `adj_rmse`. See [summarize_residuals()].
-#' * `offset` — the global offset (scalar).
-#' * `plots` — named list of `ggplot` objects: `pred_vs_obs`
-#'   ([plot_pred_vs_obs()]), `residual_hist` ([plot_residual_hist()]),
-#'   `residual_map` ([plot_residual_map()]).
+#' @return A named list:
+#' * `points` — per-point data frame: all `elevations` columns
+#'   plus `residual` (= `predicted − elevation`) and
+#'   `abs_residual`.
+#' * `summary` — one row per class (`"overall"` plus each
+#'   `type`).
+#'   See [summarize_residuals()] for the column list.
+#' * `offset` — scalar mean residual (global offset diagnostic;
+#'   not applied to any metric).
+#' * `plots` — named list of `ggplot` objects:
+#'   `pred_vs_obs`, `residual_hist`, `residual_map`,
+#'   `residual_vs_elevation`, `qq_residuals`.
 #'
 #' @examples
 #' \dontrun{
-#' result <- evaluate_dtm(dtm_path, site_ecp)
+#' elevations <- sample_dtm(dtm_path, site_ecp)
+#' result     <- evaluate_dtm(elevations)
 #' result$summary
 #' result$plots$pred_vs_obs
 #' }
-evaluate_dtm <- function(dtm, ecp) {
+evaluate_dtm <- function(elevations,
+                         tolerances = c(0.10, 0.20),
+                         crs = 26919L) {
 
-   if (is.character(dtm) && length(dtm) == 1 && file.exists(dtm)) {
-      dtm <- terra::rast(dtm)
+   required <- c("easting", "northing", "elevation",
+                 "predicted", "type")
+   missing <- setdiff(required, colnames(elevations))
+   if (length(missing) > 0L) {
+      stop("evaluate_dtm(): missing required column(s): ",
+           paste(missing, collapse = ", "))
    }
-   if (!inherits(dtm, "SpatRaster") || terra::nlyr(dtm) != 1) {
-      stop("Expected dtm or the file it points to, to be a single band raster.")
-   }
 
-   coords <- ecp |>
-      dplyr::select(x = easting, y = northing, elevation, type) |>
-      as.data.frame()
+   points <- as.data.frame(elevations)
+   points$residual     <- points$predicted - points$elevation
+   points$abs_residual <- abs(points$residual)
 
-   predicted <- terra::extract(dtm, coords[, c("x", "y")],
-                               method = "bilinear", ID = FALSE)[, 1]
+   summary <- summarize_residuals(points, tolerances)
 
-   points <- data.frame(
-      easting = coords$x,
-      northing = coords$y,
-      type = coords$type,
-      elevation = coords$elevation,
-      predicted = predicted,
-      residual = predicted - coords$elevation
-   )
-
-   # Global vertical bias.
-   # Equivalent to coef(lm(predicted ~ 1 + offset(elevation))).
+   # Global offset: mean residual (diagnostic only, not applied).
    offset <- mean(points$residual, na.rm = TRUE)
-   points$adj_residual <- points$residual - offset
-
-   summary <- summarize_residuals(points)
 
    plots <- list(
-      pred_vs_obs   = plot_pred_vs_obs(points),
-      residual_hist = plot_residual_hist(points),
-      residual_map  = plot_residual_map(points, terra::crs(dtm))
+      pred_vs_obs           = plot_pred_vs_obs(points),
+      residual_hist         = plot_residual_hist(points),
+      residual_map          = plot_residual_map(points,
+                                                crs = crs),
+      residual_vs_elevation = plot_residual_vs_elevation(points),
+      qq_residuals          = plot_qq_residuals(points)
    )
 
-   list(points = points, summary = summary, offset = offset, plots = plots)
+   list(points = points, summary = summary,
+        offset = offset, plots = plots)
 }
