@@ -17,6 +17,53 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-05-19 — branch main
+
+### Merge evaluation pipeline into Rmd report; add cross-DTM plot
+
+Refactored the three-file evaluation stack so the Rmd is the single
+source of computation and plots, instead of a passive viewer of
+pre-saved PNGs.
+
+**`rmd/dtm_evaluation_report.Rmd`** — complete rewrite.
+
+- Setup chunk now runs the full pipeline:
+  source R/ helpers, `load_ecp()`, `sample_dtm()` per DTM
+  (skip-if-exists cache hit in normal use),
+  `evaluate_dtm()` per DTM, write `dtm_eval_summary.csv`.
+  Pre-saving PNGs is gone; plots render inline from the
+  `evaluate_dtm()` return values.
+- New params: `ecp_path`, `base_output`, `tolerances`,
+  `ecp_types`.
+  `ecp_types` filters the loaded ECPs before sampling
+  (case-insensitive `%in%`).
+  Default `["EVP"]` — set in the Rmd YAML; `report_dtms()`
+  default is `"Training"`.
+- New **Cross-DTM comparison** section: faceted predicted
+  vs. observed for all DTMs on a common scale, coloured by
+  `veg_height_cm` on a log10 scale.
+  Zeros floored to `vhc_floor = 0.01` cm so log scale is
+  defined; NAs rendered as grey50.
+  Falls back to an uncoloured version if `veg_height_cm`
+  column is absent.
+- Per-DTM plots section: tabbed by DTM stem, 5 plots each,
+  rendered from `results[[stem]]$plots` named list.
+
+**`R/report_dtms.R`** — updated signature.
+
+- Added `ecp_path`, `base_output`, `tolerances`, `ecp_types`
+  params with project-standard defaults.
+- All four passed through to `rmarkdown::render()` params.
+- Dropped pre-flight CSV check (Rmd now creates the CSV).
+
+**`lidar/03_evaluate_dtm.R`** — simplified to param block
+  + `report_dtms()` call.
+  All computation and PNG-writing removed; those responsibilities
+  now live in the Rmd.
+
+Pending: lint `R/report_dtms.R` and `lidar/03_evaluate_dtm.R`
+then commit (blocked on Rscript not being on PATH in this shell).
+
 ## 2026-05-15 — branch main
 
 ### `lidar/02.R` cleanup — header, params block, bug fixes, renames
