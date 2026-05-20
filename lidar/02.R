@@ -69,6 +69,11 @@ chunk_buffer <- 20   # buffer read around each chunk in meters
 
 site <- "rr" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
 
+# Optional date filter: "yyyy-mm-dd" string to pick a specific cloud
+# when a site has more than one preferred row in paths.csv.
+# NULL = use the first preferred row (original behaviour).
+date_filter <- NULL
+
 # CSF (Cloth Simulation Filter) tuning grid.  Each row is one
 # ground-classification parameter set that `rasterize_ground()` will
 # run; output DTM filenames embed the values via
@@ -108,9 +113,15 @@ paths <- list()
 
 
 # Select input file.  Could loop to process each cloud at each site;
-# for now just take the first match.
+# for now just take the first match (or the row matching date_filter).
 possible_input_rows <- which(input_file_paths$site == site &
                                 input_file_paths$type == "cloud")
+if (!is.null(date_filter)) {
+   possible_input_rows <- possible_input_rows[
+      format(input_file_paths$date[possible_input_rows], "%Y-%m-%d") ==
+         date_filter
+   ]
+}
 input_row <- possible_input_rows[1]
 
 paths$input <- input_file_paths$path[input_row]

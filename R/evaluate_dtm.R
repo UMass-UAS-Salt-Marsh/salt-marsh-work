@@ -52,7 +52,7 @@ evaluate_dtm <- function(elevations,
                          crs = 26919L) {
 
    required <- c("easting", "northing", "elevation",
-                 "predicted", "type")
+                 "predicted", "type", "subclass")
    missing <- setdiff(required, colnames(elevations))
    if (length(missing) > 0L) {
       stop("evaluate_dtm(): missing required column(s): ",

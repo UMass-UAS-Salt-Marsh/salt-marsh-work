@@ -19,6 +19,44 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-05-19 — branch main
 
+### Two-date vegetation height distribution — initial implementation
+
+Phase 1 evaluation showed all CSF parameter sets fail to find clean
+ground in the late-summer salt marsh cloud.
+Pivot to two-date approach: use spring (pre-vegetation) cloud as the
+ground reference DTM, characterise summer cloud returns above that floor.
+
+**`lidar/02.R`** — added `date_filter` param.
+Added `date_filter <- NULL` to the params block (5 lines below `site`).
+When non-NULL, filters the preferred paths to the specified date string
+before selecting the cloud row.
+Set `date_filter <- "2022-05-14"` to process the rr spring cloud.
+
+**`R/rasterize_veg_heights.R`** — new function.
+`rasterize_veg_heights(input, dtm, output, bin_breaks, raster_res, ...)`.
+Uses `catalog_map()`: for each chunk, normalises heights against the
+spring DTM via `normalize_height()`, then calls `pixel_metrics()` with
+a per-cell histogram function.
+Bin breaks default: 5 cm steps 0–1 m + 20 cm steps 1–3 m = 30 bands.
+Cell value = fraction of total returns (including below-ground) in the bin.
+Band names encode edges in cm: `h000_005`, `h100_120`, etc.
+Writes multi-band GeoTIFF; returns output path invisibly.
+
+**`lidar/05_veg_heights.R`** — new workflow driver.
+Params block: `site`, `spring_date`, `summer_date`, `spring_dtm`,
+`raster_res`.
+Mirrors `02.R` structure: sources R/, loads paths.csv, validates inputs.
+Step 1: `clean_and_tile()` on summer cloud (skip-if-exists).
+Step 2: `rasterize_veg_heights()` → writes to
+`E:/uas_scratch/lidar/<site>/<summer_date>/zzzheights/veg_dist_<res>m.tif`.
+`spring_dtm` placeholder points to `csf_th0.06_res0.10_rgd2_0.25m.tif`;
+update after running spring DTM evaluation.
+
+User workflow:
+1. `02.R` with `date_filter <- "2022-05-14"` → spring DTMs
+2. `03_evaluate_dtm.R` with spring date → pick best DTM
+3. `05_veg_heights.R` with chosen `spring_dtm` path → height raster
+
 ### Merge evaluation pipeline into Rmd report; add cross-DTM plot
 
 Refactored the three-file evaluation stack so the Rmd is the single
