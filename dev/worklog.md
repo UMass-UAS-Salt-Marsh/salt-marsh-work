@@ -17,6 +17,53 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-05-20 — branch main
+
+### Expand CSF grid search in lidar/02.R
+
+Replaced the initial 4-run grid with an 18-run expanded search.
+Previous best had the largest cloth_resolution (0.20) and
+class_threshold (0.12), suggesting the cloth needed to be coarser
+and more permissive.
+
+Discussion: threshold of 0.50 (original expansion) rejected — in
+short saltmarsh (20–50 cm canopy) a half-meter threshold would
+classify vegetation returns as ground.
+Settled on threshold ∈ {0.08, 0.12, 0.20}: 0.08 probes whether
+the current best is already too permissive, 0.12 is the known-best
+reference, 0.20 is the upper bound kept ecologically defensible.
+
+New grid: `expand.grid(csf_res = c(0.20, 0.30, 0.50),
+csf_threshold = c(0.08, 0.12, 0.20), csf_rigidness = c(2, 3),
+raster_res = 0.25)` — 18 parameter sets.
+Existing DTMs (res=0.20, th=0.12, rgd=2) will be skipped on re-run
+via the skip-if-exists check in `rasterize_ground()`.
+
+Also: `date_filter` set to `"2022-05-14"` (spring cloud) for the
+current run.
+
+### Add lidar/06_compare_ground_sources.R
+
+New driver that evaluates all available ground elevation datasets for
+a site against ECPs in a single pass, using the existing `sample_dtm()`
+/ `evaluate_dtm()` stack.
+
+Sources compared for rr: two lidar DTMs (spring + summer, best CSF
+set each), two spring photogrammetry DEMs (HesaiRGB and Mica sensors),
+one summer photogrammetry DEM (Mavic), and the MassGIS 2021 aerial
+lidar bare-earth tile.
+
+Params block sets `best_csf_spring` and `best_csf_summer` stems
+(placeholders for now; update after spring lidar eval is complete).
+Cache CSVs written to `lidar/output/rr_ground_comparison/` so nothing
+is written next to source files on the X drive.
+Missing source files warn and are skipped rather than halting the run.
+Outputs `ground_source_comparison.csv` and prints an overall RMSE
+ranking table.
+
+Also added Phase 1.5 section to `dev/work_plan.md` describing the
+comparison goal, data sources, and implementation approach.
+
 ## 2026-05-19 — branch main
 
 ### Two-date vegetation height distribution — initial implementation

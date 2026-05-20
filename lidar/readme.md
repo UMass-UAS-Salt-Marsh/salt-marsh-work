@@ -237,7 +237,42 @@ The installation was problematic but pdal does work. Nothing was added to
 the system PATH; the PDAL tools are invoked from R using their full paths.
 
 
+## Comparing ground elevation datasets
 
+We have collected high resolution lidar with two goals:
+1. Create acurate DTM rasters of the sites.
+2. Collect information on vegetation height.
+
+We've learned that summer lidar doesn't do a good job of detecting 
+ground in saltmarsh vegetation.  Consequently we need a source for ground
+elevation (presumably taken in spring when vegation is low) to compare to
+when evaluating vegation height.
+
+There are three possible sources for DTM and DEM rasters:
+1. MassGIS DEM derived from aerial lidar.
+2. MassMarsh (this project) DEM created via photogrametry for
+  a. spring (minimal vegetation) 
+  b. summer (full vegetation)
+3. MassMarsh (this project) lidar:
+ a. spring
+ b. Summer
+ 
+To evaluate these we will sample the elevation from each using the ECP points.
+
+### Data sources for red river
+
+##### Photogrammetry DEMs for Red River.
+Spring:
+    X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\Orthos and DEMs 2022\26May2022\Low\26May2022_RED_Low_HesaiRGB_DEM.tif
+    X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\Orthos and DEMs 2022\26May2022\Low\26May22_RR_Low_Mica_DEM.tif
+High summer:
+    X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\Orthos and DEMs 2022\10Aug2022\Low\10Aug22_RR_Low_Mavic_DEM.tif
+
+#### [MassGIS LiDAR](https://www.mass.gov/info-details/massgis-data-lidar-terrain-data#technical-details-of-the-new-usgs-3dep-central-eastern-massachusetts-lidar-) for tile 19TDG412612:
+File is here: X:\scratch\bcompton\LiDAR\be_19TDG412612\be_19TDG412612.tif
+[File URL](https://s3.us-east-1.amazonaws.com/download.massgis.digital.mass.gov/lidar/2021_LIDAR/be_rasters/be_19TDG412612.zip)
+MassGIS LiDAR is from 2021. Bad for our use, but good for the comparison.   
+There's also an ArcGIS project: X:\scratch\bcompton\LiDAR\Red_River_LiDAR.aprx
 
 
 

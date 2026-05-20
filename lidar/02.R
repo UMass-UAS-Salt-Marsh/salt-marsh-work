@@ -72,16 +72,21 @@ site <- "rr" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
 # Optional date filter: "yyyy-mm-dd" string to pick a specific cloud
 # when a site has more than one preferred row in paths.csv.
 # NULL = use the first preferred row (original behaviour).
-date_filter <- NULL
+date_filter <- "2022-05-14"
 
 # CSF (Cloth Simulation Filter) tuning grid.  Each row is one
 # ground-classification parameter set that `rasterize_ground()` will
 # run; output DTM filenames embed the values via
 # `paths$ground_raster_template`.
-csf_grid <- data.frame(
-   csf_res       = c(0.05, 0.10, 0.10, 0.20),
-   csf_threshold = c(0.005, 0.01, 0.06, 0.12),
-   csf_rigidness = 2,
+#
+# Expanded from the initial 4-run search: the best preliminary result
+# had the largest cloth_resolution (0.20) and class_threshold (0.12),
+# so this grid extends both upward and crosses rigidness 2 vs. 3.
+# 3 resolutions × 3 thresholds × 2 rigidness values = 18 parameter sets.
+csf_grid <- expand.grid(
+   csf_res       = c(0.20, 0.30, 0.50),
+   csf_threshold = c(0.08, 0.12, 0.20),
+   csf_rigidness = c(2, 3),
    raster_res    = 0.25
 )
 

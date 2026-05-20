@@ -274,6 +274,78 @@ the smoke test is the manual run-through.
   if the latter,
   the metrics generalize less than they look.
 
+### Phase 1.5 — compare ground elevation sources
+
+Before the spring lidar DTM is used as the ground reference for the
+vegetation strata work, compare it against all other available ground
+elevation datasets for the site.
+The comparison uses the same ECP-based evaluation stack already built
+for Phase 1 — no new R/ functions are needed.
+
+#### Goal
+
+Rank the available sources by RMSE and bias against field ECPs,
+and record the chosen ground reference + rationale in `worklog.md`.
+
+#### Data sources (rr)
+
+| Label | Path | Notes |
+|---|---|---|
+| `lidar_spring` | `E:/uas_scratch/lidar/rr/2022_05_14/zzzraster/<best_csf>.tif` | Spring lidar DTM (Phase 1) |
+| `lidar_summer` | `E:/uas_scratch/lidar/rr/2022_08_10/zzzraster/<best_csf>.tif` | Summer lidar DTM (Phase 1) |
+| `photo_spring_hesai` | `X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/Red River/Orthos and DEMs 2022/26May2022/Low/26May2022_RED_Low_HesaiRGB_DEM.tif` | Spring photogrammetry DEM |
+| `photo_spring_mica` | `X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/Red River/Orthos and DEMs 2022/26May2022/Low/26May22_RR_Low_Mica_DEM.tif` | Spring photogrammetry DEM (alt sensor) |
+| `photo_summer` | `X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/Red River/Orthos and DEMs 2022/10Aug2022/Low/10Aug22_RR_Low_Mavic_DEM.tif` | Summer photogrammetry DEM |
+| `massgis` | `X:/scratch/bcompton/LiDAR/be_19TDG412612/be_19TDG412612.tif` | MassGIS aerial lidar (2021) |
+
+#### Implementation — `lidar/06_compare_ground_sources.R`
+
+A single new driver script.
+No new R/ functions — `load_ecp()`, `sample_dtm()`, and `evaluate_dtm()`
+already handle any raster source.
+
+Params block:
+```r
+site       <- "rr"
+output_dir <- file.path("lidar/output", paste0(site, "_ground_comparison"))
+```
+
+Logic:
+1. Source R/ helpers; load ECPs via `load_ecp()`.
+2. Define a named character vector `sources` mapping label → path
+   (the six rows above; best CSF stems filled in after Phase 1 runs).
+3. Loop: for each source, call `sample_dtm()` with an explicit
+   `output_csv = file.path(output_dir, paste0(label, "_ecp.csv"))`.
+   Using `output_dir` rather than the source raster's own directory
+   keeps all comparison cache files together and avoids writing next
+   to read-only data on the X drive.
+4. `evaluate_dtm()` on each sampled data frame; collect `$summary` rows,
+   tag with `source` label.
+5. Write combined `ground_source_comparison.csv` to `output_dir`.
+6. Print an overall-RMSE ranking table to the console.
+
+#### Notes
+
+- `terra::extract()` inside `sample_dtm()` reprojects the ECP points
+  to the raster's CRS on the fly, so CRS mismatches between sources
+  are handled automatically.
+- The photogrammetry DEMs are surface models (not bare-earth),
+  so their bare-class RMSE will be inflated where vegetation was present
+  — that's expected and informative.
+- The MassGIS tile covers the 2021 acquisition; absolute elevation
+  offsets may reflect both DTM error and real-world marsh accretion
+  since then.
+
+#### Decision point
+
+After reviewing the comparison table, record the chosen ground
+reference in `worklog.md` and update the `spring_dtm` path in
+`lidar/05_veg_heights.R`.
+
+- [ ] Write `lidar/06_compare_ground_sources.R`.
+- [ ] Run after spring lidar DTMs are evaluated (Phase 1 complete).
+- [ ] Record decision in `worklog.md`.
+
 ### Phase 2 — vegetation strata (Goal 2)
 
 Approach: normalize point heights to the chosen DTM, then compute a
