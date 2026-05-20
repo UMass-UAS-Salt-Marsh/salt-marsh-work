@@ -62,7 +62,11 @@ rasterize_veg_heights <- function(
    ctg <- lidR::readLAScatalog(input)
    lidR::opt_chunk_size(ctg)   <- chunk_size
    lidR::opt_chunk_buffer(ctg) <- chunk_buffer
-   lidR::opt_output_files(ctg) <- ""
+   # Write each chunk raster to disk as it completes so an interruption
+   # only loses the in-progress chunk, not the whole output.
+   chunk_dir <- paste0(tools::file_path_sans_ext(output), "_chunks")
+   dir.create(chunk_dir, recursive = TRUE, showWarnings = FALSE)
+   lidR::opt_output_files(ctg) <- file.path(chunk_dir, "{ORIGINALFILENAME}")
 
    n_chunks <- nrow(ctg@data)
    if (n_chunks == 0L) stop("Input catalog contains zero chunks.")
@@ -94,6 +98,7 @@ rasterize_veg_heights <- function(
    result <- lidR::catalog_map(ctg, compute_heights)
 
    terra::writeRaster(result, filename = output, overwrite = TRUE)
+   unlink(chunk_dir, recursive = TRUE)
    if (verbose) message("Vegetation height raster written: ", output)
    invisible(output)
 }
