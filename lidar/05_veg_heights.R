@@ -22,6 +22,9 @@
 
 library(lidR)
 library(future)
+library(progressr)
+progressr::handlers(global = TRUE)
+progressr::handlers("cli")
 
 #------------------------------------------------------------------------------#
 # Run-level parameters

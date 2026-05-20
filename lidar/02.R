@@ -42,6 +42,9 @@
 
 library(lidR)
 library(future)
+library(progressr)
+progressr::handlers(global = TRUE)
+progressr::handlers("cli")
 
 # Memory note.  This pipeline is memory-bound, not CPU-bound;
 # tuning the worker count and chunk size matters more than core
