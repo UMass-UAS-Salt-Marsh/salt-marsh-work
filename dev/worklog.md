@@ -19,6 +19,38 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-05-20 — branch main
 
+### Keep chunk-dir approach in rasterize_ground / rasterize_veg_heights
+
+Empirically confirmed that output TIFs were not appearing on disk until
+the last few minutes of a multi-hour run, ruling out output-buffering
+as the sole explanation.
+
+Most likely cause: with `opt_output_files = ""` and
+`plan(multisession)`, `catalog_map()` returns a lazy or deferred
+`terra::SpatRaster` — terra's C++ raster objects are not natively
+serializable across process boundaries, so the main process receives a
+reference whose underlying GDAL writes are not forced until memory
+pressure or GC, which happens to coincide with the end of the run.
+
+The chunk-dir approach (setting `opt_output_files` to a real path)
+sidesteps this: workers write chunk TIFs to shared disk directly, file
+paths are trivially serializable, and `catalog_map()` returns a
+file-backed SpatRaster with no deferred I/O. Keeping this in place to
+observe behavior on the next full run.
+
+### Enable progressr for real-time catalog_map() progress
+
+With `plan(multisession)`, worker stdout/stderr is buffered in separate
+R processes and only surfaces when futures resolve — so all
+`catalog_map()` progress appeared at the end of each run rather than
+as chunks completed.
+Fix: add `library(progressr)`, `progressr::handlers(global = TRUE)`,
+and `progressr::handlers("cli")` to both `lidar/02.R` and
+`lidar/05_veg_heights.R`.
+lidR integrates with progressr natively in `catalog_map()`, so no
+changes to `rasterize_ground.R` or `rasterize_veg_heights.R` were
+needed.
+
 ### Expand CSF grid search in lidar/02.R
 
 Replaced the initial 4-run grid with an 18-run expanded search.
