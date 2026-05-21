@@ -97,12 +97,15 @@ sample_dtm <- function(dtm,
          out$easting  <- coords[, 1]
          out$northing <- coords[, 2]
       }
-      # Convert to SpatVector so terra reprojects to the DTM's CRS
-      # before sampling — avoids silent misalignment when the ECP and
-      # raster are in different coordinate systems.
-      predicted <- terra::extract(
-         dtm, terra::vect(ecp), method = "bilinear"
-      )[, 2]
+      # Reproject ECPs to match the raster's CRS before sampling so
+      # that sources in different coordinate systems are handled
+      # correctly.  sf::st_transform is used rather than terra::vect()
+      # to avoid CRS-transfer reliability issues across terra versions.
+      raster_crs <- sf::st_crs(terra::crs(dtm))
+      ecp_proj   <- sf::st_transform(ecp, crs = raster_crs)
+      proj_coords <- sf::st_coordinates(ecp_proj)[, 1:2, drop = FALSE]
+      predicted <- terra::extract(dtm, proj_coords,
+                                  method = "bilinear")[, 1]
    } else {
       if (!all(c("easting", "northing") %in% colnames(ecp))) {
          stop("sample_dtm(): `ecp` must have `easting` and ",
