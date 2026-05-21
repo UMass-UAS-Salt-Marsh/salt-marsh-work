@@ -17,6 +17,27 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-05-21 — branch main
+
+### Switch evaluation to spring date; default ecp_types to EVP
+
+Spring cloud (rr/2022-05-14) finished processing; pivoting evaluation
+to that date.
+
+`lidar/03_evaluate_dtm.R`: date set to `"2022_05_14"`.
+
+`R/report_dtms.R`: default `ecp_types` changed from `"Training"` to
+`"EVP"` to match the point type used in active evaluation runs.
+
+`rmd/dtm_evaluation_report.Rmd`: default params updated to spring date
+and `base_output`; added a filter of `all_elevations` to `ecp_types`
+after sampling (previously the cross-DTM plot could include non-EVP
+points even when `ecp_types = "EVP"`); full metrics table now sorted
+with "overall" row first.
+
+`lidar/05_veg_heights.R`: `spring_dtm` placeholder updated to
+`csf_th0.01_res0.1_rgd2_0.25m.tif`.
+
 ## 2026-05-20 — branch main
 
 ### Keep chunk-dir approach in rasterize_ground / rasterize_veg_heights
