@@ -51,10 +51,11 @@ tolerances <- c(0.10, 0.20)
 
 output_dir <- file.path("lidar/output", paste0(site, "_ground_comparison"))
 
-# Best CSF stems from Phase 1 evaluation — update these after running
-# lidar/03_evaluate_dtm.R for each date.
-best_csf_spring <- "csf_th0.06_res0.10_rgd2_0.25m.tif"
-best_csf_summer <- "csf_th0.06_res0.10_rgd2_0.25m.tif"
+# Best CSF stems from Phase 1 evaluation (lowest overall RMSE).
+# Spring: RMSE 0.174 m, bias +0.165 m
+# Summer: RMSE 0.245 m, bias +0.221 m
+best_csf_spring <- "csf_th0.01_res0.1_rgd2_0.25m.tif"
+best_csf_summer <- "csf_th0.12_res0.2_rgd2_0.25m.tif"
 
 sources <- c(
    lidar_spring = file.path(
