@@ -92,13 +92,17 @@ sample_dtm <- function(dtm,
    # (use the geometry) or a data frame with easting / northing.
    if (inherits(ecp, "sf")) {
       coords <- sf::st_coordinates(ecp)[, 1:2, drop = FALSE]
-      out <- sf::st_drop_geometry(ecp)
+      out    <- sf::st_drop_geometry(ecp)
       if (!"easting" %in% colnames(out)) {
-         out$easting <- coords[, 1]
-      }
-      if (!"northing" %in% colnames(out)) {
+         out$easting  <- coords[, 1]
          out$northing <- coords[, 2]
       }
+      # Convert to SpatVector so terra reprojects to the DTM's CRS
+      # before sampling — avoids silent misalignment when the ECP and
+      # raster are in different coordinate systems.
+      predicted <- terra::extract(
+         dtm, terra::vect(ecp), method = "bilinear"
+      )[, 2]
    } else {
       if (!all(c("easting", "northing") %in% colnames(ecp))) {
          stop("sample_dtm(): `ecp` must have `easting` and ",
@@ -106,10 +110,9 @@ sample_dtm <- function(dtm,
       }
       coords <- as.matrix(ecp[, c("easting", "northing")])
       colnames(coords) <- c("x", "y")
-      out <- as.data.frame(ecp)
+      out       <- as.data.frame(ecp)
+      predicted <- terra::extract(dtm, coords, method = "bilinear")[, 1]
    }
-
-   predicted <- terra::extract(dtm, coords, method = "bilinear")[, 1]
    n_missing <- sum(is.na(predicted))
    if (n_missing > 0L) {
       message("sample_dtm(): ", n_missing,
