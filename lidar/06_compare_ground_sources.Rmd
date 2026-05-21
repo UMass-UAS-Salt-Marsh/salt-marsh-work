@@ -67,6 +67,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
                       fig.width = 8, fig.height = 5)
 library(here)
 library(ggplot2)
+library(dplyr)
 setwd(here::here())
 
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
@@ -144,6 +145,22 @@ if (length(missing) > 0L) {
 
 ## Bias and RMSE by source
 
+```{r rmse_table}
+show_cols <- c("source", "n", "mean_bias", "rmse", "mae", pct_cols)
+show_cols <- show_cols[show_cols %in% colnames(overall_rows)]
+rank_tbl  <- overall_rows[order(overall_rows$rmse), show_cols]
+rank_tbl$mean_bias <- rnd(rank_tbl$mean_bias, 3)
+rank_tbl$rmse      <- rnd(rank_tbl$rmse, 3)
+rank_tbl$mae       <- rnd(rank_tbl$mae, 3)
+for (pc in pct_cols) rank_tbl[[pc]] <- rnd(rank_tbl[[pc]], 1)
+colnames(rank_tbl)[colnames(rank_tbl) == "mean_bias"] <- "Bias (m)"
+colnames(rank_tbl)[colnames(rank_tbl) == "rmse"]      <- "RMSE (m)"
+colnames(rank_tbl)[colnames(rank_tbl) == "mae"]       <- "MAE (m)"
+knitr::kable(rank_tbl, row.names = FALSE)
+```
+
+
+
 A consistent positive `mean_bias` across sources that share a common
 processing lineage (e.g. all project lidar and photogrammetry) but not
 in external reference data (MassGIS) points to a datum or reprojection
@@ -167,22 +184,8 @@ ggplot(plot_overall, aes(x = source, y = mean_bias,
    scale_fill_manual(values = c("TRUE" = "#d73027",
                                 "FALSE" = "#4575b4")) +
    labs(x = NULL, y = "Mean bias (m)",
-        caption = "Error bars span ± RMSE.") +
+        caption = "Error bars span +/- RMSE.") +
    theme_minimal()
-```
-
-```{r rmse_table}
-show_cols <- c("source", "n", "mean_bias", "rmse", "mae", pct_cols)
-show_cols <- show_cols[show_cols %in% colnames(overall_rows)]
-rank_tbl  <- overall_rows[order(overall_rows$rmse), show_cols]
-rank_tbl$mean_bias <- rnd(rank_tbl$mean_bias, 3)
-rank_tbl$rmse      <- rnd(rank_tbl$rmse, 3)
-rank_tbl$mae       <- rnd(rank_tbl$mae, 3)
-for (pc in pct_cols) rank_tbl[[pc]] <- rnd(rank_tbl[[pc]], 1)
-colnames(rank_tbl)[colnames(rank_tbl) == "mean_bias"] <- "Bias (m)"
-colnames(rank_tbl)[colnames(rank_tbl) == "rmse"]      <- "RMSE (m)"
-colnames(rank_tbl)[colnames(rank_tbl) == "mae"]       <- "MAE (m)"
-knitr::kable(rank_tbl, row.names = FALSE)
 ```
 
 ---
@@ -196,7 +199,7 @@ show  <- all_summary
 levs  <- sort(unique(show$group))
 levs  <- c("overall", levs[levs != "overall"])
 show$group <- ordered(show$group, levels = levs)
-show  <- dplyr::arrange(show, source, group)
+show  <- dplyr::arrange(show,  group, mean_bias)
 num_cols <- c("mean_bias", "median_bias", "rmse", "mae", "mad",
               "max_abs", "q25_abs", "q75_abs", "q95_abs",
               "slope", "bias_p")
@@ -223,9 +226,108 @@ ggplot(all_elevations,
    theme_minimal()
 ```
 
+
+
+## Bias correction
+
+The results above suggest some sort of systematic bias in the UAS based
+data sources, possibly a datum shift or other projection issue.  This apparent
+bias swamps other sources of error and makes comparison difficult. 
+
+The plots and tables here use data in which the bias has been removed. 
+
+
+```{r bias_adjustment}
+
+
+d <-  all_elevations[all_elevations$source == "lidar_spring", ]
+x <- d$elevation
+y <- d$predicted
+
+estimate_bias <- function(x, y) {
+   fit <- lm(y ~ 1, offset = x)
+   fit$coefficients[1] |> as.numeric()
+}
+
+unbiased <- all_elevations
+for (i in seq_along(sources)) {
+   sv <- all_elevations$source == names(sources[i])
+   bias <- estimate_bias(x = all_elevations$elevation[sv],
+                         y = all_elevations$predicted[sv])
+   unbiased$predicted[sv] <- all_elevations$predicted[sv] - bias
+}
+
+
+unbiased$residual <- unbiased$predicted - unbiased$elevation
+
+
+unbiased_results       <- list()
+unbiased_summaries <- list()
+
+for (label in names(sources)) {
+   elev             <- unbiased[unbiased$source == label, ]
+   result           <- evaluate_dtm(elev, tolerances = tolerances,
+                                    skip_plots = TRUE)
+   summary_l        <- result$summary
+   summary_l$source <- label
+   unbiased_results[[label]]       <- result
+   unbiased_summaries[[label]] <- summary_l
+}
+
+unbiased_summary <- do.call(rbind, unbiased_summaries)
+unbiased_summary <- unbiased_summary[, c("source", "group",
+                                         setdiff(colnames(all_summary),
+                                                 c("source", "group")))]
+
+
+unbiased_overall <- unbiased_summary[unbiased_summary$group == "overall", ]
+
+```
+
+### Summary stats by source after bias correction
+
+```{r unbiased_overall_table}
+
+
+
+show_cols <- c("source", "n", "mean_bias", "rmse", "mae", pct_cols)
+show_cols <- show_cols[show_cols %in% colnames(unbiased_overall)]
+rank_tbl  <- unbiased_overall[order(unbiased_overall$rmse), show_cols]
+rank_tbl$mean_bias <- rnd(rank_tbl$mean_bias, 3)
+rank_tbl$rmse      <- rnd(rank_tbl$rmse, 3)
+rank_tbl$mae       <- rnd(rank_tbl$mae, 3)
+for (pc in pct_cols) rank_tbl[[pc]] <- rnd(rank_tbl[[pc]], 1)
+colnames(rank_tbl)[colnames(rank_tbl) == "mean_bias"] <- "Bias (m)"
+colnames(rank_tbl)[colnames(rank_tbl) == "rmse"]      <- "RMSE (m)"
+colnames(rank_tbl)[colnames(rank_tbl) == "mae"]       <- "MAE (m)"
+knitr::kable(rank_tbl, row.names = FALSE)
+
+
+```
+
+### DTM/DEM elevation vs ground truth after bias correction 
+
+```{r unbiased_plots,  fig.width = 10, fig.height = 10, out.width = "100%"}
+
+ggplot(unbiased,
+       aes(x = elevation, y = predicted, color = subclass)) +
+   geom_point(size = 1.2, alpha = 0.7) +
+   facet_wrap(~ source, labeller = label_wrap_gen(20)) +
+   geom_abline(slope = 1, intercept = 0,
+               linetype = "dashed", color = "grey40") +
+   labs(x = "Observed elevation (m)", y = "Predicted elevation - bias (m)",
+        color = "Subclass") +
+   theme_minimal()
+```
+
+
+
 ---
 
+
+
 ## Per-source diagnostic plots {.tabset}
+Using the original, biased data
 
 ```{r per_source_plots, results = "asis"}
 plot_labels <- c(
