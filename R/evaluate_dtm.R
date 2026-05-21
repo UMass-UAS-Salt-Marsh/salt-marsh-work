@@ -26,6 +26,7 @@
 #' @param crs Integer EPSG code used to build the sf object for
 #'   `residual_map`.
 #'   Default `26919` (NAD83 / UTM 19N, the project standard).
+#' @param skip_plots Set to `TRUE` to skip making plots.
 #'
 #' @return A named list:
 #' * `points` — per-point data frame: all `elevations` columns
@@ -49,7 +50,8 @@
 #' }
 evaluate_dtm <- function(elevations,
                          tolerances = c(0.10, 0.20),
-                         crs = 26919L) {
+                         crs        = 26919L,
+                         skip_plots = FALSE) {
 
    required <- c("easting", "northing", "elevation",
                  "predicted", "type", "subclass")
@@ -68,14 +70,17 @@ evaluate_dtm <- function(elevations,
    # Global offset: mean residual (diagnostic only, not applied).
    offset <- mean(points$residual, na.rm = TRUE)
 
-   plots <- list(
-      pred_vs_obs           = plot_pred_vs_obs(points),
-      residual_hist         = plot_residual_hist(points),
-      residual_map          = plot_residual_map(points,
-                                                crs = crs),
-      residual_vs_elevation = plot_residual_vs_elevation(points),
-      qq_residuals          = plot_qq_residuals(points)
-   )
+   if (skip_plots) {
+      plots <- NA
+   } else {
+      plots <- list(
+         pred_vs_obs           = plot_pred_vs_obs(points),
+         residual_hist         = plot_residual_hist(points),
+         residual_map          = plot_residual_map(points, crs = crs),
+         residual_vs_elevation = plot_residual_vs_elevation(points),
+         qq_residuals          = plot_qq_residuals(points)
+      )
+   }
 
    list(points = points, summary = summary,
         offset = offset, plots = plots)
