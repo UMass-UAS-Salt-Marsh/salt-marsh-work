@@ -51,7 +51,7 @@ report_dtms <- function(
       ),
       base_output = file.path("E:/uas_scratch/lidar", site, date),
       tolerances  = c(0.10, 0.20),
-      ecp_types   = "Training",
+      ecp_types   = "EVP",
       eval_dir    = file.path("lidar/output",
                               paste0(site, "_", date)),
       output_file = paste0("dtm_eval_", site, "_", date, ".html"),

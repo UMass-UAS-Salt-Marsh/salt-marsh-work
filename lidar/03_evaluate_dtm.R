@@ -24,6 +24,7 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
 
 site <- "rr"
 date <- "2022_08_10"
+date <- "2022_05_14"
 
 ecp_path <- paste0(
    "X:/legacy/gdrive/saltmarsh_UAS_native/",

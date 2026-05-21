@@ -9,10 +9,10 @@ output:
     df_print: kable
 params:
   site:        "rr"
-  date:        "2022_08_10"
+  date:        "2022_05_14"
   ecp_path:    "X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-  base_output: "E:/uas_scratch/lidar/rr/2022_08_10"
-  eval_dir:    "lidar/output/rr_2022_08_10"
+  base_output: "E:/uas_scratch/lidar/rr/2022_05_14"
+  eval_dir:    "lidar/output/rr_2022_05_14"
   tolerances:  [0.10, 0.20]
   ecp_types:   ["EVP"]
 ---
@@ -240,7 +240,10 @@ print(p)
 # With vegetation height indicated
 
 Vertical lines stretch from the RTK field surveyed elevation to the 
-top of the vegetation as recordered in the field.
+top of the vegetation as recorded in the field, which may not be the 
+height of the vegetation when the lidar was flown. Field work was
+conducted between `r min(plot_data$date)` and `r max(plot_data$date)`.  
+The lidar was flown on `r gsub("_", "-", date, fixed = TRUE)`
 
 
 ```{r cross_dtm_plot_lines, fig.width = 10, fig.height = 10, out.width= "100%"}

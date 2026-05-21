@@ -44,7 +44,7 @@ spring_dtm <- file.path(
    "E:/uas_scratch/lidar", site,
    gsub("-", "_", spring_date, fixed = TRUE),
    "zzzraster",
-   "csf_th0.06_res0.10_rgd2_0.25m.tif"
+   "csf_th0.01_res0.1_rgd2_0.25m.tif"
 )
 
 raster_res <- 0.5   # output resolution in metres
