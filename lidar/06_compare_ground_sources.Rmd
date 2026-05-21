@@ -1,5 +1,5 @@
 ---
-title: "Ground Elevation Source Comparison — `r params$site`"
+title: "Ground Elevation Source Comparison — rr"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   html_document:
@@ -7,17 +7,60 @@ output:
     toc_float: true
     theme: flatly
     df_print: kable
-params:
-  site:            "rr"
-  spring_date:     "2022_05_14"
-  summer_date:     "2022_08_10"
-  ecp_path:        "X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-  tolerances:      [0.10, 0.20]
-  ecp_types:       ["EVP"]
-  output_dir:      "lidar/output/rr_ground_comparison"
-  best_csf_spring: "csf_th0.01_res0.1_rgd2_0.25m.tif"
-  best_csf_summer: "csf_th0.12_res0.2_rgd2_0.25m.tif"
 ---
+
+```{r params, include = FALSE}
+site        <- "rr"
+spring_date <- "2022_05_14"
+summer_date <- "2022_08_10"
+
+ecp_path <- paste0(
+   "X:/legacy/gdrive/saltmarsh_UAS_native/",
+   "In Situ Data Collection/",
+   "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
+)
+
+tolerances  <- c(0.10, 0.20)
+ecp_types   <- "EVP"
+output_dir  <- file.path("lidar/output",
+                         paste0(site, "_ground_comparison"))
+
+# Best CSF stems from Phase 1 evaluation (lowest overall RMSE).
+# Spring: RMSE 0.174 m, bias +0.165 m
+# Summer: RMSE 0.245 m, bias +0.221 m
+best_csf_spring <- "csf_th0.01_res0.1_rgd2_0.25m.tif"
+best_csf_summer <- "csf_th0.12_res0.2_rgd2_0.25m.tif"
+
+sources <- c(
+   lidar_spring = file.path(
+      "E:/uas_scratch/lidar", site, spring_date,
+      "zzzraster", best_csf_spring
+   ),
+   lidar_summer = file.path(
+      "E:/uas_scratch/lidar", site, summer_date,
+      "zzzraster", best_csf_summer
+   ),
+   photo_spring_hesai = paste0(
+      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+      "Red River/Orthos and DEMs 2022/26May2022/Low/",
+      "26May2022_RED_Low_HesaiRGB_DEM.tif"
+   ),
+   photo_spring_mica = paste0(
+      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+      "Red River/Orthos and DEMs 2022/26May2022/Low/",
+      "26May22_RR_Low_Mica_DEM.tif"
+   ),
+   photo_summer = paste0(
+      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+      "Red River/Orthos and DEMs 2022/10Aug2022/Low/",
+      "10Aug22_RR_Low_Mavic_DEM.tif"
+   ),
+   massgis = paste0(
+      "X:/scratch/bcompton/LiDAR/",
+      "be_19TDG412612/be_19TDG412612.tif"
+   )
+)
+```
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
@@ -29,63 +72,25 @@ setwd(here::here())
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
-# -- Build sources list -------------------------------------------------------
-# Lidar DTMs are derived from params; external sources are site-specific
-# and hardcoded below.  Add cases for new sites as they are processed.
-sources <- c(
-   lidar_spring = file.path(
-      "E:/uas_scratch/lidar", params$site, params$spring_date,
-      "zzzraster", params$best_csf_spring
-   ),
-   lidar_summer = file.path(
-      "E:/uas_scratch/lidar", params$site, params$summer_date,
-      "zzzraster", params$best_csf_summer
-   )
-)
-
-if (params$site == "rr") {
-   sources <- c(sources, c(
-      photo_spring_hesai = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-         "Red River/Orthos and DEMs 2022/26May2022/Low/",
-         "26May2022_RED_Low_HesaiRGB_DEM.tif"
-      ),
-      photo_spring_mica = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-         "Red River/Orthos and DEMs 2022/26May2022/Low/",
-         "26May22_RR_Low_Mica_DEM.tif"
-      ),
-      photo_summer = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-         "Red River/Orthos and DEMs 2022/10Aug2022/Low/",
-         "10Aug22_RR_Low_Mavic_DEM.tif"
-      ),
-      massgis = paste0(
-         "X:/scratch/bcompton/LiDAR/",
-         "be_19TDG412612/be_19TDG412612.tif"
-      )
-   ))
-}
-
 found   <- file.exists(sources)
 missing <- sources[!found]
 sources <- sources[found]
 if (length(sources) == 0L) stop("No source files found.")
 
 # -- Load ECPs ----------------------------------------------------------------
-site_ecp <- load_ecp(params$ecp_path, site = params$site)
-if (length(params$ecp_types) > 0L) {
+site_ecp <- load_ecp(ecp_path, site = site)
+if (length(ecp_types) > 0L) {
    site_ecp <- site_ecp[
-      tolower(site_ecp$type) %in% tolower(params$ecp_types), ,
+      tolower(site_ecp$type) %in% tolower(ecp_types), ,
       drop = FALSE
    ]
 }
 
 # -- Sample each source at ECP locations (skip-if-exists cache) ---------------
-dir.create(params$output_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 all_elevations <- do.call(rbind, lapply(names(sources), function(label) {
-   csv_path <- file.path(params$output_dir, paste0(label, "_ecp.csv"))
+   csv_path <- file.path(output_dir, paste0(label, "_ecp.csv"))
    elev     <- sample_dtm(sources[[label]], site_ecp,
                           output_csv = csv_path)
    elev$source <- label
@@ -95,12 +100,11 @@ all_elevations <- do.call(rbind, lapply(names(sources), function(label) {
 # -- Evaluate each source -----------------------------------------------------
 results       <- list()
 all_summaries <- list()
-tolerances    <- params$tolerances
 
 for (label in names(sources)) {
-   elev           <- all_elevations[all_elevations$source == label, ]
-   result         <- evaluate_dtm(elev, tolerances = tolerances)
-   summary_l      <- result$summary
+   elev             <- all_elevations[all_elevations$source == label, ]
+   result           <- evaluate_dtm(elev, tolerances = tolerances)
+   summary_l        <- result$summary
    summary_l$source <- label
    results[[label]]       <- result
    all_summaries[[label]] <- summary_l
@@ -112,7 +116,7 @@ all_summary <- all_summary[, c("source", "group",
                                        c("source", "group")))]
 
 # -- Write summary CSV --------------------------------------------------------
-csv_out <- file.path(params$output_dir, "ground_source_comparison.csv")
+csv_out <- file.path(output_dir, "ground_source_comparison.csv")
 write.csv(all_summary, csv_out, row.names = FALSE)
 
 # -- Report helpers -----------------------------------------------------------
@@ -124,10 +128,9 @@ rnd <- function(x, d = 3) round(as.numeric(x), d)
 ## Overview
 
 ```{r overview, results = "asis"}
-cat("**Site:**", params$site, " | ",
+cat("**Site:**", site, " | ",
     "**ECPs:**", overall_rows$n[1],
-    paste0("(type = ",
-           paste(params$ecp_types, collapse = ", "), ")"),
+    paste0("(type = ", paste(ecp_types, collapse = ", "), ")"),
     " | ",
     "**Sources evaluated:**", length(sources))
 
@@ -141,10 +144,10 @@ if (length(missing) > 0L) {
 
 ## Bias and RMSE by source
 
-The primary diagnostic: a consistent positive `mean_bias` across
-sources that share a common processing lineage (e.g. all project lidar
-and photogrammetry) but not in external reference data (MassGIS) points
-to a datum or reprojection issue rather than a ground-finding problem.
+A consistent positive `mean_bias` across sources that share a common
+processing lineage (e.g. all project lidar and photogrammetry) but not
+in external reference data (MassGIS) points to a datum or reprojection
+issue rather than a ground-finding problem.
 
 ```{r bias_plot, fig.height = 4}
 plot_overall <- overall_rows
@@ -209,8 +212,8 @@ knitr::kable(show, row.names = FALSE)
 ## Predicted vs. observed by source
 
 ```{r cross_source_plot, fig.width = 10, fig.height = 10, out.width = "100%"}
-p <- ggplot(all_elevations,
-            aes(x = elevation, y = predicted, color = subclass)) +
+ggplot(all_elevations,
+       aes(x = elevation, y = predicted, color = subclass)) +
    geom_point(size = 1.2, alpha = 0.7) +
    facet_wrap(~ source, labeller = label_wrap_gen(20)) +
    geom_abline(slope = 1, intercept = 0,
@@ -218,7 +221,6 @@ p <- ggplot(all_elevations,
    labs(x = "Observed elevation (m)", y = "Predicted elevation (m)",
         color = "Subclass") +
    theme_minimal()
-p
 ```
 
 ---
