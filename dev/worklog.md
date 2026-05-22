@@ -17,6 +17,25 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-05-22 — branch main
+
+### Document UAS vertical bias and diagnostic plan
+
+All UAS-derived datasets (spring/summer lidar and photogrammetry) show
++10–16 cm positive bias against ECPs; MassGIS aerial lidar shows no
+bias, confirming ECPs and CRS assumptions are correct.
+Bias almost certainly originates in PPK vertical positioning (same base
+station/pipeline shared across all UAS flights).
+Two candidate causes: wrong GEOID12B tile (`g2012bu0.gtx` vs
+`g2012bu4.gtx`) or lever arm misconfiguration.
+Vegetation height work is unaffected — bias cancels when normalizing
+summer against spring DTM.
+
+`lidar/readme.md`: added "Systematic vertical bias in UAS-derived
+elevation data" section with findings, PPK workflow summary, candidate
+causes, and implications.
+`dev/work_plan.md`: added Phase 1.6 with concrete diagnostic steps.
+
 ## 2026-05-21 — branch main
 
 ### Switch evaluation to spring date; default ecp_types to EVP

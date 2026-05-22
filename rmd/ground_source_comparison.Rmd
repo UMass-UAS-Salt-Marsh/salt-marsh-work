@@ -1,5 +1,5 @@
 ---
-title: "Ground Elevation Source Comparison — rr"
+title: "Ground Elevation Source Comparison — `r params$site`"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   html_document:
@@ -7,60 +7,14 @@ output:
     toc_float: true
     theme: flatly
     df_print: kable
+params:
+  site:       "rr"
+  sources:    null
+  ecp_path:   "X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
+  output_dir: "lidar/output/rr_ground_comparison"
+  tolerances: [0.10, 0.20]
+  ecp_types:  ["EVP"]
 ---
-
-```{r params, include = FALSE}
-site        <- "rr"
-spring_date <- "2022_05_14"
-summer_date <- "2022_08_10"
-
-ecp_path <- paste0(
-   "X:/legacy/gdrive/saltmarsh_UAS_native/",
-   "In Situ Data Collection/",
-   "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-)
-
-tolerances  <- c(0.10, 0.20)
-ecp_types   <- "EVP"
-output_dir  <- file.path("lidar/output",
-                         paste0(site, "_ground_comparison"))
-
-# Best CSF stems from Phase 1 evaluation (lowest overall RMSE).
-# Spring: RMSE 0.174 m, bias +0.165 m
-# Summer: RMSE 0.245 m, bias +0.221 m
-best_csf_spring <- "csf_th0.01_res0.1_rgd2_0.25m.tif"
-best_csf_summer <- "csf_th0.12_res0.2_rgd2_0.25m.tif"
-
-sources <- c(
-   lidar_spring = file.path(
-      "E:/uas_scratch/lidar", site, spring_date,
-      "zzzraster", best_csf_spring
-   ),
-   lidar_summer = file.path(
-      "E:/uas_scratch/lidar", site, summer_date,
-      "zzzraster", best_csf_summer
-   ),
-   photo_spring_hesai = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Red River/Orthos and DEMs 2022/26May2022/Low/",
-      "26May2022_RED_Low_HesaiRGB_DEM.tif"
-   ),
-   photo_spring_mica = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Red River/Orthos and DEMs 2022/26May2022/Low/",
-      "26May22_RR_Low_Mica_DEM.tif"
-   ),
-   photo_summer = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Red River/Orthos and DEMs 2022/10Aug2022/Low/",
-      "10Aug22_RR_Low_Mavic_DEM.tif"
-   ),
-   massgis = paste0(
-      "X:/scratch/bcompton/LiDAR/",
-      "be_19TDG412612/be_19TDG412612.tif"
-   )
-)
-```
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
@@ -72,6 +26,19 @@ setwd(here::here())
 
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
+
+# Unpack params to local variables for convenience.
+site       <- params$site
+sources    <- params$sources
+ecp_path   <- params$ecp_path
+output_dir <- params$output_dir
+tolerances <- params$tolerances
+ecp_types  <- params$ecp_types
+
+if (is.null(sources) || length(sources) == 0L) {
+   stop("sources param is required — pass a named character vector ",
+        "of label -> raster path.")
+}
 
 found   <- file.exists(sources)
 missing <- sources[!found]
@@ -159,8 +126,6 @@ colnames(rank_tbl)[colnames(rank_tbl) == "mae"]       <- "MAE (m)"
 knitr::kable(rank_tbl, row.names = FALSE)
 ```
 
-
-
 A consistent positive `mean_bias` across sources that share a common
 processing lineage (e.g. all project lidar and photogrammetry) but not
 in external reference data (MassGIS) points to a datum or reprojection
@@ -199,7 +164,7 @@ show  <- all_summary
 levs  <- sort(unique(show$group))
 levs  <- c("overall", levs[levs != "overall"])
 show$group <- ordered(show$group, levels = levs)
-show  <- dplyr::arrange(show,  group, mean_bias)
+show  <- dplyr::arrange(show, group, mean_bias)
 num_cols <- c("mean_bias", "median_bias", "rmse", "mae", "mad",
               "max_abs", "q25_abs", "q75_abs", "q95_abs",
               "slope", "bias_p")
@@ -226,24 +191,17 @@ ggplot(all_elevations,
    theme_minimal()
 ```
 
-
+---
 
 ## Bias correction
 
-The results above suggest some sort of systematic bias in the UAS based
-data sources, possibly a datum shift or other projection issue.  This apparent
-bias swamps other sources of error and makes comparison difficult. 
-
-The plots and tables here use data in which the bias has been removed. 
-
+The results above suggest a systematic bias in the UAS-based data
+sources, possibly a datum shift or other projection issue.
+This apparent bias swamps other sources of error and makes comparison
+difficult.
+The plots and tables here use data with the per-source bias removed.
 
 ```{r bias_adjustment}
-
-
-d <-  all_elevations[all_elevations$source == "lidar_spring", ]
-x <- d$elevation
-y <- d$predicted
-
 estimate_bias <- function(x, y) {
    fit <- lm(y ~ 1, offset = x)
    fit$coefficients[1] |> as.numeric()
@@ -251,18 +209,16 @@ estimate_bias <- function(x, y) {
 
 unbiased <- all_elevations
 for (i in seq_along(sources)) {
-   sv <- all_elevations$source == names(sources[i])
+   sv   <- all_elevations$source == names(sources[i])
    bias <- estimate_bias(x = all_elevations$elevation[sv],
                          y = all_elevations$predicted[sv])
    unbiased$predicted[sv] <- all_elevations$predicted[sv] - bias
 }
 
-
 unbiased$residual <- unbiased$predicted - unbiased$elevation
 
-
-unbiased_results       <- list()
-unbiased_summaries <- list()
+unbiased_results    <- list()
+unbiased_summaries  <- list()
 
 for (label in names(sources)) {
    elev             <- unbiased[unbiased$source == label, ]
@@ -270,26 +226,22 @@ for (label in names(sources)) {
                                     skip_plots = TRUE)
    summary_l        <- result$summary
    summary_l$source <- label
-   unbiased_results[[label]]       <- result
-   unbiased_summaries[[label]] <- summary_l
+   unbiased_results[[label]]    <- result
+   unbiased_summaries[[label]]  <- summary_l
 }
 
 unbiased_summary <- do.call(rbind, unbiased_summaries)
-unbiased_summary <- unbiased_summary[, c("source", "group",
-                                         setdiff(colnames(all_summary),
-                                                 c("source", "group")))]
-
-
-unbiased_overall <- unbiased_summary[unbiased_summary$group == "overall", ]
-
+unbiased_summary <- unbiased_summary[
+   , c("source", "group",
+       setdiff(colnames(all_summary), c("source", "group")))
+]
+uo_rows          <- unbiased_summary$group == "overall"
+unbiased_overall <- unbiased_summary[uo_rows, , drop = FALSE]
 ```
 
 ### Summary stats by source after bias correction
 
 ```{r unbiased_overall_table}
-
-
-
 show_cols <- c("source", "n", "mean_bias", "rmse", "mae", pct_cols)
 show_cols <- show_cols[show_cols %in% colnames(unbiased_overall)]
 rank_tbl  <- unbiased_overall[order(unbiased_overall$rmse), show_cols]
@@ -301,33 +253,28 @@ colnames(rank_tbl)[colnames(rank_tbl) == "mean_bias"] <- "Bias (m)"
 colnames(rank_tbl)[colnames(rank_tbl) == "rmse"]      <- "RMSE (m)"
 colnames(rank_tbl)[colnames(rank_tbl) == "mae"]       <- "MAE (m)"
 knitr::kable(rank_tbl, row.names = FALSE)
-
-
 ```
 
-### DTM/DEM elevation vs ground truth after bias correction 
+### DTM/DEM elevation vs ground truth after bias correction
 
-```{r unbiased_plots,  fig.width = 10, fig.height = 10, out.width = "100%"}
-
+```{r unbiased_plots, fig.width = 10, fig.height = 10, out.width = "100%"}
 ggplot(unbiased,
        aes(x = elevation, y = predicted, color = subclass)) +
    geom_point(size = 1.2, alpha = 0.7) +
    facet_wrap(~ source, labeller = label_wrap_gen(20)) +
    geom_abline(slope = 1, intercept = 0,
                linetype = "dashed", color = "grey40") +
-   labs(x = "Observed elevation (m)", y = "Predicted elevation - bias (m)",
+   labs(x = "Observed elevation (m)",
+        y = "Predicted elevation - bias (m)",
         color = "Subclass") +
    theme_minimal()
 ```
 
-
-
 ---
 
-
-
 ## Per-source diagnostic plots {.tabset}
-Using the original, biased data
+
+Using the original, biased data.
 
 ```{r per_source_plots, results = "asis"}
 plot_labels <- c(
