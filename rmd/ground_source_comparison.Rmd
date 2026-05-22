@@ -8,8 +8,8 @@ output:
     theme: flatly
     df_print: kable
 params:
-  site:       "rr"
-  sources:    null
+  site:       "oth"
+  sources:  NULL
   ecp_path:   "X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
   output_dir: "lidar/output/rr_ground_comparison"
   tolerances: [0.10, 0.20]
@@ -27,6 +27,7 @@ setwd(here::here())
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
+
 # Unpack params to local variables for convenience.
 site       <- params$site
 sources    <- params$sources
@@ -34,6 +35,29 @@ ecp_path   <- params$ecp_path
 output_dir <- params$output_dir
 tolerances <- params$tolerances
 ecp_types  <- params$ecp_types
+
+cat(str(sources))
+
+# Default sources for standalone knitting (oth values).
+if (is.null(sources) || length(sources) == 0L) {
+   if (!site == "oth")
+      stop("Default sources are for site oth")
+   sources <- c(
+      may_14_ortho   = paste0(
+         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+         "Old Town Hill/Orthos and DEMs 2022/14May2022/",
+         "14May2022_OTH_Low_HESAI_DEM.tif"
+      ),
+      may_02_ortho   = paste0(
+         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+         "Old Town Hill/Orthos and DEMs 2022/02May2022/",
+         "02May2022_OTH_Low_Mavic_DEM.tif"
+      ),
+      massgis_346737 = "X:/scratch/bcompton/LiDAR/be_19TCH346737.tif",
+      massgis_346735 = "X:/scratch/bcompton/LiDAR/be_19TCH346735.tif"
+   )
+}
+
 
 if (is.null(sources) || length(sources) == 0L) {
    stop("sources param is required — pass a named character vector ",
@@ -203,6 +227,9 @@ The plots and tables here use data with the per-source bias removed.
 
 ```{r bias_adjustment}
 estimate_bias <- function(x, y) {
+   # Return NA when there are no non-NA pairs (e.g. raster doesn't
+   # overlap the ECP extent for this source).
+   if (sum(!is.na(x) & !is.na(y)) == 0L) return(NA_real_)
    fit <- lm(y ~ 1, offset = x)
    fit$coefficients[1] |> as.numeric()
 }
@@ -212,7 +239,9 @@ for (i in seq_along(sources)) {
    sv   <- all_elevations$source == names(sources[i])
    bias <- estimate_bias(x = all_elevations$elevation[sv],
                          y = all_elevations$predicted[sv])
-   unbiased$predicted[sv] <- all_elevations$predicted[sv] - bias
+   if (!is.na(bias)) {
+      unbiased$predicted[sv] <- all_elevations$predicted[sv] - bias
+   }
 }
 
 unbiased$residual <- unbiased$predicted - unbiased$elevation

@@ -12,7 +12,7 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
 #------------------------------------------------------------------------------#
-# Parameters
+# Red River
 #------------------------------------------------------------------------------#
 
 site <- "rr"
@@ -53,8 +53,30 @@ sources <- c(
    )
 )
 
-#------------------------------------------------------------------------------#
 # Render report
+report_ground_sources(sources = sources, site = site)
+
+
+
+
 #------------------------------------------------------------------------------#
+# Old Town Hill
+#------------------------------------------------------------------------------#
+
+site <- "oth"
+sources <- c(
+   may_14_ortho    = paste0(
+      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+      "Old Town Hill/Orthos and DEMs 2022/14May2022/",
+      "14May2022_OTH_Low_HESAI_DEM.tif"
+   ),
+   may_02_ortho    = paste0(
+      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+      "Old Town Hill/Orthos and DEMs 2022/02May2022/",
+      "02May2022_OTH_Low_Mavic_DEM.tif"
+   ),
+   massgis_346737  = "X:/scratch/bcompton/LiDAR/be_19TCH346737.tif",
+   massgis_346735  = "X:/scratch/bcompton/LiDAR/be_19TCH346735.tif"
+)
 
 report_ground_sources(sources = sources, site = site)
