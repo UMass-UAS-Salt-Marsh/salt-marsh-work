@@ -80,3 +80,22 @@ sources <- c(
 )
 
 report_ground_sources(sources = sources, site = site)
+
+
+
+
+#------------------------------------------------------------------------------#
+# Welfleet:
+#------------------------------------------------------------------------------#
+site <- "wel"
+sources <- c(
+   may_22_ortho   = paste0(
+      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
+      "Wellfleet Bay/Orthos and DEMs 2022/20May2022/Low/",
+      "20May22_WEL_Low_Hesai_DEM.tif"
+   ),
+   massgis_415636 = "X:/scratch/bcompton/LiDAR/be_19TDG415636.tif",
+   massgis_417636 = "X:/scratch/bcompton/LiDAR/be_19TDG417636.tif"
+)
+
+report_ground_sources(sources = sources, site = site)

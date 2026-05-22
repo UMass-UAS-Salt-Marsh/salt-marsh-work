@@ -11,7 +11,7 @@ params:
   site:       "oth"
   sources:  NULL
   ecp_path:   "X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-  output_dir: "lidar/output/rr_ground_comparison"
+  output_dir: "lidar/output/[site]_ground_comparison"
   tolerances: [0.10, 0.20]
   ecp_types:  ["EVP"]
 ---
@@ -36,7 +36,7 @@ output_dir <- params$output_dir
 tolerances <- params$tolerances
 ecp_types  <- params$ecp_types
 
-cat(str(sources))
+output_dir <- gsub("[site]", site, x = output_dir, fixed = TRUE)
 
 # Default sources for standalone knitting (oth values).
 if (is.null(sources) || length(sources) == 0L) {
