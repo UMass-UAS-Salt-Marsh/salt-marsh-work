@@ -237,6 +237,63 @@ The installation was problematic but pdal does work. Nothing was added to
 the system PATH; the PDAL tools are invoked from R using their full paths.
 
 
+## Systematic vertical bias in UAS-derived elevation data
+
+### Finding
+
+All UAS-derived datasets (spring lidar, summer lidar, and both
+photogrammetry DEMs) show a consistent **+10–16 cm positive bias**
+against the field-collected ECPs (predicted > observed).
+The MassGIS 2021 aerial lidar tile for the same area shows no bias.
+
+Since MassGIS is unbiased, the ECPs are correctly placed in
+EPSG:26919 / NAVD 88 and our CRS assumptions are right.
+The offset is in the UAS geo-referencing, not in the ECP datum.
+
+Because the lidar and photogrammetry measure by completely different
+physical principles but share the same PPK GPS solution, the bias
+almost certainly originates in the **PPK vertical positioning** —
+most likely the base station height or the geoid correction applied
+during processing.
+
+### PPK processing workflow (from `LiDAR creation notes_RCW_08Dec2022.txt`)
+
+Reference doc:
+`X:\legacy\gdrive\UMassAir User Resources\RESEPI with Hesai XT32 LiDAR\Tutorials for LiDAR workflow\Flights to DEMs Tutorial\LiDAR creation notes_RCW_08Dec2022.txt`
+
+1. RINEX data downloaded from a public CORS station
+   (National CORS / MACORS).
+2. PCMaster processes PPK using the CORS RINEX.
+   Sensor lever arm (master antenna offset): `(0.052, 0.063, 0.3355 m)`.
+3. PCMaster exports a WGS 84 `.las` file.
+4. LAStools `lasvdatum` applies GEOID12B to convert ellipsoidal → NAVD 88.
+   Two GTX tiles are listed in the notes:
+   - `g2012bu0.gtx` — GEOID12B CONUS tile
+   - `g2012bu4.gtx` — described as "around MA coast"
+
+### Likely causes
+
+1. **Wrong GEOID12B tile** — `g2012bu0.gtx` vs `g2012bu4.gtx` give
+   different undulation values for Cape Cod.
+   Using the wrong tile consistently across all flights would produce a
+   uniform bias across lidar and photogrammetry.
+2. **Lever arm error** — the 0.3355 m vertical offset is for the RESEPI
+   sensor; a misconfigured value propagates directly into every point
+   height.
+
+### Implication for vegetation height work
+
+Both the spring DTM and the summer point cloud carry the same PPK-derived
+offset (same sensor, same workflow).
+When summer cloud heights are normalized against the spring DTM the bias
+cancels exactly — **relative vegetation heights are unaffected**.
+Absolute elevation deliverables will need the offset corrected.
+
+### Diagnosing the cause
+
+See the "Phase 1.6 — diagnose UAS vertical bias" section in
+`dev/work_plan.md` for the diagnostic plan.
+
 ## Comparing ground elevation datasets
 
 We have collected high resolution lidar with two goals:

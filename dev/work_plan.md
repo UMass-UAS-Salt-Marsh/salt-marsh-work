@@ -346,6 +346,58 @@ reference in `worklog.md` and update the `spring_dtm` path in
 - [ ] Run after spring lidar DTMs are evaluated (Phase 1 complete).
 - [ ] Record decision in `worklog.md`.
 
+### Phase 1.6 — diagnose UAS vertical bias
+
+#### Background
+
+Ground source comparison (Phase 1.5) showed all UAS-derived datasets
+have a consistent +10–16 cm positive bias against ECPs while the
+MassGIS aerial lidar tile shows no bias.
+This rules out a CRS or ECP datum error and points to the PPK vertical
+positioning shared by all UAS flights.
+
+Full write-up in `lidar/readme.md` "Systematic vertical bias in
+UAS-derived elevation data."
+
+#### Two candidate causes (in order of likelihood)
+
+1. **Wrong GEOID12B tile** — the processing notes list two options:
+   `g2012bu0.gtx` (CONUS) and `g2012bu4.gtx` (MA coast).
+   These give different undulation values for Cape Cod;
+   using the wrong tile uniformly across all flights would produce
+   exactly the observed pattern.
+2. **Lever arm misconfiguration** — the 0.3355 m vertical offset for
+   the RESEPI sensor; if incorrect it propagates into every point height.
+
+#### Diagnostic steps
+
+- [ ] **Check which GTX file was actually used.**
+  Inspect the LAS file headers or any PCMaster / LAStools log files in
+  the RINEX folders (e.g.
+  `X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\2022\LiDAR\26May2022_RINEX`).
+  LAStools records the applied grid in the VLR (variable-length records)
+  of the output LAS.
+  Compare the undulation value at the Red River location for
+  `g2012bu0.gtx` vs `g2012bu4.gtx` — if they differ by ~15 cm, that
+  identifies the tile mix-up.
+- [ ] **Verify the CORS station used and its published height.**
+  The example in the notes shows `mawr0390.23o` (a MACORS station).
+  Look up the station's published NAD 83(2011) orthometric height from
+  NGS and confirm it matches what PCMaster used.
+- [ ] **If tile mix-up confirmed:** re-run `lasvdatum` on one flight
+  with the correct GTX tile and re-evaluate against ECPs to verify the
+  bias disappears.
+- [ ] **Record the finding and correction** in `worklog.md` and update
+  the PDAL reprojection step in `R/reproject_las_pdal.R` if the same
+  tile issue exists there.
+
+#### Impact on current work
+
+Vegetation height work (Phase 2) is **not blocked** — the bias cancels
+when summer heights are normalized against the spring DTM because both
+carry the same offset.
+Absolute elevation deliverables are blocked until this is resolved.
+
 ### Phase 2 — vegetation strata (Goal 2)
 
 Approach: normalize point heights to the chosen DTM, then compute a
