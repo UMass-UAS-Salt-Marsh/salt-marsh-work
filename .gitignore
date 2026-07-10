@@ -52,3 +52,7 @@ docs
 /hydrology/*.html
 /lidar/*.html
 /rmd/*.html
+/logger_recalibration/*.html
+
+# Calibrated hydrology files
+hydrology/Data/*/Calibrated*
