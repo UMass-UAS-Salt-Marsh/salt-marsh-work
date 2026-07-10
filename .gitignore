@@ -48,3 +48,7 @@ docs
 # Annoying Rplot.pdf file that gets created while testing
 /tests/testthat/Rplots.pdf
 
+# Rendered Rmarkdown
+/hydrology/*.html
+/lidar/*.html
+/rmd/*.html

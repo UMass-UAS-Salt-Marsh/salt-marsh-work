@@ -1,0 +1,136 @@
+---
+title: "Hydrology regression plots"
+author: "Ethan Plunkett"
+date: "2025-05-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+setwd(here::here())
+library(dplyr)
+library(ggplot2)
+library(mblm)
+
+# Read data
+data <- readr::read_rds("hydrology/Data/four_sites.Rds")
+sites <- readr::read_tsv("hydrology/Data/sites.txt", show_col_types = FALSE) |>
+  select(Site = "site", "site_name")
+
+data <- left_join(data, sites, by = "Site")
+
+sites <- sites[sites$Site %in% data$Site, ]
+
+
+
+```
+
+
+```{r skatter plot propotion, echo = FALSE,}
+data |>
+  filter(Type == c("Plat")) |> 
+  group_by(site_name) |>  
+  
+  ggplot(mapping = aes(Elevation, Proportion_Time_Inundated)) +
+  geom_point(col = rgb(0,0,0, .6)) +
+  geom_smooth(method = lm, formula = y~x) +
+  facet_wrap(vars(site_name), ncol = 2) +
+  ggtitle("Proportion of Time Inundated, Platform")
+
+```
+
+
+```{r skatter plot propotion all types - except pond, echo = FALSE,}
+data |>
+  group_by(site_name) |>  
+  filter(Type != "Pond") |>
+  ggplot(mapping = aes(Elevation, Proportion_Time_Inundated)) +
+  geom_point( aes(color = Type)) +
+  geom_smooth(method = lm, formula = y~x) +
+  facet_wrap(vars(site_name), ncol = 2) +
+  # ylim(c(-0.1, .6)) + 
+  ggtitle("Proportion of Time Inundated")
+
+```
+
+
+```{r skatter plot median time inundated, echo = FALSE}
+data |>
+  filter(Type %in%  c("Plat", "Edge")) |> 
+  group_by(site_name) |>  
+  ggplot(mapping = aes(Elevation, Median_Time_Inundated)) +
+  geom_point(aes(color = Type)) +
+  geom_smooth(method = lm, formula = y~x) +
+  facet_wrap(vars(site_name), ncol = 2) +
+  ggtitle("Median Duration of Inundation Events (hours), Platform")
+```
+
+Depth Plots
+
+```{r depth plots}
+
+
+```
+
+
+
+
+```{r fit models, echo = FALSE}
+
+n_sites <- length(unique(data$Site))
+
+responses <- c("Proportion_Time_Inundated",
+               "Median_Time_Inundated",
+               "Percentile_95_Depth")
+
+formulas <- paste(responses, "~Elevation") |> lapply(FUN = formula)
+
+types <- c("Plat", "Plat,Edge", "Plat,Edge,Ditch")
+
+# Set up model table
+models <- expand.grid(site = sites$Site, formula = formulas, type = types) |> 
+  as.data.frame()
+models$response <- as.character(models$formula) |>
+  gsub("[[:blank:]]+~.*$", "", x = _ )
+
+models$type <- as.character(models$type)
+
+# Add fitted linear models to table
+for(i in seq_len(nrow(models))) {
+  current_types <- strsplit(models$type[i], ",")[[1]]
+  site_data <- data |> 
+    filter(Site == models$site[i], Type %in%  current_types)
+  models$model[[i]] <- lm(models$formula[[i]], data = site_data)
+}
+
+# Add coefficents to table
+coef <- do.call(rbind, lapply(models$model, coefficients))
+models <- cbind(models, coef)
+
+# Add adjusted R squared
+models$Adj_R_Squared <- sapply(models$model, 
+                               FUN = function(x) summary(x)$adj.r.squared) 
+
+# Add longer site name
+models <- left_join(models, sites |> rename(site = "Site"), by = "site")
+
+
+display_table <- models |> 
+  select(`Site Name` = site_name, Site = "site", 
+         Response = response, Adj_R_Squared, 
+         Intercept = "(Intercept)", Elevation, Type = type) |>
+  arrange(Site, Response, Type)
+  
+
+
+
+
+setwd(here::here())
+readr::write_csv(display_table, "hydrology/Data/Model_Coefficients.csv")
+
+
+knitr::kable(display_table)
+
+```
+
