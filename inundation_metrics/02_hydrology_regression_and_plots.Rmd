@@ -14,8 +14,8 @@ library(ggplot2)
 library(mblm)
 
 # Read data
-data <- readr::read_rds("innundation_metrics/Data/four_sites.Rds")
-sites <- readr::read_tsv("innundation_metrics/Data/sites.txt", show_col_types = FALSE) |>
+data <- readr::read_rds("inundation_metrics/Data/four_sites.Rds")
+sites <- readr::read_tsv("inundation_metrics/Data/sites.txt", show_col_types = FALSE) |>
   select(Site = "site", "site_name")
 
 sites$Site <- toupper(sites$Site)
@@ -130,7 +130,7 @@ display_table <- models |>
 
 
 setwd(here::here())
-readr::write_csv(display_table, "innundation_metrics/Data/Model_Coefficients.csv")
+readr::write_csv(display_table, "inundation_metrics/Data/Model_Coefficients.csv")
 
 
 knitr::kable(display_table)

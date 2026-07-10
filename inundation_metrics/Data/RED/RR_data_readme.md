@@ -8,7 +8,7 @@ either from
 |--------------------------------------------|----------------------------------------------|
 |`Calibrated Data/` |  (same)  |
 |`15Sep2022_RED_Array.csv`  | (same)
-|`15Sep2022_RED_ArrayDataSheet_InnundationMetrics.csv` | (same)   |
+|`15Sep2022_RED_ArrayDataSheet_inundationMetrics.csv` | (same)   |
 | `15Sep2022_RED_ArrayDataSheet.xlsx` | (same) |
 | `15Sep2022_RED_Deployments.csv` | Exported from first sheet of `15Sep2022_RED_ArrayDataSheet.xlsx`  a date time was fixed in the export|
 

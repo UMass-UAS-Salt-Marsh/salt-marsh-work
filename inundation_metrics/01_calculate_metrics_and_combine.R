@@ -9,19 +9,19 @@ library(mblm)
 # Source files in R directory
 invisible(list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE) |> lapply(source))
 
-
 # Read Site info
 
 # Loop through sites.
 
 # Read in site level data and add site column
 
-# Composite dataset
+# Make composite data set
+
 
 
 # Read in standard site table with site abbreviation and name
-sites <- readr::read_tsv("innundation_metrics/Data/sites.txt", show_col_types = FALSE) |>
-select(site, site_name) 
+sites <- readr::read_tsv("inundation_metrics/Data/sites.txt", show_col_types = FALSE) |>
+   select(site, site_name) 
 
 sites$site <- toupper(sites$site)
 sites$site[sites$site == "RR"] <- "RED"
@@ -40,7 +40,7 @@ for (i in seq_len(nrow(sites))) {
   site_name <- sites$site_name[i]
   message("Processing ", site, " (", site_name, ") " , i, " of ", nrow(sites), "\n" )
 
-  site_data_dir <- file.path("innundation_metrics/Data/", site)
+  site_data_dir <- file.path("inundation_metrics/Data/", site)
   calibrated_dir <- file.path(site_data_dir, "Calibrated Data")
   deployment_file <- file.path(site_data_dir, sites$deployment_file_name[i])
 
@@ -55,6 +55,6 @@ for (i in seq_len(nrow(sites))) {
 
 data <- do.call(rbind, result)
 
-readr::write_rds(data, "innundation_metrics/Data/four_sites.Rds")
+readr::write_rds(data, "inundation_metrics/Data/four_sites.Rds")
 
 
