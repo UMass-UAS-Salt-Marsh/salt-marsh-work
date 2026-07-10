@@ -43,7 +43,7 @@ a <- list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE) |>
 
 
 
-sites <- readr::read_tsv("hydrology/Data/sites.txt", show_col_types = FALSE) |>
+sites <- readr::read_tsv("inundation_metrics/Data/sites.txt", show_col_types = FALSE) |>
    select(site, site_name)
 
 sites$site <- toupper(sites$site)
@@ -71,7 +71,7 @@ min_depth <- 0.1
 ```{r process data, include=FALSE}
 site <- sites$site[i]
 
-site_data_dir <- file.path("hydrology/Data/", site)
+site_data_dir <- file.path("inundation_metrics/Data/", site)
 calibrated_dir <- file.path(site_data_dir, "Calibrated Data")
 deployment_file <- file.path(site_data_dir, sites$deployment_file_name[i])
 
