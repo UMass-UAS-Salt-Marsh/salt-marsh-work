@@ -1,0 +1,10 @@
+site	site_name	share	footprint	transects	standard
+sor	South River		Original Vector/Site Footprint/SR_100ac_Mask_24Mar23.shp		Original Raster/UAS Orthomosaic/<SITE>/21Aug19_SOR_Low_Mica_Ortho.tif
+bar	Barnstable		Original Vector/Site Footprint/BAR_100ac_Mask_22Oct2024.shp		Original Raster/UAS Orthomosaic/<SITE>/02Jun23_BAR_Low_P4_Ortho.tif
+peg	"Peggotty Beach, Scituate"	Peggotty	Original Vector/Site Footprint/PEG_100ac_Mask_24Mar23.shp	Peg_Site_Polygon_Layer.shp	Original Raster/UAS Orthomosaic/<SITE>/30Sep22_PEG_Mid_Mica_Ortho.tif
+wel	Wellfleet Bay	Wellfleet Bay	Original Vector/Site Footprint/WEL_100ac_Mask_24Mar23.shp		Original Raster/UAS Orthomosaic/<SITE>/11Nov22_WEL_High_Mica_Ortho.tif
+rr	Red River		Original Vector/Site Footprint/RR_100ac_Mask_27Mar23.shp	RR_Site_Polygon_Layer.shp	Original Raster/UAS Orthomosaic/<SITE>/26May22_RR_Low_Mica_Ortho.tif
+oth	Old Town Hill		Original Vector/Site Footprint/OTH_100ac_Mask_24Mar23.shp		Original Raster/UAS Orthomosaic/<SITE>/22Sept18_OTH_High_Mica_Ortho.tif
+ess	Essex Bay	Essex	Original Vector/Site Footprint/ESS_100ac_Mask_27Mar23.shp		Original Raster/UAS Orthomosaic/<SITE>/29Nov22_ESS_Mid_Mica_Ortho.tif
+nor	North River		Original Vector/Site Footprint/NR_200ac_Mask_24Mar23.shp		Original Raster/UAS Orthomosaic/<SITE>/21Nov22_NOR_Mid_Mica_Ortho.tif
+wes	Westport		Original Vector/Site Footprint/WES_100ac_Mask_24Mar23.shp		Original Raster/UAS Orthomosaic/<SITE>/05Oct20_WES_Low_Mica_Ortho.tif

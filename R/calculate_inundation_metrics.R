@@ -107,7 +107,7 @@ calculate_inundation_metrics <- function(calibrated_dir, deployment_file) {
          skkipped <- c(skipped, serial_number)
       }
       
-      serial_number <- data$serial_number[1]
+      serial_number <- data$serial[1]
       
       logger_row <- which(deployments$serial == serial_number)
       logger_elevation <- deployments$elevation[logger_row]

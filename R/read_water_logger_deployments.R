@@ -18,7 +18,7 @@ read_water_logger_deployments <- function(deployment_file){
       tolower()
    required_deployment_cols <- c("serial", "date_deployed", "time_deployed",
                                  "date_pulled", "time_pulled", "northings",
-                                 "eastings", "elevation")
+                                 "eastings", "elevation", "type")
    
    
    

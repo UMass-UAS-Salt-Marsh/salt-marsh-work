@@ -55,4 +55,7 @@ docs
 /logger_recalibration/*.html
 
 # Calibrated hydrology files
-hydrology/Data/*/Calibrated*
+innundation_metrics/Data/*/Calibrated*
+
+# Mac OS file
+.DS_Store 
