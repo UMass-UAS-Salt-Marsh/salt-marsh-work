@@ -12,4 +12,11 @@ Most of the work is done in functions that they both call.
 The code here does the analysis to determine if recalibration should be done. It would be trivial to take the 
 output and implement the recalibration but my recollection is that it may not be a good idea.
 
+The primary output statistics are the mean difference between the logger's perceived elevation and the elevation 
+calculated for the logger from the consensus estimate of the high tide water surface elevation and the standard 
+deviation in that estimate.  If the standard deviation is small relative to the mean difference that's a decenet 
+indication of a systematic bias. 
+
+
+
 Ethan
