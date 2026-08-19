@@ -14,16 +14,16 @@ There is no build, install, lint, or test command. Function files in `R/` are so
 a <- lapply(list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE), source)
 ```
 
-Workflow scripts live under topic subdirectories (`hydrology/`, `lidar/`, `logger_recalibration/`) and are numbered (`01_…`, `02_…`) to indicate execution order. Run them from the project root in RStudio (open `salt-marsh-work.Rproj`) so relative paths like `"hydrology/Data/sites.txt"` resolve. `.Rmd` files use `here::here()` and `setwd(here::here())` in their setup chunks for the same reason.
+Workflow scripts live under topic subdirectories (`inundation_metrics/`, `lidar/`, `logger_recalibration/`) and are numbered (`01_…`, `02_…`) to indicate execution order. Run them from the project root in RStudio (open `salt-marsh-work.Rproj`) so relative paths like `"inundation_metrics/Data/sites.txt"` resolve. `.Rmd` files use `here::here()` and `setwd(here::here())` in their setup chunks for the same reason.
 
 ## High-level architecture
 
 Two largely independent pipelines that share the `R/` function library:
 
-### Hydrology pipeline (`hydrology/`)
+### Inundation metrics pipeline (`inundation_metrics/`)
 Processes water-depth logger time series into per-logger inundation metrics, then fits regressions of inundation vs. logger elevation.
 
-- `01_calculate_metrics_and_combine.R` — for each of four sites (RED, OTH, WES, WEL) reads calibrated logger Excel files plus a deployment CSV, calls `calculate_inundation_metrics()`, and writes the combined result to `hydrology/Data/four_sites.Rds`.
+- `01_calculate_metrics_and_combine.R` — for each of four sites (RED, OTH, WES, WEL) reads calibrated logger Excel files plus a deployment CSV, calls `calculate_inundation_metrics()`, and writes the combined result to `inundation_metrics/Data/four_sites.Rds`.
 - `02_hydrology_regression_and_plots.Rmd` — consumes `four_sites.Rds`, produces scatter plots and a per-site/per-response linear model table (`Model_Coefficients.csv`).
 - Key shared functions: `calculate_inundation_metrics()` (orchestrator), `read_water_logger_data()` (handles header serial-number check, text-date recovery, and the various depth column names — `sensor_depth`, `sensor_depth_brackish`), `read_water_logger_deployments()` (handles both `Serial` and `Serial #`, and both `dmy` and `mdy` date formats encountered across sites).
 - Logger inundation threshold is hardcoded at `depth > 0.02` m. Metrics use `VulnToolkit::fld.dur()`, `dur.events()`, `fld.depth()`.
@@ -40,12 +40,12 @@ Processes LAS point clouds into ground rasters (DTMs) for a single site at a tim
 - See `lidar/readme.md` for the dream output (multi-band veg-height-distribution raster), site priorities, and important file-layout notes (2022 LAS files live under `X:/legacy/gdrive/saltmarsh_UAS/…`; 2024+ under `X:/projects/uas/sites/<site>/lidar_point_cloud/…`).
 
 ### `logger_recalibration/`
-Separate exploratory scripts by another collaborator for finding common high tides across loggers and producing recalibration diagnostics. Uses the same `R/` helpers (`find_high_tides`, `find_common_high_tides`, `assess_water_logger_errors`, `spatial_plotting`). `recalibate_sites.R` and `recalibrate_sites2.R` are alternate drafts — confirm with the user which is current before editing.
+Separate exploratory scripts by another collaborator for finding common high tides across loggers and producing recalibration diagnostics. Uses the same `R/` helpers (`find_high_tides`, `find_common_high_tides`, `assess_water_logger_errors`, `spatial_plotting`). `recalibrate_sites.R` and `recalibration_report.Rmd` are intentionally redundant — both call the same shared functions, with the Rmd being the latest. Earlier drafts (`readme.Rmd`, the previous `recalibate_sites.R`) live under `logger_recalibration/old/`.
 
 ## Data conventions
 
-- Site codes are 3-letter lowercase for lidar (`rr`, `nor`, `bar`, `wel`) and 3-letter uppercase for hydrology (`RED`, `OTH`, `WES`, `WEL`). They are not always the same code for the same site — `RED` ↔ `rr` (Red River). The canonical mapping table is `hydrology/Data/sites.txt`.
-- Hydrology data folders (`hydrology/Data/<SITE>/Calibrated Data/*cal.xlsx` plus a per-site deployment CSV) are gitignored — never committed.
+- Site codes are 3-letter lowercase for lidar (`rr`, `nor`, `bar`, `wel`) and 3-letter uppercase for hydrology (`RED`, `OTH`, `WES`, `WEL`). They are not always the same code for the same site — `RED` ↔ `rr` (Red River). The canonical mapping table is `inundation_metrics/Data/sites.txt`.
+- Inundation-metrics data (`inundation_metrics/Data/`) is committed, including per-site deployment CSVs — only the raw `Calibrated Data/*cal.xlsx` files stay gitignored.
 - `lidar/data/` is also gitignored except for `paths.csv` and `RedRiver_11May2022.csv` (a small GCP file).
 - Elevation control points live in `X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx` (use rows with `type = "training"`).
 

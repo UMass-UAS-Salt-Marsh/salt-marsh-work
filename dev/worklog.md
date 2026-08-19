@@ -17,6 +17,32 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-08-19 — branch main
+
+### Sync CLAUDE.md and .gitignore with the hydrology reorg
+
+Pulled commits `75531b7`..`6f37698` (2026-07-10, done on another machine)
+that renamed `hydrology/` to `inundation_metrics/`, cleaned up
+`logger_recalibration/` (`recalibrate_sites2.R` → `recalibrate_sites.R`
+as the canonical script, old drafts moved to `logger_recalibration/old/`),
+and committed the inundation-metrics data that used to be gitignored.
+None of this had been reflected in `CLAUDE.md` or `dev/worklog.md`.
+
+`CLAUDE.md`: replaced all `hydrology/` path references with
+`inundation_metrics/`; updated the `logger_recalibration/` section to
+describe `recalibrate_sites.R` + `recalibration_report.Rmd` as the
+current redundant pair (per the new `logger_recalibration/README.md`)
+instead of "confirm with the user which is current"; updated the data
+conventions bullet — inundation-metrics data is now committed, only
+`Calibrated Data/*cal.xlsx` stays gitignored.
+
+`.gitignore`: `/hydrology/*.html` → `/inundation_metrics/*.html` (was
+stale, matched nothing after the rename).
+
+`dev/work_plan.md` is unaffected — the reorg only touched
+hydrology/logger_recalibration, not lidar, so Phase 1.5/1.6 status
+there still holds.
+
 ## 2026-05-22 — branch main
 
 ### Document UAS vertical bias and diagnostic plan
