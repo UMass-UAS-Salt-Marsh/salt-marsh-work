@@ -43,19 +43,30 @@ Ranked by overall RMSE from the actual eval CSVs:
 Both match what `lidar/06_compare_ground_sources.R`'s `best_csf_*`
 comments already say — this just gives that choice a proper record.
 
-**Gap, not silently resolved:** the plan calls for ranking by
-*bare-class* RMSE first (cleanest CSF signal) and using all-class RMSE
-only as a secondary check. `evaluate_dtm()` groups by ECP `subclass`,
-and for `type == "EVP"` (the point type actually used —
-see 2026-05-21 below) `subclass` is a bare numeric code (1-12) with no
-descriptive-label mapping anywhere in this codebase or its data
-files. Cross-checked against `type`/`subclass` in the ECP xlsx itself
-(via `load_ecp()`) and confirmed there's no legend to resolve "which
-code means bare ground" without an outside source (Josh Ward's thesis,
-or the original classification-points spreadsheet in
-`X:/legacy/gdrive/2022_23_field_data/Classification Points/`). Went
+**Gap, not silently resolved — and a correction to how I first framed
+it.** The plan calls for ranking by the cleanest-signal class first
+(secondary check via all-class RMSE). I initially wrote this up as
+"bare-class RMSE" and went looking for "which ECPs measured bare
+ground" — the user corrected that: **no ECP measures bare ground as
+distinct from vegetated ground.** Every ECP is a ground-surface
+elevation measurement, full stop; the CSF's whole job is to find that
+same ground surface in the lidar returns even where vegetation sits
+above it. What varies by ECP class is the vegetation cover overhead,
+which determines how directly comparable the CSF's ground
+classification is to the ECP at that point — cleanest where there's
+least vegetation to see through, most confounded (systematically
+positive residuals) under tall Spartina/Phragmites/Iva, per the
+plan's own "Saltmarsh-specific notes for the report."
+`evaluate_dtm()` groups by ECP `subclass`, and for `type == "EVP"`
+(the point type actually used — see 2026-05-21 below) `subclass` is a
+bare numeric code (1-12) with no cover-type mapping anywhere in this
+codebase or its data files. Cross-checked `type`/`subclass` in the ECP
+xlsx itself (via `load_ecp()`) and confirmed there's no legend to
+resolve "which code(s) are open/unvegetated" without an outside source
+(Josh Ward's thesis, or the original classification-points spreadsheet
+in `X:/legacy/gdrive/2022_23_field_data/Classification Points/`). Went
 with all-class RMSE only; flagging this as an open gap in
-`dev/work_plan.md` rather than fabricating a bare-class ranking.
+`dev/work_plan.md` rather than fabricating a cover-type ranking.
 
 ### ECP source-CRS question resolved via Josh Ward's thesis
 

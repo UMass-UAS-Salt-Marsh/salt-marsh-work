@@ -238,13 +238,23 @@ codebase 2026-08-20 (see `dev/worklog.md`).
   **all-class (overall) RMSE**, recorded in
   `lidar/06_compare_ground_sources.R`'s comments but never given its
   own `worklog.md` entry until now (see `dev/worklog.md`, 2026-08-20).
-  The plan's preferred **bare-class RMSE** ranking was not done
-  separately — `evaluate_dtm()` groups by ECP `subclass`, and for the
-  `type == "EVP"` points actually used in evaluation, `subclass` is a
-  numeric code (1-12) with no descriptive-label mapping anywhere in
-  this codebase, so "which code is bare ground" isn't currently
-  answerable without outside documentation (e.g. Josh Ward's thesis
-  or the original classification-points spreadsheet). Flagged as a
+
+  The plan's preferred **cleanest-signal RMSE** ranking (ECPs in open/
+  minimally-vegetated cover, where the CSF has the least vegetation to
+  see through and its ground classification is most directly
+  comparable to the ECP) was not done separately. Correction to how
+  this was first written up here: every ECP measures true
+  ground-surface elevation regardless of what's growing on it — there
+  is no subset of ECPs that measured "bare ground" as opposed to
+  "vegetation." What varies by class is vegetation cover overhead,
+  which is what makes some classes a cleaner CSF-vs-ECP comparison than
+  others (see "Saltmarsh-specific notes for the report" below).
+  `evaluate_dtm()` groups by ECP `subclass`, and for the `type ==
+  "EVP"` points actually used in evaluation, `subclass` is a numeric
+  code (1-12) with no cover-type label mapping anywhere in this
+  codebase, so "which code(s) are open/unvegetated" isn't currently
+  answerable without outside documentation (e.g. Josh Ward's thesis or
+  the original classification-points spreadsheet). Flagged as a
   gap, not silently skipped.
 
 #### Saltmarsh-specific notes for the report
