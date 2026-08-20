@@ -22,7 +22,10 @@ this file is the project-wide standard, not a lidar-specific writeup.
 
 ### Projected coordinates
 
-Two options. We should pick one.
+**Decision (provisional, 2026-08-20): Massachusetts Mainland State
+Plane, EPSG:6491.** Both options are documented below for reference;
+State Plane is the one to use in new code. Revisit if this turns out
+to be the wrong call in practice.
 
 #### UTM Zone 19
 - **Horizontal:** NAD83(2011) / UTM zone 19,  **EPSG:6348**
@@ -209,9 +212,8 @@ NAD83(2011) + NAVD88/GEOID18 is the right target, not NAPGD2022.
   Now confirmed the label is correct, so this risk doesn't apply:
   `sample_dtm()`'s reprojection has been doing the right thing all
   along, and switching the point-cloud pipeline's horizontal target
-  to NAD83(2011) is safe with no change needed to `R/load_ecp.R`
-  (once the UTM19N-vs-State-Plane pick above is made — see the
-  practical checklist below).
+  to NAD83(2011)/EPSG:6491 is safe with no change needed to
+  `R/load_ecp.R`'s `source_crs` (only its `target_crs` default moves).
   `R/evaluate_dtm.R` and `R/plot_residual_map.R` also hardcode
   `crs = 26919L`; same reasoning applies, no longer flagged as risky.
 - ~~Which geoid model did MassGIS use~~ — **resolved 2026-08-19: GEOID18**,
@@ -228,18 +230,16 @@ NAD83(2011) + NAVD88/GEOID18 is the right target, not NAPGD2022.
 
 ## Practical checklist for new code
 
-- Reproject point clouds and rasters to **EPSG:6491** (State Plane) or
-  **EPSG:6348** (UTM 19N) horizontally, plus **EPSG:5703** vertically
-  via the **GEOID18** grid — never legacy EPSG:26919/4269 or GEOID12B
-  for new work.
-  
-  **Exception:** don't flip the *existing* pipeline's horizontal
-  target yet — not because of ECP-CRS risk (resolved, see above), but
-  because the UTM19N-vs-State-Plane choice itself is still open. Once
-  that's picked, flipping `target_epsg` is safe: the ECPs' own CRS
-  label is confirmed correct, so no other code needs to change. The
-  vertical geoid upgrade (GEOID12B → GEOID18) has no such dependency
-  and has already been adopted.
+- Reproject point clouds and rasters to **EPSG:6491** (Massachusetts
+  Mainland State Plane — the provisional decision above) horizontally,
+  plus **EPSG:5703** vertically via the **GEOID18** grid — never legacy
+  EPSG:26919/4269 or GEOID12B for new work. EPSG:6348 (UTM 19N) remains
+  an acceptable fallback where a specific downstream tool or data
+  source expects it, as long as it's NAD83(2011) and not legacy NAD83.
+  This has now been rolled into the pipeline's `target_epsg` defaults
+  (`lidar/02.R`, `R/reproject_las.R`, `R/load_ecp.R`, `R/evaluate_dtm.R`,
+  `R/plot_residual_map.R`, `R/las_needs_reprojection.R`) — see
+  `dev/worklog.md`, 2026-08-20.
 - Don't assume two rasters/point clouds are pixel-aligned just because
   both claim "NAD83" — check the specific EPSG code (realization
   matters) and reproject explicitly rather than relying on downstream

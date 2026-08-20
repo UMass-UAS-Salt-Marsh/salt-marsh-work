@@ -42,6 +42,49 @@ separate, lower-priority open question.
 UTM19N (EPSG:6348) vs. Massachusetts Mainland State Plane (EPSG:6491)
 pick, still open in `CRS.md`.
 
+### Provisionally picked Mass State Plane; flipped target_epsg defaults
+
+User's call: proceed with **EPSG:6491 (NAD83(2011) / Massachusetts
+Mainland State Plane)** as the projected-CRS standard, provisionally.
+Updated `CRS.md` (resolved the "two options" comparison into a
+decision, with the UTM19N writeup kept for reference) and
+`dev/work_plan.md`'s Phase 1.6a to match.
+
+With both open questions resolved (ECP-CRS this morning, projected-CRS
+pick just now), flipped every hardcoded `26919` default to `6491`:
+
+- `R/reproject_las.R` (`target_epsg`), `R/las_needs_reprojection.R`
+  (`target_epsg`), `R/load_ecp.R` (`target_crs` — `source_crs` stays
+  `26919L`, confirmed correct for the ECPs), `R/evaluate_dtm.R` (`crs`,
+  used only to label points for `residual_map`), `R/plot_residual_map.R`
+  (`crs`, same). `R/reproject_las_pdal.R` has no default of its own
+  (required arg) — updated its example to `6491` instead.
+- `lidar/02.R`: added an explicit `target_epsg <- 6491L` to the
+  run-level parameters block rather than relying on scattered function
+  defaults; threaded it through `las_needs_reprojection()`,
+  `reproject_las()`, and `load_ecp(..., target_crs = target_epsg)`.
+  **Also namespaced `zzzcleaned/` and `zzzraster/` by
+  `_epsg<target_epsg>`** (and the reprojected LAS filename suffix,
+  which already varied by target) — without this,
+  `clean_and_tile()`'s skip-if-exists check (purely
+  "does the output dir have any `.las` files", independent of what
+  produced them — see `R/clean_and_tile.R`) would have silently reused
+  the existing `26919`-CRS cleaned tiles on the next run instead of
+  re-cleaning under the new target, defeating the whole point of the
+  switch.
+- `R/reproject_las_lastools.R`'s example (`target_epsg = 26919`) was
+  **not** changed — that path exists specifically to reproduce
+  historical LAStools output, so it should keep pointing at the
+  historical CRS. `R/spatial_plotting.R`'s hardcoded `crs = 26919` was
+  also left alone — unrelated hydrology/logger-recalibration code, out
+  of scope.
+
+All seven touched R/lidar files lint clean. Not run end-to-end this
+session — `dev/work_plan.md`'s remaining Phase 1.6a items (re-run
+Step 0/1 for `rr`, re-run Phase 1 CSF tuning + evaluation, re-run
+`06_compare_ground_sources.R`, then finally wire the ground reference
+into `05_veg_heights.R`) are still open, to be triggered when ready.
+
 ## 2026-08-19 — branch lidar
 
 ### Phase 1.5 decision point revisited; CRS/geoid standard investigation

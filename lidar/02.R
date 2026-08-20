@@ -5,22 +5,25 @@
 # End-to-end driver for the per-site lidar workflow.  Four steps:
 #
 #   1. Conditional reprojection.  Source clouds tagged
-#      WGS 84 / UTM 19N + WGS 84 ellipsoidal heights are reprojected to
-#      NAD 83 / UTM 19N + NAVD 88 (via GEOID12B) using `reproject_las()`
+#      WGS 84 + WGS 84 ellipsoidal heights are reprojected to
+#      NAD83(2011) / Massachusetts Mainland State Plane (EPSG:6491)
+#      + NAVD 88 (via GEOID18) using `reproject_las()`
 #      (PDAL by default; LAStools alternative).  Skipped automatically
-#      if the source is already in the target CRS.  See
+#      if the source is already in the target CRS.  See `CRS.md` at
+#      the project root for the CRS/datum/geoid standard and
 #      `lidar/readme.md` "CRS, datum, and frame shift considerations"
 #      for the full geodetic discussion.
 #
 #   2. Clean & tile (`clean_and_tile()`).  Filters to last return,
 #      removes noise via `lidR::sor()`, writes cleaned tiles to
-#      `<base_output>/zzzcleaned/`.  Skips if the tiles already exist.
+#      `<base_output>/zzzcleaned_epsg<target_epsg>/`.  Skips if the
+#      tiles already exist.
 #
 #   3. Ground-rasterization tuning loop.  For each row of `csf_grid`,
 #      calls `rasterize_ground()` to classify ground via Cloth
 #      Simulation Filter and interpolate a DTM (`knnidw`).  Outputs go
-#      to `<base_output>/zzzraster/csf_th*_res*_rgd*_*m.tif`.  Skips
-#      individual DTMs that already exist.
+#      to `<base_output>/zzzraster_epsg<target_epsg>/csf_th*_res*_rgd*_*m.tif`.
+#      Skips individual DTMs that already exist.
 #
 #   4. (Partial) DTM evaluation against elevation control points.
 #      Reads the ECP xlsx, filters to the current site.  The full
@@ -33,9 +36,12 @@
 #   * `csf_grid` (declared below) — CSF parameter sets to tune.
 #
 # Outputs (under `E:/uas_scratch/lidar/<site>/<date>/`)
-#   * `reprojected/<basename>_epsg26919_navd88.las`
-#   * `zzzcleaned/*.las` — cleaned, tiled point cloud.
-#   * `zzzraster/csf_*.tif` — one DTM per `csf_grid` row.
+#   * `reprojected/<basename>_epsg<target_epsg>_navd88.las`
+#   * `zzzcleaned_epsg<target_epsg>/*.las` — cleaned, tiled point cloud.
+#   * `zzzraster_epsg<target_epsg>/csf_*.tif` — one DTM per `csf_grid`
+#     row.  Directories are namespaced by `target_epsg` so switching
+#     the CRS standard doesn't silently reuse or collide with tiles
+#     produced under a previous standard.
 #
 # Run from the project root in RStudio so relative paths resolve.
 #------------------------------------------------------------------------------#
@@ -76,6 +82,13 @@ site <- "rr" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
 # when a site has more than one preferred row in paths.csv.
 # NULL = use the first preferred row (original behaviour).
 date_filter <- "2022-05-14"
+
+# Target horizontal CRS for reprojection.  6491 = NAD83(2011) /
+# Massachusetts Mainland State Plane, this project's current standard
+# (provisional; see CRS.md at the project root).  Output directories
+# below are namespaced by this value so re-running under a different
+# standard doesn't collide with or silently reuse prior output.
+target_epsg <- 6491L
 
 # CSF (Cloth Simulation Filter) tuning grid.  Each row is one
 # ground-classification parameter set that `rasterize_ground()` will
@@ -148,16 +161,19 @@ if (!(site == tolower(site) && nchar(site) >= 2 && nchar(site) <= 3)) {
 
 # output paths (everything under base_output is on the local RAID)
 paths$base_output <- file.path("E:/uas_scratch/lidar", site, date)
-paths$cleaned_catalog_dir <- file.path(paths$base_output, "zzzcleaned")
+paths$cleaned_catalog_dir <- file.path(
+   paths$base_output, paste0("zzzcleaned_epsg", target_epsg)
+)
 paths$ground_raster_template <- file.path(
    paths$base_output,
-   paste0("zzzraster/csf_th[csf_threshold]_res[csf_res]",
+   paste0("zzzraster_epsg", target_epsg,
+          "/csf_th[csf_threshold]_res[csf_res]",
           "_rgd[csf_rigidness]_[raster_res]m.tif")
 )
 paths$reprojected_dir <- file.path(paths$base_output, "reprojected")
 paths$reprojected_path <- file.path(
    paths$reprojected_dir,
-   sub("\\.las$", "_epsg26919_navd88.las",
+   sub("\\.las$", paste0("_epsg", target_epsg, "_navd88.las"),
        basename(paths$input), ignore.case = TRUE)
 )
 
@@ -181,12 +197,12 @@ dir.create(paths$cleaned_catalog_dir, recursive = TRUE,
 # Conditional reprojection — see Step 1 in the file header for
 # the rationale.  `reproject_las()` is idempotent (skip-if-exists),
 # so re-runs of this script are cheap.
-if (las_needs_reprojection(paths$input)) {
+if (las_needs_reprojection(paths$input, target_epsg = target_epsg)) {
 
    dir.create(paths$reprojected_dir, recursive = TRUE,
               showWarnings = FALSE)
    paths$input <- reproject_las(paths$input, paths$reprojected_path,
-                                target_epsg = 26919)
+                                target_epsg = target_epsg)
 }
 
 
@@ -242,7 +258,7 @@ for (i in seq_len(nrow(csf_grid))) {
 # `load_ecp()` cleans, filters, and returns an sf object.
 # Logger Array excluded; Berm, EVP, and Training kept.
 
-site_ecp <- load_ecp(paths$ecp, site = site)
+site_ecp <- load_ecp(paths$ecp, site = site, target_crs = target_epsg)
 
 for (d in csf_results$dtm) {
    sample_dtm(d, site_ecp)

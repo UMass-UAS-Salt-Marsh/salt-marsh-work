@@ -25,7 +25,10 @@
 #'   Default `c(0.10, 0.20)`.
 #' @param crs Integer EPSG code used to build the sf object for
 #'   `residual_map`.
-#'   Default `26919` (NAD83 / UTM 19N, the project standard).
+#'   Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'   Plane, the project standard — see [`CRS.md`](../CRS.md)).
+#'   Purely a label for plotting; pass the actual CRS of
+#'   `elevations`' `easting`/`northing` columns if it differs.
 #' @param skip_plots Set to `TRUE` to skip making plots.
 #'
 #' @return A named list:
@@ -50,7 +53,7 @@
 #' }
 evaluate_dtm <- function(elevations,
                          tolerances = c(0.10, 0.20),
-                         crs        = 26919L,
+                         crs        = 6491L,
                          skip_plots = FALSE) {
 
    required <- c("easting", "northing", "elevation",

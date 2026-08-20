@@ -48,7 +48,9 @@
 #' @param output Path to write the reprojected `.las` file.
 #' @param target_epsg Integer EPSG code for the target horizontal
 #'    CRS
-#'    (e.g. `26919` for NAD83 / UTM 19N).
+#'    (e.g. `6491` for NAD83(2011) / Massachusetts Mainland State
+#'    Plane, the project's current standard — see
+#'    [`CRS.md`](../CRS.md)).
 #'    Used to build the target PROJ string via
 #'    `sf::st_crs(target_epsg)$proj4string` plus appended
 #'    `+geoidgrids=` and `+vunits=m`.
@@ -87,9 +89,9 @@
 #'    ),
 #'    output = paste0(
 #'       "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/",
-#'       "ppk_07Nov2022_cloud_1_epsg26919_navd88.las"
+#'       "ppk_07Nov2022_cloud_1_epsg6491_navd88.las"
 #'    ),
-#'    target_epsg = 26919,
+#'    target_epsg = 6491,
 #'    vgrid = paste0(
 #'       "X:/legacy/gdrive/UMassAir User Resources/LASTools/",
 #'       "Geoid Transformation GTX Files/geoid18/us_noaa_g2018u0.tif"

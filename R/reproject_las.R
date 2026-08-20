@@ -42,12 +42,11 @@
 #' @param output Path to write the reprojected `.las` file.
 #' @param target_epsg Integer EPSG code for the target horizontal
 #'    CRS.
-#'    Default `26919` (NAD83 / UTM 19N, no realization) — **kept as
-#'    the historical default for now**; see [`CRS.md`](../CRS.md) at
-#'    the project root for the project's current standard
-#'    (NAD83(2011), still deciding between EPSG:6491 Massachusetts
-#'    Mainland State Plane and EPSG:6348 UTM 19N) and why this default
-#'    hasn't been flipped yet.
+#'    Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'    Plane, meters) — the project's current standard, adopted
+#'    (provisionally — see [`CRS.md`](../CRS.md)) 2026-08-20.
+#'    Supersedes the historical `26919` (NAD83 / UTM 19N, no
+#'    realization) default.
 #' @param vgrid Path to the geoid grid file (`.gtx` or GeoTIFF —
 #'    PROJ accepts both the same way).
 #'    Default points at the project-stored **GEOID18** CONUS grid
@@ -72,7 +71,7 @@
 #'    input = "X:/.../ppk_07Nov2022_cloud_1.las",
 #'    output = paste0(
 #'       "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/",
-#'       "ppk_07Nov2022_cloud_1_epsg26919_navd88.las"
+#'       "ppk_07Nov2022_cloud_1_epsg6491_navd88.las"
 #'    )
 #' )
 #'
@@ -88,7 +87,7 @@
 #' }
 reproject_las <- function(input,
                           output,
-                          target_epsg = 26919L,
+                          target_epsg = 6491L,
                           vgrid = paste0(
                              "X:/legacy/gdrive/UMassAir User",
                              " Resources/LASTools/Geoid",

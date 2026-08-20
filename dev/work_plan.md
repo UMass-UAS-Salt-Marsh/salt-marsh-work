@@ -422,18 +422,13 @@ bias.
 Added 2026-08-19. Full research and rationale live in `CRS.md`
 (project root) — this section is the execution checklist.
 
-**Standard decided for the parts that are settled:** NAD83(2011)
-(not legacy NAD83) for the horizontal datum, geographic EPSG:6318/6319;
-NAVD88 via **GEOID18** vertically (EPSG:5703, grid
+**Standard decided:** NAD83(2011) (not legacy NAD83) for the
+horizontal datum, geographic EPSG:6318/6319; projected EPSG:6491
+(Massachusetts Mainland State Plane — provisional, decided
+2026-08-20 over the EPSG:6348/UTM19N alternative, see `CRS.md`'s
+comparison); NAVD88 via **GEOID18** vertically (EPSG:5703, grid
 `us_noaa_g2018u0.tif`). Supersedes the historical EPSG:26919 +
 GEOID12B pairing.
-
-**Still open: which projected CRS.** `CRS.md` lays out two options —
-EPSG:6348 (NAD83(2011) / UTM zone 19N) vs. EPSG:6491 (NAD83(2011) /
-Massachusetts Mainland State Plane) — with tradeoffs (UTM19N covers
-all of coastal MA/NH/ME/RI without a zone split, State Plane matches
-most MassGIS/state data conventions) but no pick yet. Resolve before
-flipping `target_epsg` defaults.
 
 See `CRS.md` for the full comparison and the NAPGD2022
 not-yet-released status. The GEOID12B-tile-mixup theory was
@@ -467,21 +462,21 @@ it was already right.
   vertical standard).
 - [x] Resolve the ECP source-CRS question — confirmed via Josh Ward's
   thesis: legacy NAD83/UTM19N, NAVD88 (see above).
-- [ ] **Pick UTM19N (EPSG:6348) vs. State Plane (EPSG:6491)** for the
-  projected-CRS standard (see `CRS.md`'s comparison) — the only
-  remaining blocker on flipping `target_epsg`.
+- [x] **Pick UTM19N (EPSG:6348) vs. State Plane (EPSG:6491)** for the
+  projected-CRS standard — **Massachusetts Mainland State Plane,
+  EPSG:6491, decided provisionally 2026-08-20** (see `CRS.md`'s
+  comparison).
 - [x] Download `us_noaa_g2018u0.tif` (GEOID18 CONUS grid) and update
   `reproject_las()`'s default `vgrid` — vertical-only, independent of
   the ECP question, safe to do now.
-- [ ] Once the UTM-vs-State-Plane pick is made: update horizontal
-  `target_epsg` defaults (`lidar/02.R`,
-  `R/reproject_las.R`, `R/load_ecp.R`, `R/evaluate_dtm.R`,
-  `R/plot_residual_map.R`) to the new standard.
+- [x] Update horizontal `target_epsg`/`target_crs`/`crs` defaults to
+  EPSG:6491 (`lidar/02.R`, `R/reproject_las.R`,
+  `R/las_needs_reprojection.R`, `R/load_ecp.R`, `R/evaluate_dtm.R`,
+  `R/plot_residual_map.R`); namespaced `zzzcleaned/`/`zzzraster/` by
+  `target_epsg` in `lidar/02.R` so a new-CRS run doesn't collide with
+  the existing 26919 outputs.
 - [ ] Re-run Step 0 (reprojection) + Step 1 (clean & tile) for `rr`
   spring and summer clouds under the new target CRS/geoid.
-  `zzzcleaned/`/`zzzraster/` are not EPSG-namespaced — add a path
-  fix so the new-CRS run doesn't collide with the existing 26919
-  outputs.
 - [ ] Re-run Phase 1 CSF tuning + DTM evaluation to reconfirm best
   parameters and measure how much the vertical bias actually shrinks.
 - [ ] Re-run `lidar/06_compare_ground_sources.R` for `rr` under the
