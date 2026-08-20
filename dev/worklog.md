@@ -17,6 +17,188 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-08-20 — branch lidar
+
+### ECP source-CRS question resolved via Josh Ward's thesis
+
+The blocking open question from yesterday — whether `R/load_ecp.R`'s
+hardcoded `source_crs <- 26919L` for the ECPs is actually correct, or
+whether the ECPs are secretly NAD83(2011) mislabeled as legacy NAD83 —
+is resolved. The user checked Josh Ward's thesis (who collected the
+GCPs/ECPs): states they were measured in NAD83/UTM19N, NAVD88 — legacy
+NAD83, matching the hardcoded value exactly. No code change needed;
+`R/load_ecp.R` was already correct, and `sample_dtm()`'s CRS-aware
+reprojection has been doing the right thing all along.
+
+Updated `CRS.md` (moved this from "blocking open question" to
+resolved, updated the "Historical / legacy usage" section to cite the
+thesis as a confirmed fact rather than an assumption), `R/load_ecp.R`'s
+roxygen doc (cites the thesis), and `dev/work_plan.md`'s Phase 1.6a
+checklist. The geoid model used to compute the ECPs' NAVD88 heights
+(GEOID12B vs. GEOID18) isn't stated in the thesis and remains a
+separate, lower-priority open question.
+
+**Only remaining blocker on flipping `target_epsg` defaults:** the
+UTM19N (EPSG:6348) vs. Massachusetts Mainland State Plane (EPSG:6491)
+pick, still open in `CRS.md`.
+
+## 2026-08-19 — branch lidar
+
+### Phase 1.5 decision point revisited; CRS/geoid standard investigation
+
+Picked back up the Phase 1.5 loose end: `lidar/06_compare_ground_sources.R`
+had already been run for `rr`, `oth`, and `wel` (results on disk under
+`lidar/output/*_ground_comparison/`), but the plan's final step — record
+the chosen ground reference and update `lidar/05_veg_heights.R` — was
+never done. Results are unambiguous and consistent across all three
+sites: MassGIS beats every UAS-derived source by a wide margin, with
+near-zero bias (rr: RMSE 0.044 m / bias +0.003 m vs. best lidar's
+0.174 m / +0.165 m; oth and wel show the same pattern).
+
+**Found a real correctness gap before wiring MassGIS in.** `rr`'s point
+cloud is reprojected to EPSG:26919 (legacy NAD83, no realization) by
+`lidar/02.R`; the MassGIS raster is EPSG:6348 (NAD83(2011)/UTM19N) —
+confirmed via `terra::crs()`. `lidar/readme.md`'s own CRS section
+already documents this as a real ~0.5–1 m horizontal frame shift for
+this region. Read `lidR:::normalize_height.LAS` (used by
+`rasterize_veg_heights()`) and confirmed it samples a raster at the
+LAS's raw X/Y via `raster_value_from_xy()` with **no CRS check or
+reprojection** — plugging MassGIS in as-is would have silently
+mis-sampled by up to ~1 m.
+
+Rather than patch around this with a one-off raster reprojection, the
+user asked to establish an actual CRS/datum/geoid standard for the
+project and a migration path, since more sites are coming. Spent this
+session researching that instead of touching code. New file
+**`CRS.md`** (project root) documents the findings and decisions in
+full; summary of what's new:
+
+- **GEOID18 is the current NGS standard geoid model for CONUS** (since
+  ~2019, before our 2022 flights and MassGIS's 2023-processed lidar).
+  This project's pipeline (`R/reproject_las_pdal.R`) still defaults to
+  GEOID12B (`g2012bu0.gtx`).
+- **NAPGD2022/GEOID2022 (the next-gen NSRS replacement) is NOT yet
+  officially released** — confirmed by fetching NGS's own site today;
+  NAD83/NAVD88 remain official, FGCS approval vote targeted
+  early-to-mid 2026, several-month transition to follow. Too early to
+  target; current standard is NAD83(2011) + NAVD88/GEOID18.
+- **The Phase 1.6 "wrong GEOID12B tile" hypothesis is very likely
+  wrong.** The original field notes claimed a choice between
+  `g2012bu0.gtx` (CONUS) and `g2012bu4.gtx` ("around MA coast"). Checked
+  PROJ's actual grid catalog (`cdn.proj.org`): GEOID12B's real regional
+  files are `g2012ba0`/`g2012bg0`/`g2012bh0`/`g2012bp0`/`g2012bs0` (AK,
+  Guam, HI, PR/VI, American Samoa) plus a single unified `g2012bu0` for
+  all of CONUS. **There is no `g2012bu4`.** So the observed +10–16 cm
+  UAS bias isn't a tile mixup — `g2012bu0.gtx` (what we already use) was
+  always the correct, only CONUS tile. GEOID12B → GEOID18 differences in
+  this region are typically a few cm, not 10+, so switching geoid models
+  is correct practice but won't by itself close that bias gap. The
+  lever-arm-misconfiguration hypothesis (Phase 1.6 item 2) is now the
+  leading candidate.
+- **GEOID18's CONUS grid is available as a ready GeoTIFF** from PROJ's
+  own CDN — `https://cdn.proj.org/us_noaa_g2018u0.tif` (verified
+  reachable, 16.7 MB) — no need to deal with NGS's native `.bin`/`.asc`
+  distribution. PROJ accepts GeoTIFF grids the same way as `.gtx` via
+  `+geoidgrids=`.
+- Confirmed EPSG codes via the local PROJ database
+  (`C:/OSGeo4W/share/proj/proj.db`) rather than guessing: NAD83(2011)
+  geographic = 6318 (2D) / 6319 (3D); NAD83(2011) UTM19N = 6348;
+  NAD83(2011) Massachusetts Mainland (State Plane) = 6491 (meters) /
+  6492 (ftUS); legacy equivalents 4269 / 26919 / 26986 / 2249.
+- User's call on the go-forward projected standard: **Massachusetts
+  Mainland State Plane, NAD83(2011), EPSG:6491** (not UTM19N), for
+  consistency with most MassGIS/state data products — though the
+  specific MassGIS lidar bare-earth tiles used in the Phase 1.5
+  comparison are themselves in UTM19N/EPSG:6348, so that convention
+  isn't perfectly uniform even within MassGIS's own catalog.
+
+**New, higher-priority finding while writing this up:** `R/load_ecp.R`
+hardcodes `source_crs <- 26919L`, documented as "the CRS the ECP
+coordinates were collected in" — asserted, not derived from any
+metadata (`JoshSurveyPoints_AllSites_README.txt` has no datum info).
+`R/evaluate_dtm.R` and `R/plot_residual_map.R` inherit the same
+26919-as-project-standard assumption. If the ECPs were actually
+collected in NAD83(2011) (very plausible for modern RTK/GNSS survey
+gear) and mislabeled as legacy 26919, then `sample_dtm()`'s
+CRS-aware reprojection (`sf::st_transform(ecp, crs = raster_crs)`,
+added back on 2026-05-xx) would apply a real ~0.5–1 m transform to
+coordinates that don't need one — a **new**, currently-undetected
+error, not a fix. Flagged as the top-priority open item in `CRS.md`;
+**not flipping any horizontal `target_epsg` default in this codebase
+until it's resolved.** The vertical geoid fix (GEOID12B → GEOID18) has
+no such dependency and is being adopted regardless.
+
+Also note: `WebSearch` returned a hard API error all session ("tool
+type not supported for this model"); research relied on `WebFetch`
+against known URLs (several NGS/mass.gov pages blocked or 404'd) plus
+direct `curl` from Bash, which worked fine for reaching
+`cdn.proj.org` and most of `geodesy.noaa.gov`.
+
+Next: acquire the GEOID18 grid and update `reproject_las()`'s default
+`vgrid` (safe, vertical-only change); leave horizontal `target_epsg`
+defaults untouched pending the ECP-CRS question; `dev/work_plan.md`'s
+Phase 1.5/1.6 sections rewritten to match (see that file — not
+duplicating the full plan text here).
+
+Followed through on the safe part: downloaded
+`us_noaa_g2018u0.tif` (GEOID18 CONUS grid) to
+`X:/legacy/gdrive/UMassAir User Resources/LASTools/Geoid Transformation
+GTX Files/geoid18/` (with a `README.txt` noting source/date, per the
+existing `geoid12b/` convention), smoke-tested it with a real PDAL
+`filters.reprojection` pipeline (`+geoidgrids=us_noaa_g2018u0.tif`,
+exit 0 — GeoTIFF grids work identically to `.gtx`), and updated
+`R/reproject_las.R` / `R/reproject_las_pdal.R`'s default `vgrid` and
+docs accordingly. `target_epsg` defaults left untouched as planned.
+Both files lint clean.
+
+### Correction: the GEOID12B tile-mixup theory was debunked for the
+### wrong reason — and the wrong theory, twice over
+
+The user reported two things that overturned part of the above in one
+message: (1) MassGIS confirmed their bare-earth lidar uses GEOID18; and
+(2) `g2012bu4.gtx` **does** exist locally, at
+`.../Geoid Transformation GTX Files/geoid12b/g2012bu4.gtx` — directly
+contradicting this session's earlier claim that it didn't.
+
+**MassGIS/GEOID18:** resolves one of `CRS.md`'s open questions outright
+— updated there. Matches our adopted vertical standard exactly.
+
+**`g2012bu4.gtx`:** listing the `geoid12b/` directory shows why the
+earlier PROJ-CDN-based check missed it — `g2012bu0.gtx` (34 MB) is the
+**combined CONUS grid**, and `g2012bu1.gtx`–`g2012bu8.gtx` (~4.9 MB
+each) are its **eight regional sub-tiles**, the same packaging pattern
+GEOID18 uses. PROJ's public CDN only mirrors the combined `u0` grid for
+GEOID12B, not the individual sub-tiles, so the earlier "no g2012bu4
+exists" conclusion was simply wrong — checking one catalog and treating
+its absence as proof of nonexistence, when a local copy was sitting in
+the repo's own resource tree the whole time. `g2012bu4` covers
+40–58°N, 281–300°E (79–60°W) — genuinely "around the MA coast," exactly
+as the original field notes described. The field notes were right;
+last session's correction of them was wrong.
+
+**But re-running the actual diagnostic (now possible, since both files
+are local) reaches the same practical conclusion as before, on solid
+footing this time.** Loaded `g2012bu0.gtx` and `g2012bu4.gtx` with
+`terra::rast()` and sampled the undulation value at Red River
+(41.668°N, 289.957°E) and across a 1°×1° grid around it:
+**identical to the last digit everywhere tested (max |diff| = 0.0 m).**
+`u0` is literally `u1`–`u8` merged into one file, not an independently
+re-derived surface, so picking one tile over the other cannot produce
+a different result at any given point. Also sampled GEOID18 at the
+same point: −28.097 m vs. GEOID12B's −28.104 m, a 0.7 cm difference.
+Net effect on the Phase 1.6 diagnosis: **unchanged** — tile choice
+still isn't the explanation for the +10–16 cm bias, and GEOID18 still
+won't close that gap on its own — but now demonstrated empirically
+against the actual local grids rather than inferred from an incomplete
+external catalog. Updated `CRS.md`, `dev/work_plan.md` (Phase 1.6
+candidate-causes list), and `lidar/readme.md` to reflect the corrected
+reasoning.
+
+**Process note for next time:** should have listed the local
+`geoid12b/` directory before concluding a named file "doesn't exist" —
+checking a remote catalog is not the same as checking what's actually
+on disk, especially in a resource tree this project already owns.
+
 ## 2026-08-19 — branch main
 
 ### Sync CLAUDE.md and .gitignore with the hydrology reorg

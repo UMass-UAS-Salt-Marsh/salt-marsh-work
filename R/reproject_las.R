@@ -42,9 +42,17 @@
 #' @param output Path to write the reprojected `.las` file.
 #' @param target_epsg Integer EPSG code for the target horizontal
 #'    CRS.
-#'    Default `26919` (NAD83 / UTM 19N).
-#' @param vgrid Path to the `.gtx` geoid grid file.
-#'    Default points at the project-stored GEOID12B CONUS tile.
+#'    Default `26919` (NAD83 / UTM 19N, no realization) — **kept as
+#'    the historical default for now**; see [`CRS.md`](../CRS.md) at
+#'    the project root for the project's current standard
+#'    (NAD83(2011), still deciding between EPSG:6491 Massachusetts
+#'    Mainland State Plane and EPSG:6348 UTM 19N) and why this default
+#'    hasn't been flipped yet.
+#' @param vgrid Path to the geoid grid file (`.gtx` or GeoTIFF —
+#'    PROJ accepts both the same way).
+#'    Default points at the project-stored **GEOID18** CONUS grid
+#'    (`us_noaa_g2018u0.tif`), the current NGS standard.
+#'    See [`CRS.md`](../CRS.md).
 #' @param overwrite If `FALSE` (default) and `output` already
 #'    exists, return early without calling either helper.
 #'    If `TRUE`, run the transformation and replace the existing
@@ -85,7 +93,7 @@ reproject_las <- function(input,
                              "X:/legacy/gdrive/UMassAir User",
                              " Resources/LASTools/Geoid",
                              " Transformation GTX Files/",
-                             "geoid12b/g2012bu0.gtx"
+                             "geoid18/us_noaa_g2018u0.tif"
                           ),
                           overwrite = FALSE,
                           method = c("pdal", "lastools"),

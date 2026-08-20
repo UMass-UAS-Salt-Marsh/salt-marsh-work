@@ -338,13 +338,25 @@ Logic:
 
 #### Decision point
 
-After reviewing the comparison table, record the chosen ground
-reference in `worklog.md` and update the `spring_dtm` path in
-`lidar/05_veg_heights.R`.
+Comparison ran for `rr`, `oth`, and `wel`
+(`lidar/output/*_ground_comparison/`); results are unambiguous and
+consistent: MassGIS beats every UAS-derived source by a wide margin
+at all three sites, with near-zero bias
+(rr: RMSE 0.044 m / bias +0.003 m vs. best lidar's 0.174 m / +0.165 m).
+MassGIS is the pick for `rr`'s ground reference.
 
-- [ ] Write `lidar/06_compare_ground_sources.R`.
-- [ ] Run after spring lidar DTMs are evaluated (Phase 1 complete).
-- [ ] Record decision in `worklog.md`.
+**Blocked from actually wiring this into `lidar/05_veg_heights.R`**
+until Phase 1.6a (below) resolves the ECP-CRS open question — see
+`CRS.md`. Once the point cloud's horizontal target is confirmed
+correct, this becomes a straight path swap (MassGIS and the point
+cloud will share a horizontal CRS, so no per-raster reprojection
+hack is needed).
+
+- [x] Write `lidar/06_compare_ground_sources.R`.
+- [x] Run after spring lidar DTMs are evaluated (Phase 1 complete).
+- [x] Record decision in `worklog.md` (2026-08-19).
+- [ ] Update `lidar/05_veg_heights.R`'s ground-reference path —
+  blocked on Phase 1.6a.
 
 ### Phase 1.6 — diagnose UAS vertical bias
 
@@ -353,50 +365,129 @@ reference in `worklog.md` and update the `spring_dtm` path in
 Ground source comparison (Phase 1.5) showed all UAS-derived datasets
 have a consistent +10–16 cm positive bias against ECPs while the
 MassGIS aerial lidar tile shows no bias.
-This rules out a CRS or ECP datum error and points to the PPK vertical
-positioning shared by all UAS flights.
+This rules out a *vertical* CRS/datum error in the ECPs and points to
+the PPK vertical positioning shared by all UAS flights. (A separate,
+newly-found *horizontal* CRS question about the ECPs is tracked in
+Phase 1.6a below — the two are independent axes and don't contradict
+each other.)
 
 Full write-up in `lidar/readme.md` "Systematic vertical bias in
-UAS-derived elevation data."
+UAS-derived elevation data" and in `CRS.md`.
 
-#### Two candidate causes (in order of likelihood)
+#### Candidate causes (revised 2026-08-19)
 
-1. **Wrong GEOID12B tile** — the processing notes list two options:
-   `g2012bu0.gtx` (CONUS) and `g2012bu4.gtx` (MA coast).
-   These give different undulation values for Cape Cod;
-   using the wrong tile uniformly across all flights would produce
-   exactly the observed pattern.
-2. **Lever arm misconfiguration** — the 0.3355 m vertical offset for
-   the RESEPI sensor; if incorrect it propagates into every point height.
+1. ~~Wrong GEOID12B tile~~ — **still not the explanation, confirmed
+   empirically.** The processing notes claimed a choice between
+   `g2012bu0.gtx` (CONUS) and `g2012bu4.gtx` ("MA coast"); both files
+   exist locally (`g2012bu0` is the combined CONUS grid,
+   `g2012bu1`–`g2012bu8` are its eight regional sub-tiles, `g2012bu4`
+   covering the MA coast as described). Sampled both with `terra` at
+   Red River and across a 1°×1° grid around it: identical to the last
+   digit everywhere (max |diff| = 0.0 m) — `u0` is `u1`–`u8` merged
+   into one file, not an independent surface, so picking one tile over
+   the other can't change the result. See `CRS.md` "The geoid issue"
+   for the full finding.
+2. **Lever arm misconfiguration** — now the leading hypothesis. The
+   0.3355 m vertical offset for the RESEPI sensor; if incorrect it
+   propagates into every point height.
+3. **Outdated geoid model (GEOID12B vs. GEOID18)** — real, but
+   probably not the main story. GEOID18 is the current NGS standard
+   (adopted as this project's standard in `CRS.md`); typical
+   GEOID12B→GEOID18 differences in this region are a few cm, not the
+   observed 10–16 cm, so this alone likely won't close the gap — worth
+   fixing regardless, just don't expect it to fully explain the bias.
 
 #### Diagnostic steps
 
-- [ ] **Check which GTX file was actually used.**
-  Inspect the LAS file headers or any PCMaster / LAStools log files in
-  the RINEX folders (e.g.
-  `X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\2022\LiDAR\26May2022_RINEX`).
-  LAStools records the applied grid in the VLR (variable-length records)
-  of the output LAS.
-  Compare the undulation value at the Red River location for
-  `g2012bu0.gtx` vs `g2012bu4.gtx` — if they differ by ~15 cm, that
-  identifies the tile mix-up.
 - [ ] **Verify the CORS station used and its published height.**
   The example in the notes shows `mawr0390.23o` (a MACORS station).
   Look up the station's published NAD 83(2011) orthometric height from
   NGS and confirm it matches what PCMaster used.
-- [ ] **If tile mix-up confirmed:** re-run `lasvdatum` on one flight
-  with the correct GTX tile and re-evaluate against ECPs to verify the
-  bias disappears.
-- [ ] **Record the finding and correction** in `worklog.md` and update
-  the PDAL reprojection step in `R/reproject_las_pdal.R` if the same
-  tile issue exists there.
+- [ ] **Check the lever arm value** against the RESEPI sensor's
+  documented specification; look for a transcription or sign error.
+- [ ] **Record the finding and correction** in `worklog.md`.
 
 #### Impact on current work
 
-Vegetation height work (Phase 2) is **not blocked** — the bias cancels
-when summer heights are normalized against the spring DTM because both
-carry the same offset.
+Vegetation height work (Phase 2) is **not blocked** by the *vertical*
+bias — it cancels when summer heights are normalized against the
+spring DTM because both carry the same offset.
 Absolute elevation deliverables are blocked until this is resolved.
+Phase 1.5's ground-reference decision point *is* blocked, but by the
+separate horizontal-CRS question in Phase 1.6a, not by this vertical
+bias.
+
+### Phase 1.6a — establish and migrate to the correct CRS/geoid standard
+
+Added 2026-08-19. Full research and rationale live in `CRS.md`
+(project root) — this section is the execution checklist.
+
+**Standard decided for the parts that are settled:** NAD83(2011)
+(not legacy NAD83) for the horizontal datum, geographic EPSG:6318/6319;
+NAVD88 via **GEOID18** vertically (EPSG:5703, grid
+`us_noaa_g2018u0.tif`). Supersedes the historical EPSG:26919 +
+GEOID12B pairing.
+
+**Still open: which projected CRS.** `CRS.md` lays out two options —
+EPSG:6348 (NAD83(2011) / UTM zone 19N) vs. EPSG:6491 (NAD83(2011) /
+Massachusetts Mainland State Plane) — with tradeoffs (UTM19N covers
+all of coastal MA/NH/ME/RI without a zone split, State Plane matches
+most MassGIS/state data conventions) but no pick yet. Resolve before
+flipping `target_epsg` defaults.
+
+See `CRS.md` for the full comparison and the NAPGD2022
+not-yet-released status. The GEOID12B-tile-mixup theory was
+re-examined with the actual local grid files (`g2012bu4.gtx` does
+exist, covering the MA coast as the field notes said) and confirmed,
+empirically, to be numerically identical to `g2012bu0.gtx` at Red
+River — so it still isn't the explanation for the bias, just not for
+the reason first claimed. See `CRS.md`'s "geoid issue" section.
+
+**Blocking open question found while scoping this — now resolved.**
+`R/load_ecp.R` hardcodes `source_crs <- 26919L` for the ECPs. This was
+flagged as blocking because it was asserted rather than derived from
+metadata, and if wrong (ECPs actually NAD83(2011), mislabeled as
+legacy 26919), switching the point-cloud pipeline's horizontal target
+would make `sample_dtm()`'s CRS-aware reprojection apply a spurious
+~0.5–1 m shift. Josh Ward's thesis (2026-08-20) confirms the ECPs were
+measured in NAD83/UTM19N, NAVD88 — legacy NAD83, exactly matching the
+hardcoded value. `R/evaluate_dtm.R` and `R/plot_residual_map.R` inherit
+the same, now-confirmed-correct, assumption. See `CRS.md`'s "Open
+questions" for detail. No code change needed in `R/load_ecp.R` itself —
+it was already right.
+
+- [x] Research current geoid/datum standard; write `CRS.md`.
+- [x] Confirm EPSG codes via local PROJ database.
+- [x] Re-examine the GEOID12B tile-mixup theory against the actual
+  local grid files — `g2012bu4.gtx` exists (MA coast, as originally
+  described) but is numerically identical to `g2012bu0.gtx` at Red
+  River, so tile choice still isn't the explanation (see Phase 1.6
+  above).
+- [x] Confirm MassGIS's bare-earth lidar uses GEOID18 (matches our
+  vertical standard).
+- [x] Resolve the ECP source-CRS question — confirmed via Josh Ward's
+  thesis: legacy NAD83/UTM19N, NAVD88 (see above).
+- [ ] **Pick UTM19N (EPSG:6348) vs. State Plane (EPSG:6491)** for the
+  projected-CRS standard (see `CRS.md`'s comparison) — the only
+  remaining blocker on flipping `target_epsg`.
+- [x] Download `us_noaa_g2018u0.tif` (GEOID18 CONUS grid) and update
+  `reproject_las()`'s default `vgrid` — vertical-only, independent of
+  the ECP question, safe to do now.
+- [ ] Once the UTM-vs-State-Plane pick is made: update horizontal
+  `target_epsg` defaults (`lidar/02.R`,
+  `R/reproject_las.R`, `R/load_ecp.R`, `R/evaluate_dtm.R`,
+  `R/plot_residual_map.R`) to the new standard.
+- [ ] Re-run Step 0 (reprojection) + Step 1 (clean & tile) for `rr`
+  spring and summer clouds under the new target CRS/geoid.
+  `zzzcleaned/`/`zzzraster/` are not EPSG-namespaced — add a path
+  fix so the new-CRS run doesn't collide with the existing 26919
+  outputs.
+- [ ] Re-run Phase 1 CSF tuning + DTM evaluation to reconfirm best
+  parameters and measure how much the vertical bias actually shrinks.
+- [ ] Re-run `lidar/06_compare_ground_sources.R` for `rr` under the
+  corrected CRS.
+- [ ] Return to the Phase 1.5 decision point above: wire the ground
+  reference into `lidar/05_veg_heights.R`.
 
 ### Phase 2 — vegetation strata (Goal 2)
 

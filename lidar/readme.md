@@ -81,6 +81,14 @@ each of which different tools handle differently.
 This section documents them so future maintainers
 know what to expect.
 
+**See [`CRS.md`](../CRS.md) (project root) for the project-wide
+CRS/datum/geoid standard** — it supersedes the EPSG:26919 + GEOID12B
+pairing described below as the target for new work, and documents the
+current, unresolved question about whether the ECPs' horizontal CRS
+label is actually correct. The geodetic background below (the three
+shifts, why each reprojection method handles them differently) still
+applies regardless of which specific EPSG codes are current.
+
 ### Source CRS
 
 RESEPI / PPK clouds arrive tagged in the LAS header GeoTIFF keys as:
@@ -246,9 +254,12 @@ photogrammetry DEMs) show a consistent **+10–16 cm positive bias**
 against the field-collected ECPs (predicted > observed).
 The MassGIS 2021 aerial lidar tile for the same area shows no bias.
 
-Since MassGIS is unbiased, the ECPs are correctly placed in
-EPSG:26919 / NAVD 88 and our CRS assumptions are right.
-The offset is in the UAS geo-referencing, not in the ECP datum.
+Since MassGIS is unbiased, the ECPs' *vertical* datum/geoid is right —
+this rules out a vertical CRS/datum error in the ECPs themselves.
+The offset is in the UAS geo-referencing, not in the ECP vertical
+datum.
+(This says nothing about the ECPs' *horizontal* CRS label, which is a
+separate, still-open question — see [`CRS.md`](../CRS.md).)
 
 Because the lidar and photogrammetry measure by completely different
 physical principles but share the same PPK GPS solution, the bias
@@ -271,15 +282,25 @@ Reference doc:
    - `g2012bu0.gtx` — GEOID12B CONUS tile
    - `g2012bu4.gtx` — described as "around MA coast"
 
-### Likely causes
+### Likely causes (revised 2026-08-19 — see `CRS.md`)
 
-1. **Wrong GEOID12B tile** — `g2012bu0.gtx` vs `g2012bu4.gtx` give
-   different undulation values for Cape Cod.
-   Using the wrong tile consistently across all flights would produce a
-   uniform bias across lidar and photogrammetry.
-2. **Lever arm error** — the 0.3355 m vertical offset is for the RESEPI
-   sensor; a misconfigured value propagates directly into every point
-   height.
+1. ~~Wrong GEOID12B tile~~ — **still not the explanation, confirmed
+   empirically.** `g2012bu0.gtx` (the combined CONUS grid) and
+   `g2012bu4.gtx` (one of its eight regional sub-tiles, covering the MA
+   coast as described) both exist locally. Sampled both with `terra` at
+   Red River and across a 1°×1° grid around it: identical to the last
+   digit everywhere (max |diff| = 0.0 m) — `u0` is the sub-tiles merged
+   into one file, not an independent surface, so picking one over the
+   other can't change the result. Full detail in
+   [`CRS.md`](../CRS.md).
+2. **Lever arm error** — now the leading hypothesis. The 0.3355 m
+   vertical offset is for the RESEPI sensor; a misconfigured value
+   propagates directly into every point height.
+3. **Outdated geoid model** — GEOID12B is superseded by **GEOID18**
+   (current NGS standard since ~2019; adopted as this project's
+   standard in `CRS.md`), but typical GEOID12B→GEOID18 differences in
+   this region are a few cm, not the observed 10–16 cm — worth fixing
+   regardless, unlikely to be the whole story.
 
 ### Implication for vegetation height work
 
@@ -291,8 +312,11 @@ Absolute elevation deliverables will need the offset corrected.
 
 ### Diagnosing the cause
 
-See the "Phase 1.6 — diagnose UAS vertical bias" section in
-`dev/work_plan.md` for the diagnostic plan.
+See the "Phase 1.6 — diagnose UAS vertical bias" and "Phase 1.6a —
+establish and migrate to the correct CRS/geoid standard" sections in
+`dev/work_plan.md` for the diagnostic plan, and
+[`CRS.md`](../CRS.md) for the project-wide CRS/datum/geoid standard
+this investigation produced.
 
 ## Comparing ground elevation datasets
 
