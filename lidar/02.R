@@ -95,14 +95,17 @@ target_epsg <- 6491L
 # run; output DTM filenames embed the values via
 # `paths$ground_raster_template`.
 #
-# Expanded from the initial 4-run search: the best preliminary result
-# had the largest cloth_resolution (0.20) and class_threshold (0.12),
-# so this grid extends both upward and crosses rigidness 2 vs. 3.
-# 3 resolutions × 3 thresholds × 2 rigidness values = 18 parameter sets.
-csf_grid <- expand.grid(
-   csf_res       = c(0.20, 0.30, 0.50),
-   csf_threshold = c(0.08, 0.12, 0.20),
-   csf_rigidness = c(2, 3),
+# Reverted to the original 4-parameter grid for the EPSG:6491 re-run
+# (2026-08-20) -- keeps this an apples-to-apples check of whether the
+# CRS switch changed bias/RMSE, rather than also reopening the
+# parameter search.  The 18-run expanded grid (3 resolutions x
+# 3 thresholds x 2 rigidness values) was added 2026-05-20 but never
+# actually run to completion for `rr`; revisit it separately if the
+# original 4 aren't sufficient going forward.
+csf_grid <- data.frame(
+   csf_res       = c(0.05, 0.1, 0.1, 0.2),
+   csf_threshold = c(0.005, 0.01, 0.06, 0.12),
+   csf_rigidness = c(2, 2, 2, 2),
    raster_res    = 0.25
 )
 
