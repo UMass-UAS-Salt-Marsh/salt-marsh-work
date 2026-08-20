@@ -19,6 +19,57 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-08-20 — branch lidar
 
+### Prep for the Phase 1.6a re-run: fix stale zzzraster paths, archive old output
+
+Before re-running `lidar/02.R` under the new EPSG:6491 standard,
+audited whether the downstream evaluation/comparison drivers would
+read the right output. They wouldn't have, in two places:
+
+- `rmd/dtm_evaluation_report.Rmd:40` hardcoded
+  `file.path(params$base_output, "zzzraster")` — the old,
+  un-namespaced directory name. Would have silently found the old
+  26919 DTMs (still on disk) instead of the new 6491 ones, rather than
+  erroring. Added a `target_epsg` param (default `6491`) threaded
+  through `R/report_dtms.R` -> the Rmd, used to build
+  `zzzraster_epsg<target_epsg>/` and passed to `load_ecp()`/
+  `evaluate_dtm()`'s CRS args explicitly. `lidar/03_evaluate_dtm.R`
+  now sets `target_epsg <- 6491L` explicitly too, matching
+  `lidar/02.R`'s style.
+- `lidar/06_compare_ground_sources.R:29,33` hardcoded `"zzzraster"`
+  for the `lidar_spring`/`lidar_summer` source paths. Same fix: added
+  a local `target_epsg <- 6491L` and built the path via
+  `paste0("zzzraster_epsg", target_epsg)`.
+
+`R/report_ground_sources.R`/`rmd/ground_source_comparison.Rmd` needed
+no fix — `load_ecp()` there already has no `target_crs` override, so
+it just picks up the new `6491` default; `sample_dtm()` reprojects the
+ECPs to match each source raster's own CRS regardless, so comparing
+DTMs and orthos in different CRSs continues to work correctly.
+
+**Archived pre-existing rr output that would otherwise be overwritten**
+(these three directories are not, and won't be, EPSG-namespaced —
+namespacing every report driver's output felt like more churn than
+warranted for CSV/PNG/HTML artifacts that are cheap to regenerate;
+archiving the one prior run was simpler):
+
+```
+git mv lidar/output/rr_2022_05_14        lidar/output/rr_2022_05_14_epsg26919
+git mv lidar/output/rr_2022_08_10        lidar/output/rr_2022_08_10_epsg26919
+git mv lidar/output/rr_ground_comparison lidar/output/rr_ground_comparison_epsg26919
+```
+
+New runs of `lidar/03_evaluate_dtm.R` / `lidar/06_compare_ground_sources.R`
+will write to the now-freed plain names
+(`lidar/output/rr_2022_05_14/`, etc.), keeping the 26919-era results
+available for comparison rather than lost.
+
+Not fixed / intentionally left alone: `lidar/05_veg_heights.R:46`
+still points at the old `zzzraster/csf_th0.01...` DTM — out of scope,
+since that file is paused pending the Phase 1.5 ground-reference
+decision (see below in this plan), not part of this re-run.
+
+All touched R/lidar/Rmd files lint clean.
+
 ### Phase 1 bookkeeping: check off completed items, record CSF choice
 
 Noticed (prompted by the user) that every checkbox under Phase 1 in

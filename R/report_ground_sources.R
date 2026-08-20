@@ -29,7 +29,8 @@
 #' report_ground_sources(
 #'    sources = c(
 #'       lidar_spring = paste0("E:/uas_scratch/lidar/rr/2022_05_14/",
-#'                             "zzzraster/csf_th0.01_res0.1_rgd2_0.25m.tif"),
+#'                             "zzzraster_epsg6491/",
+#'                             "csf_th0.01_res0.1_rgd2_0.25m.tif"),
 #'       massgis      = paste0("X:/scratch/bcompton/LiDAR/",
 #'                             "be_19TDG412612/be_19TDG412612.tif")
 #'    ),

@@ -6,7 +6,8 @@
 #' [rmarkdown::render()].
 #'
 #' **Prerequisites**: DTMs must exist under
-#' `<base_output>/zzzraster/` (produced by `lidar/02.R`).
+#' `<base_output>/zzzraster_epsg<target_epsg>/` (produced by
+#' `lidar/02.R`).
 #' Per-DTM ECP cache CSVs are written automatically on the first
 #' run and reused on subsequent calls.
 #'
@@ -15,8 +16,8 @@
 #' @param date Date string in `"yyyy_mm_dd"` format
 #'    (e.g. `"2022_08_10"`).
 #' @param ecp_path Path to the all-sites ECP xlsx.
-#' @param base_output Directory containing `zzzraster/` with the
-#'    DTM GeoTIFFs.
+#' @param base_output Directory containing
+#'    `zzzraster_epsg<target_epsg>/` with the DTM GeoTIFFs.
 #'    Defaults to `E:/uas_scratch/lidar/<site>/<date>`.
 #' @param tolerances Numeric vector of absolute-difference
 #'    thresholds (metres) for `pct_within_*` columns.
@@ -26,6 +27,11 @@
 #'    Default `"Training"` (the survey-grade ground control
 #'    points).
 #'    Pass `character(0)` to include all non-excluded types.
+#' @param target_epsg Integer EPSG code the DTMs and ECPs are in.
+#'    Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'    Plane — see [`CRS.md`](../CRS.md)).
+#'    Used to locate `zzzraster_epsg<target_epsg>/` and to
+#'    reproject the ECPs to match via `load_ecp(target_crs = )`.
 #' @param eval_dir Directory for report outputs
 #'    (`dtm_eval_summary.csv`, HTML).
 #'    Defaults to `lidar/output/<site>_<date>` relative to the
@@ -55,6 +61,7 @@ report_dtms <- function(
       eval_dir    = file.path("lidar/output",
                               paste0(site, "_", date)),
       output_file = paste0("dtm_eval_", site, "_", date, ".html"),
+      target_epsg = 6491L,
       open        = TRUE) {
 
    stopifnot(
@@ -81,7 +88,8 @@ report_dtms <- function(
                          base_output = base_output,
                          tolerances  = tolerances,
                          ecp_types   = ecp_types,
-                         eval_dir    = eval_dir),
+                         eval_dir    = eval_dir,
+                         target_epsg = target_epsg),
       output_file = output_file,
       output_dir  = eval_dir,
       quiet       = TRUE

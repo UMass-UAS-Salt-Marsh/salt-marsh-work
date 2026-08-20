@@ -23,14 +23,18 @@ site <- "rr"
 best_csf_spring <- "csf_th0.01_res0.1_rgd2_0.25m.tif"
 best_csf_summer <- "csf_th0.12_res0.2_rgd2_0.25m.tif"
 
+# Must match whatever lidar/02.R used to produce best_csf_spring
+# and best_csf_summer.
+target_epsg <- 6491L
+
 sources <- c(
    lidar_spring = file.path(
       "E:/uas_scratch/lidar", site, "2022_05_14",
-      "zzzraster", best_csf_spring
+      paste0("zzzraster_epsg", target_epsg), best_csf_spring
    ),
    lidar_summer = file.path(
       "E:/uas_scratch/lidar", site, "2022_08_10",
-      "zzzraster", best_csf_summer
+      paste0("zzzraster_epsg", target_epsg), best_csf_summer
    ),
    photo_spring_hesai = paste0(
       "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",

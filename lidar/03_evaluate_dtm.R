@@ -35,6 +35,12 @@ ecp_path <- paste0(
 base_output <- file.path("E:/uas_scratch/lidar", site, date)
 tolerances  <- c(0.10, 0.20)
 
+# Target horizontal CRS for the DTMs being evaluated -- must match
+# whatever lidar/02.R used to produce them. 6491 = NAD83(2011) /
+# Massachusetts Mainland State Plane, this project's current standard
+# (see CRS.md at the project root).
+target_epsg <- 6491L
+
 #------------------------------------------------------------------------------#
 # Render report
 #------------------------------------------------------------------------------#
@@ -44,5 +50,6 @@ report_dtms(
    date        = date,
    ecp_path    = ecp_path,
    base_output = base_output,
-   tolerances  = tolerances
+   tolerances  = tolerances,
+   target_epsg = target_epsg
 )

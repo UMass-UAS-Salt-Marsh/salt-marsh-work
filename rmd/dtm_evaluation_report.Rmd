@@ -15,6 +15,7 @@ params:
   eval_dir:    "lidar/output/rr_2022_05_14"
   tolerances:  [0.10, 0.20]
   ecp_types:   ["EVP"]
+  target_epsg: 6491
 ---
 
 ```{r setup, include = FALSE}
@@ -28,7 +29,8 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
 # -- Load ECPs ----------------------------------------------------------------
-site_ecp <- load_ecp(params$ecp_path, site = params$site)
+site_ecp <- load_ecp(params$ecp_path, site = params$site,
+                     target_crs = params$target_epsg)
 if (length(params$ecp_types) > 0L) {
    site_ecp <- site_ecp[
       tolower(site_ecp$type) %in% tolower(params$ecp_types), ,
@@ -37,7 +39,8 @@ if (length(params$ecp_types) > 0L) {
 }
 
 # -- List DTMs ----------------------------------------------------------------
-dtm_dir   <- file.path(params$base_output, "zzzraster")
+dtm_dir   <- file.path(params$base_output,
+                       paste0("zzzraster_epsg", params$target_epsg))
 dtm_paths <- list.files(dtm_dir, pattern = "^csf_.*\\.tif$",
                         full.names = TRUE)
 if (length(dtm_paths) == 0L) {
@@ -67,7 +70,8 @@ tolerances    <- params$tolerances
 for (d in dtm_paths) {
    stem       <- sub("\\.tif$", "", basename(d), ignore.case = TRUE)
    dtm_elev   <- all_elevations[all_elevations$dtm == stem, ]
-   result     <- evaluate_dtm(dtm_elev, tolerances = tolerances)
+   result     <- evaluate_dtm(dtm_elev, tolerances = tolerances,
+                              crs = params$target_epsg)
    summary_d  <- result$summary
    summary_d$dtm <- stem
    results[[stem]]      <- result
