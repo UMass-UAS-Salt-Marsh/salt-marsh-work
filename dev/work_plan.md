@@ -96,7 +96,11 @@ the smoke test is the manual run-through.
 
 #### Plan items
 
-- [ ] **`R/load_ecp.R`** — single function that reads the ECP xlsx,
+All items below were actually completed back in May 2026 but the
+checkboxes were never marked — confirmed against the current
+codebase 2026-08-20 (see `dev/worklog.md`).
+
+- [x] **`R/load_ecp.R`** — single function that reads the ECP xlsx,
   cleans columns,
   parses dates,
   lowercases site codes,
@@ -106,7 +110,7 @@ the smoke test is the manual run-through.
   ECPs marked "Logger Array" stay excluded.
   Optional `site` arg subsets to a single site code in one call.
 
-- [ ] **`R/sample_dtm.R`** — pure data assembly.
+- [x] **`R/sample_dtm.R`** — pure data assembly.
   Takes one DTM (path or `terra::SpatRaster`) and the ECP sf
   object;
   returns the ECP data frame with **one additional column**,
@@ -124,7 +128,7 @@ the smoke test is the manual run-through.
   sample_dtm(dtm, ecp, output_csv = NULL, overwrite = FALSE)
   ```
 
-- [ ] **Rework `R/evaluate_dtm.R`** to reporting-only.
+- [x] **Rework `R/evaluate_dtm.R`** to reporting-only.
   Takes the data frame from `sample_dtm()` (single DTM or rbind of
   several with a `dtm` column).
   Computes `residual = predicted - elevation` and
@@ -197,7 +201,7 @@ the smoke test is the manual run-through.
       (matters for choosing between t-test and sign test for
       `bias_p`).
 
-- [ ] **Wire `sample_dtm()` into `lidar/02.R`.**
+- [x] **Wire `sample_dtm()` into `lidar/02.R`.**
   Append a `load_ecp()` + per-DTM `sample_dtm()` loop after the
   CSF tuning loop,
   replacing the existing partial "Read elevation control points"
@@ -207,7 +211,7 @@ the smoke test is the manual run-through.
   the time the production run finishes,
   so the reporting phase opens fast.
 
-- [ ] **`lidar/03_evaluate_dtm.R`** — new driver.
+- [x] **`lidar/03_evaluate_dtm.R`** — new driver.
   Re-runs the same `load_ecp()` + `sample_dtm()` loop at the top
   (cache hit in the normal case,
   so it's essentially instant;
@@ -227,22 +231,21 @@ the smoke test is the manual run-through.
   and the skip-if-exists CSV cache makes the duplication free in
   the common case.
 
-- [ ] **Inspection and selection.**
-  Inspect the results together before deciding whether to expand
-  the parameter search.
-  Rank parameter sets two ways:
-
-  1. **By bare-class RMSE** (and by `pct_within_10cm` in bare class).
-     Bare ground is what the CSF is actually classifying,
-     so this is the cleanest signal.
-  2. **By all-class RMSE.**
-     Useful but biased upward by tall-veg classes where the lidar
-     can't see the marsh floor through the canopy —
-     those errors are vegetation-residual,
-     not CSF errors.
-
-  Pick the best parameter set per site and record the choice +
-  reasoning in `worklog.md`.
+- [x] **Inspection and selection.**
+  Done for the original 4-parameter grid (the later 18-run expanded
+  grid in `lidar/02.R` was never actually rasterized for `rr` — only
+  the original 4 DTMs exist on disk for either date). Picked by
+  **all-class (overall) RMSE**, recorded in
+  `lidar/06_compare_ground_sources.R`'s comments but never given its
+  own `worklog.md` entry until now (see `dev/worklog.md`, 2026-08-20).
+  The plan's preferred **bare-class RMSE** ranking was not done
+  separately — `evaluate_dtm()` groups by ECP `subclass`, and for the
+  `type == "EVP"` points actually used in evaluation, `subclass` is a
+  numeric code (1-12) with no descriptive-label mapping anywhere in
+  this codebase, so "which code is bare ground" isn't currently
+  answerable without outside documentation (e.g. Josh Ward's thesis
+  or the original classification-points spreadsheet). Flagged as a
+  gap, not silently skipped.
 
 #### Saltmarsh-specific notes for the report
 

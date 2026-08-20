@@ -19,6 +19,44 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-08-20 — branch lidar
 
+### Phase 1 bookkeeping: check off completed items, record CSF choice
+
+Noticed (prompted by the user) that every checkbox under Phase 1 in
+`dev/work_plan.md` was still unchecked, even though the work is done —
+`R/load_ecp.R`, `R/sample_dtm.R`, the `evaluate_dtm()` assembly/
+reporting split, the `lidar/02.R` wiring, and `lidar/03_evaluate_dtm.R`
+all exist and match the plan's spec. Checked them off.
+
+**"Inspection and selection" backfilled here since it never got its
+own entry.** The 4-parameter CSF grid (`csf_th0.005/0.01/0.06/0.12`)
+is the only one actually rasterized for `rr` — the 18-run expanded
+grid added to `lidar/02.R` on 2026-05-20 was never run to completion
+for this site (`E:/uas_scratch/lidar/rr/*/zzzraster/` has exactly 4
+`csf_*.tif` files per date, matching the original grid, not 18).
+Ranked by overall RMSE from the actual eval CSVs:
+
+- **Spring (2022-05-14):** `csf_th0.01_res0.1_rgd2_0.25m` wins,
+  RMSE 0.174 m (next-best 0.179 m).
+- **Summer (2022-08-10):** `csf_th0.12_res0.2_rgd2_0.25m` wins,
+  RMSE 0.245 m (next-best 0.250 m).
+
+Both match what `lidar/06_compare_ground_sources.R`'s `best_csf_*`
+comments already say — this just gives that choice a proper record.
+
+**Gap, not silently resolved:** the plan calls for ranking by
+*bare-class* RMSE first (cleanest CSF signal) and using all-class RMSE
+only as a secondary check. `evaluate_dtm()` groups by ECP `subclass`,
+and for `type == "EVP"` (the point type actually used —
+see 2026-05-21 below) `subclass` is a bare numeric code (1-12) with no
+descriptive-label mapping anywhere in this codebase or its data
+files. Cross-checked against `type`/`subclass` in the ECP xlsx itself
+(via `load_ecp()`) and confirmed there's no legend to resolve "which
+code means bare ground" without an outside source (Josh Ward's thesis,
+or the original classification-points spreadsheet in
+`X:/legacy/gdrive/2022_23_field_data/Classification Points/`). Went
+with all-class RMSE only; flagging this as an open gap in
+`dev/work_plan.md` rather than fabricating a bare-class ranking.
+
 ### ECP source-CRS question resolved via Josh Ward's thesis
 
 The blocking open question from yesterday — whether `R/load_ecp.R`'s
