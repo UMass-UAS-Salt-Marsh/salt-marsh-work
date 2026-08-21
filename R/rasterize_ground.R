@@ -57,7 +57,7 @@ rasterize_ground <- function(
    # only loses the in-progress chunk, not the whole DTM.
    chunk_dir <- paste0(tools::file_path_sans_ext(output), "_chunks")
    dir.create(chunk_dir, recursive = TRUE, showWarnings = FALSE)
-   opt_output_files(ctg) <- file.path(chunk_dir, "{ORIGINALFILENAME}")
+   opt_output_files(ctg) <- file.path(chunk_dir, "{XLEFT}_{YBOTTOM}")
 
    n_chunks <- nrow(ctg@data)
    if (n_chunks == 0L) stop("Input catalog contains zero chunks.")
