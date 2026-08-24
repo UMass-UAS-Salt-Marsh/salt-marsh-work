@@ -211,51 +211,79 @@ height bin.
 
 ```mermaid
 flowchart TD
-    A1["Spring LAS"] --> B0
-    A2["Summer LAS"] --> B0
-    B0["reproject_las()"] --> C1["Reprojected spring LAS"]
-    B0 --> C2["Reprojected summer LAS"]
+    A1[/"Spring LAS"/]
+    A2[/"Summer LAS"/]
+    A1 --> B0
+    A2 --> B0
+    B0["reproject_las()"]
+    B0 --> C1[/"Reprojected spring LAS"/]
+    B0 --> C2[/"Reprojected summer LAS"/]
 
-    C1 --> D1["clean_and_tile()"]
-    C2 --> D2["clean_and_tile()"]
-    D1 --> E1["Cleaned spring tiles"]
-    D2 --> E2["Cleaned summer tiles"]
+    C1 --> D1
+    C2 --> D2
+    D1["clean_and_tile()"]
+    D2["clean_and_tile()"]
+    D1 --> E1[/"Cleaned spring tiles"/]
+    D2 --> E2[/"Cleaned summer tiles"/]
 
-    ECP[("ECP xlsx<br/>elevation + veg_height_m")] --> LE["load_ecp()"]
+    ECP[/"ECP xlsx<br/>elevation + veg_height_m"/]
+    LE["load_ecp()"]
+    ECP --> LE
 
-    E1 --> F["rasterize_ground()<br/>per CSF parameter set<br/>(lidar/02.R)"]
+    E1 --> F
     E2 --> F
-    F --> G1["Candidate spring DTMs"]
-    F --> G2["Candidate summer DTMs"]
+    F["rasterize_ground()<br/>per CSF parameter set<br/>(lidar/02.R)"]
+    F --> G1[/"Candidate spring DTMs"/]
+    F --> G2[/"Candidate summer DTMs"/]
 
-    G1 --> J["sample_dtm() + evaluate_dtm()<br/>(lidar/03_evaluate_dtm.R)"]
+    G1 --> J
     G2 --> J
     LE --> J
-    J --> K[/"DTM evaluation report<br/>(rmd/dtm_evaluation_report.Rmd)"/]
+    J["sample_dtm() + evaluate_dtm()<br/>(lidar/03_evaluate_dtm.R)"]
+    K@{ shape: doc, label: "DTM evaluation report<br/>(rmd/dtm_evaluation_report.Rmd)" }
+    J --> K
 
-    OTHER["Photogrammetry DEMs +<br/>MassGIS bare-earth tile"]
-    G1 --> M["sample_dtm() + evaluate_dtm()<br/>via report_ground_sources()<br/>(lidar/06_compare_ground_sources.R)"]
+    OTHER[/"Photogrammetry DEMs +<br/>MassGIS bare-earth tile"/]
+    G1 --> M
     G2 --> M
     OTHER --> M
     LE --> M
-    M --> N[/"Ground-source comparison report<br/>(rmd/ground_source_comparison.Rmd)"/]
+    M["sample_dtm() + evaluate_dtm()<br/>via report_ground_sources()<br/>(lidar/06_compare_ground_sources.R)"]
+    N@{ shape: doc, label: "Ground-source comparison report<br/>(rmd/ground_source_comparison.Rmd)" }
+    M --> N
 
-    M --> O["estimate_floor_bias()<br/>(lidar/07_floor_corrected_ground.R)"]
+    M --> O
     OTHER --> P
-    O --> P["Floor-bias-corrected ground raster<br/>massgis_plus_floor_summer.tif"]
+    O["estimate_floor_bias()<br/>(lidar/07_floor_corrected_ground.R)"]
+    O --> P[/"Floor-bias-corrected ground raster<br/>massgis_plus_floor_summer.tif"/]
 
-    E2 --> Q["rasterize_canopy_top()"]
-    Q --> R["Summer canopy-top DSM"]
+    E2 --> Q
+    Q["rasterize_canopy_top()"]
+    Q --> R[/"Summer canopy-top DSM"/]
 
-    R --> S["sample_dtm() + summarize_residuals()<br/>(lidar/08_veg_height_validation.R)"]
+    R --> S
     P --> S
     LE --> S
-    S --> T[/"Veg-height validation vs<br/>field veg_height_m"/]
+    S["sample_dtm() + summarize_residuals()<br/>(lidar/08_veg_height_validation.R)"]
+    S --> T[/"Veg-height validation CSV vs<br/>field veg_height_m"/]
 
-    E2 --> U["rasterize_veg_heights()<br/>+ bin_fractions() per pixel<br/>(lidar/05_veg_heights.R)"]
+    E2 --> U
     P --> U
-    U --> V[["veg_dist_0.5m.tif<br/>30-band height distribution<br/>(final deliverable)"]]
+    U["rasterize_veg_heights()<br/>+ bin_fractions() per pixel<br/>(lidar/05_veg_heights.R)"]
+    U --> V[/"veg_dist_0.5m.tif<br/>30-band height distribution<br/>(final deliverable)"/]
+
+    classDef process fill:#dbe9f6,stroke:#4a77a8,color:#1a2b3c
+    classDef data fill:#fff3cd,stroke:#b8860b,color:#4a3b00
+    classDef report fill:#e1f5e6,stroke:#2f855a,color:#1a3b28
+
+    class B0,D1,D2,LE,F,J,M,O,Q,S,U process
+    class A1,A2,C1,C2,E1,E2,ECP,G1,G2,OTHER,P,R,T,V data
+    class K,N report
 ```
+
+Rectangles are functions/scripts; parallelograms are data artifacts
+(point clouds, tiles, rasters, cached CSVs); the document-shaped,
+green boxes are the two rendered HTML reports.
 
 ## See also
 
