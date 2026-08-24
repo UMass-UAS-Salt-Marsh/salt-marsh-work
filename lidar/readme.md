@@ -47,25 +47,10 @@ Old Town Hill, Wellfleet, and Red River.
 
 
 
-## Aproach
+## Approach
 
-We need to use the LAScatalog feature of lidR to work in tiles.
-
-Step 1:  clean_and_tile()
-   Filter to last hit
-   Remove outliers
-   Remove Buffer
-   Write to new set of tiles
-   
-Step 2: 
-   Run on output from step 1
-   Find and export ground for a number of parameter sets and output as raster
-   
-Step 3 
-   Compare to Elev. Control Points and evaluate performance
-   
-Step 4
-   Use chosen models to generate raster with pcts in each bin.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current pipeline:
+stages, scripts, functions, and a data-flow diagram.
 
 
 

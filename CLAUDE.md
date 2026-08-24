@@ -37,7 +37,10 @@ Processes LAS point clouds into ground rasters (DTMs) for a single site at a tim
 - `R/rasterize_ground.R` — Step 2: classify ground with `csf(class_threshold, cloth_resolution, rigidness)`, then `rasterize_terrain()` with `knnidw` into a single GeoTIFF.
 - Both functions use `lidR::LAScatalog` + `catalog_map()` to process in tiles (`chunk_size`/`chunk_buffer` defaults 200/20 m). The full pipeline is memory-bound, not CPU-bound — be cautious with `future::plan(multisession, workers = N)` (see comments in `lidar/02.R`).
 - Output directories: cleaned tiles → `E:/uas_scratch/lidar/<site>/<date>/zzzcleaned/`; DTMs → `…/zzzraster/csf_th<...>_res<...>_rgd<...>_<res>m.tif`. The `paths$ground_raster_template` uses `[name]` placeholders substituted by `update_path()`.
-- See `lidar/readme.md` for the dream output (multi-band veg-height-distribution raster), site priorities, and important file-layout notes (2022 LAS files live under `X:/legacy/gdrive/saltmarsh_UAS/…`; 2024+ under `X:/projects/uas/sites/<site>/lidar_point_cloud/…`).
+- See `lidar/ARCHITECTURE.md` for the pipeline's stages, functions, and
+  data flow (with a diagram). See `lidar/readme.md` for the dream output
+  (multi-band veg-height-distribution raster), site priorities, and
+  important file-layout notes (2022 LAS files live under `X:/legacy/gdrive/saltmarsh_UAS/…`; 2024+ under `X:/projects/uas/sites/<site>/lidar_point_cloud/…`).
 
 ### `logger_recalibration/`
 Separate exploratory scripts by another collaborator for finding common high tides across loggers and producing recalibration diagnostics. Uses the same `R/` helpers (`find_high_tides`, `find_common_high_tides`, `assess_water_logger_errors`, `spatial_plotting`). `recalibrate_sites.R` and `recalibration_report.Rmd` are intentionally redundant — both call the same shared functions, with the Rmd being the latest. Earlier drafts (`readme.Rmd`, the previous `recalibate_sites.R`) live under `logger_recalibration/old/`.

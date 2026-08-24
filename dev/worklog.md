@@ -19,6 +19,40 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-08-24 — branch lidar
 
+### Documentation reorganization: new `lidar/ARCHITECTURE.md`, trimmed `dev/work_plan.md`
+
+`dev/work_plan.md` had grown to 788 lines mixing the active plan with
+full phase-by-phase history and design rationale that already
+duplicated `worklog.md`/`worklog-archive.md`. Split the durable
+"how the pipeline works" content into a new `lidar/ARCHITECTURE.md`
+(conceptual workflow + implementation, one subsection per pipeline
+stage naming the driver script and `R/` functions involved, plus a
+mermaid data-flow diagram from raw LAS through to the final 30-band
+veg-height-distribution raster), scoped to the lidar pipeline only
+per user direction — the hydrology and logger-recalibration
+pipelines are out of scope for this doc.
+
+Rewrote `dev/work_plan.md` down to just the still-open items: the
+Phase 1.6 vertical-bias diagnostics (CORS station height, lever-arm
+check — both untouched), the Phase 1.7 canopy-top ~15 cm
+underestimate investigation, Phase 2's two open decision points
+(fraction denominator, output resolution), and the Phase 3 site
+rollout table. Confirmed every completed phase's narrative already
+had worklog coverage before cutting it, so nothing was lost. Also
+resolved four stale unchecked Phase 1.6a checkboxes (re-run Steps
+0–2 / Phase 1 / ground comparison under the corrected CRS, wire the
+result into vegetation heights) — Phase 1.7 and Phase 2 already did
+this work; the checkboxes just hadn't been ticked.
+
+Other small follow-ons: `lidar/readme.md`'s stale 4-step "Approach"
+section (didn't reflect the current 8-driver pipeline) now points to
+`ARCHITECTURE.md` instead; root `README.md` and `CLAUDE.md` each got
+a one-line pointer to `lidar/ARCHITECTURE.md`. Deleted two untracked
+stray files found while exploring: `Saltmarsh_CRS.md` (an old,
+superseded draft of `CRS.md`, different content on the same topic)
+and `Rplots.pdf` (an accidental R plotting artifact at the repo
+root).
+
 ### Phase 1.7: floor-bias-corrected ground reference for veg heights
 
 Resolved the Phase 1.5 decision point (which ground source to use for
@@ -216,3 +250,12 @@ test artifacts. New file `R/bin_fractions.R`; edited
 Left open (in `dev/work_plan.md` Phase 2): whether to fix the
 fraction-denominator behavior (all returns vs. in-range returns only)
 to match the original "sums to 100%" design — asked, not yet answered.
+
+### Fraction-denominator question: no firm answer, not changing for now
+
+Asked the user directly. Answer: not sure which denominator is
+*correct*, but doesn't dislike the current ("all returns") behavior
+either. Leaving `R/bin_fractions.R` as-is; updated the Phase 2 decision
+point in `dev/work_plan.md` to record this as a leaning, not a final
+call — revisit if a concrete reason to change surfaces (e.g. a
+downstream model that assumes bands sum to 1).

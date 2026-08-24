@@ -9,4 +9,6 @@ The structure is as follows:
 *  `inundation_metrics`  Calculate hydrology inundation metrics and perform regression against elevation at
   four sites. Required data is included in git repository.
 * `lidar` Process lidar point clouds into elevation and height of returns.
+  See [`lidar/ARCHITECTURE.md`](lidar/ARCHITECTURE.md) for how the
+  pipeline works.
 * `logger_recalibration` - Recalibrate logger data by assuming a uniform water elevation at high tides
