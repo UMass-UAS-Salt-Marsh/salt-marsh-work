@@ -21,10 +21,15 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
 #------------------------------------------------------------------------------#
 # Parameters
 #------------------------------------------------------------------------------#
+# Target horizontal CRS for the DTMs being evaluated -- must match
+# whatever lidar/02.R used to produce them. 6491 = NAD83(2011) /
+# Massachusetts Mainland State Plane, this project's current standard
+# (see CRS.md at the project root).
+target_epsg <- 6491L
 
-site <- "rr"
-date <- "2022_08_10"
-date <- "2022_05_14"
+
+runs <- data.frame(site = "rr", date = c("2022_08_10", "2022_05_14"))
+
 
 ecp_path <- paste0(
    "X:/legacy/gdrive/saltmarsh_UAS_native/",
@@ -32,24 +37,31 @@ ecp_path <- paste0(
    "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
 )
 
-base_output <- file.path("E:/uas_scratch/lidar", site, date)
+
 tolerances  <- c(0.10, 0.20)
 
-# Target horizontal CRS for the DTMs being evaluated -- must match
-# whatever lidar/02.R used to produce them. 6491 = NAD83(2011) /
-# Massachusetts Mainland State Plane, this project's current standard
-# (see CRS.md at the project root).
-target_epsg <- 6491L
+
 
 #------------------------------------------------------------------------------#
 # Render report
 #------------------------------------------------------------------------------#
 
-report_dtms(
-   site        = site,
-   date        = date,
-   ecp_path    = ecp_path,
-   base_output = base_output,
-   tolerances  = tolerances,
-   target_epsg = target_epsg
-)
+for(i in seq_len(nrow(runs))){
+   
+   site <- runs$site[i]
+   date <- runs$date[i]
+   
+   
+   # Note base_output is for output data it doesn't define
+   # where the report is generated which is currently within  ./lidar/output/
+   base_output <- file.path("E:/uas_scratch/lidar", site, date)
+   
+   report_dtms(
+      site        = site,
+      date        = date,
+      ecp_path    = ecp_path,
+      base_output = base_output,
+      tolerances  = tolerances,
+      target_epsg = target_epsg
+   )
+}

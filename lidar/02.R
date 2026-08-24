@@ -80,8 +80,9 @@ site <- "rr" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
 
 # Optional date filter: "yyyy-mm-dd" string to pick a specific cloud
 # when a site has more than one preferred row in paths.csv.
-# NULL = use the first preferred row (original behaviour).
-date_filter <- "2022-05-14"
+# NULL = use the first preferred row (original behavior).
+# rr: "2022-05-14" and "2022-08-10"
+date_filter <- "2022-08-10"
 
 # Target horizontal CRS for reprojection.  6491 = NAD83(2011) /
 # Massachusetts Mainland State Plane, this project's current standard

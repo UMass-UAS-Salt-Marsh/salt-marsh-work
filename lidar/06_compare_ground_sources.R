@@ -23,7 +23,7 @@ site <- "rr"
 best_csf_spring <- "csf_th0.01_res0.1_rgd2_0.25m.tif"
 best_csf_summer <- "csf_th0.12_res0.2_rgd2_0.25m.tif"
 
-# Must match whatever lidar/02.R used to produce best_csf_spring
+# Must match whatever lidar/03.R used to produce best_csf_spring
 # and best_csf_summer.
 target_epsg <- 6491L
 
