@@ -105,6 +105,118 @@ reference them (`lidar/07_floor_corrected_ground.R`,
 accordingly. The small `*_ecp.csv` caches stay in
 `lidar/output/rr_ground_comparison/` as before.
 
+### Phase 3 site scoping + Phase 2 reconciliation; found and fixed a CRS bug in the veg-height scripts
+
+Asked to start Phase 3, researched site data first: only `wel` has
+paired 2022 spring/summer clouds + ECPs (153 EVPs) ready to extend the
+`rr` workflow to; `oth` has ECPs (145) but no raw point cloud at all
+(photogrammetry-only); `nor` and `peg` have paired 2024 clouds but zero
+ECPs each (matches `nor`'s existing documented blocker; `peg`'s wasn't
+previously noted). Documented in `dev/work_plan.md` Phase 3. `wel`'s
+clouds are larger than `rr`'s and would take a longer, memory-bound run
+per `lidar/02.R`'s own notes — user asked to hold off on actually
+running it for now.
+
+User then clarified they meant **Phase 2** (vegetation strata), not
+Phase 3. Checked its real status: `R/rasterize_veg_heights.R` /
+`lidar/05_veg_heights.R` already implement almost exactly what Phase 2
+planned (same bin scheme, same 0.5 m default resolution) under
+different names than originally planned
+(`R/rasterize_strata.R`/`lidar/04_vegetation_strata.R`) — but two things
+were genuinely open: the fraction denominator doesn't match the
+original "sums to 100%" design (uses all returns, not just in-range
+ones — flagged as an open decision, not changed yet), and the script
+had never actually produced output for `rr` (an empty, stale
+`veg_dist_0.5m_chunks/` directory from 2026-05-21 was the only trace).
+Reconciled in `dev/work_plan.md` Phase 2.
+
+**Found a real bug while preparing to run it.** `lidar/05_veg_heights.R`
+and `lidar/08_veg_height_validation.R` both read summer cleaned tiles
+from `E:/uas_scratch/lidar/rr/2022_08_10/zzzcleaned/` — confirmed via
+`readLASheader()` + `sf::st_crs()` to be **EPSG:26919** (legacy
+NAD83/UTM19N), a stale directory from 2026-05-15. Every ground raster
+used in Phase 1.7 (CSF DTMs, `massgis_plus_floor_summer.tif`) was built
+from the current, correctly-named `zzzcleaned_epsg6491/` (EPSG:6491,
+built 2026-08-21 by the same `lidar/02.R` run). Per `CRS.md` these two
+CRSs carry a real ~0.5-1 m horizontal frame shift, not just a label
+difference — so the canopy-top raster built earlier this session for
+`lidar/08_veg_height_validation.R` was sampling a differently-positioned
+point cloud than the ground rasters it was compared against.
+
+Fixed both scripts by adding a `target_epsg` variable (matching
+`lidar/02.R`'s own convention) and building the clean-tile path from it
+instead of a bare `"zzzcleaned"` literal. Deleted the stale
+`canopy_top_summer.tif` and its cached `_ecp.csv`, re-ran
+`lidar/08_veg_height_validation.R`: numbers shifted slightly (opt2 mean
+bias −0.305→−0.311 m, opt3 −0.263→−0.270 m; RMSE improved slightly in
+both, as expected from removing spatial-mismatch noise) but the
+Phase 1.7 conclusion is unchanged — option 3 still wins by essentially
+the same margin. Updated `dev/work_plan.md` Phase 1.7 with corrected
+numbers and this fix. Both files pass `lintr::lint()` clean after the
+edit.
+
+### Phase 2 completed: fixed a closure bug, a second CRS bug, and OOM crashes to get real veg-height output for rr
+
+Continuing from the Phase 2 reconciliation above, tried to actually
+run `lidar/05_veg_heights.R` and hit three separate, unrelated bugs
+before it produced real output. Full details in `dev/work_plan.md`
+Phase 2 (and Phase 1.7 for the second CRS bug, since it originated
+there); summary here.
+
+1. `R/rasterize_veg_heights.R`'s per-cell metric function (`fracs_fn`)
+   was defined inside `compute_heights()`, which `catalog_map()`
+   dispatches per chunk — every chunk failed with `could not find
+   function "fracs_fn"`, reproduced even with `plan(sequential)`, so
+   this was never a multisession-only bug and is almost certainly why
+   Phase 2 never worked before. Fixed by promoting it to a top-level
+   function (`R/bin_fractions.R`) with `bin_breaks`/`bin_names` baked
+   into the `pixel_metrics()` formula via `bquote()`.
+2. Promoting it to top-level fixed sequential execution but not
+   `multisession` — `future`'s automatic global-detection doesn't see
+   a symbol referenced only inside a formula. Tried embedding the
+   function object itself as a literal via `bquote()`; that broke
+   differently, since `pixel_metrics()` deparses the formula to text
+   and reconstructs it inside a `data.table` call, and a deparsed
+   multi-line function literal doesn't survive that round-trip
+   (`unexpected 'if'`). Settled on: keep `bin_fractions` as a plain
+   symbol, and have `compute_heights()` `source("R/bin_fractions.R")`
+   itself (guarded by an `exists()` check) so each worker is
+   self-sufficient.
+3. Once chunks started actually running, they crashed with
+   `std::bad_alloc`. Root cause: `massgis_plus_floor_summer.tif` was
+   in EPSG:6348 (MassGIS's native CRS) while the point cloud is
+   EPSG:6491 — `lidR::normalize_height()` does a raw coordinate lookup
+   with no reprojection (unlike `sample_dtm()`), so every point missed
+   the raster and fell into an unbounded-radius `knnidw` fallback.
+   Fixed in `lidar/07_floor_corrected_ground.R` (see Phase 1.7 in
+   `dev/work_plan.md`); re-ran `lidar/08_veg_height_validation.R`
+   afterward and confirmed the Phase 1.7 numbers were unaffected
+   (`sample_dtm()`'s CRS-aware sampling had already handled this
+   correctly — only `normalize_height()`'s raw lookup was broken).
+4. Also dropped `chunk_size` from 200 to 100 m in
+   `lidar/05_veg_heights.R` — some `rr` summer tiles run 6-12 million
+   last-return points per 200×200 m tile, and smaller chunks leave
+   more memory headroom generally.
+
+Also found and killed ~25 orphaned `Rscript.exe` processes still
+running since 2026-08-21 (leftover `future::multisession` workers from
+an interrupted earlier run, per user confirmation) — not the root
+cause of the OOM crashes (that was the CRS bug above) but were
+consuming memory alongside everything else while debugging.
+
+After all four fixes, ran `lidar/05_veg_heights.R` for `rr` with its
+real config (`workers = 25`, multisession): completed cleanly.
+`E:/uas_scratch/lidar/rr/2022_08_10/zzzheights/veg_dist_0.5m.tif` now
+exists — 30 bands, 1463×1571 px, EPSG:6491, values in [0,1]. Deleted
+the stale pre-2026-05-21 `veg_dist_0.5m_chunks/` directory and my own
+test artifacts. New file `R/bin_fractions.R`; edited
+`R/rasterize_veg_heights.R`, `lidar/05_veg_heights.R`,
+`lidar/07_floor_corrected_ground.R`. All pass `lintr::lint()` clean.
+
+Left open (in `dev/work_plan.md` Phase 2): whether to fix the
+fraction-denominator behavior (all returns vs. in-range returns only)
+to match the original "sums to 100%" design — asked, not yet answered.
+
 ## 2026-08-20 — branch lidar
 
 ### Prep for the Phase 1.6a re-run: fix stale zzzraster paths, archive old output

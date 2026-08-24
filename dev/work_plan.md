@@ -553,20 +553,59 @@ spring DTM extent):
 
 | option | mean bias | rmse | pct within 20 cm |
 |---|---|---|---|
-| opt2 — spring lidar DTM (legacy) | −0.305 m | 0.397 m | 34.8% |
-| opt3 — MassGIS + floor bias | −0.263 m | 0.363 m | 49.4% |
+| opt2 — spring lidar DTM (legacy) | −0.311 m | 0.386 m | 31.7% |
+| opt3 — MassGIS + floor bias | −0.270 m | 0.349 m | 46.3% |
+
+(Numbers corrected 2026-08-24 — the canopy-top raster was originally
+built from a stale, wrong-CRS cleaned-tile directory; see "Found and
+fixed" below. Conclusion unchanged.)
 
 Option 3 wins on every metric, by almost exactly the amount the bias
-decomposition predicts (mean-bias gap 0.042 m ≈ spring mean bias
+decomposition predicts (mean-bias gap 0.041 m ≈ spring mean bias
 0.158 m − summer floor bias 0.114 m + massgis's own small bias).
 **Confirms the Phase 1.7 decision.**
+
+**Found and fixed while returning to this later: a real CRS bug.**
+`lidar/08_veg_height_validation.R` (and originally `lidar/05_veg_heights.R`
+too) built the canopy-top raster from
+`E:/uas_scratch/lidar/rr/2022_08_10/zzzcleaned/` — a stale directory
+from 2026-05-15, confirmed via `readLASheader()` to be **EPSG:26919**
+(legacy NAD83/UTM19N), not the current EPSG:6491 standard used by
+every ground raster in this phase. The correct, current tiles are in
+the namespaced `zzzcleaned_epsg6491/` (built 2026-08-21, same `02.R`
+run that produced the CSF DTMs). Per `CRS.md`, the two CRSs carry a
+real ~0.5-1 m horizontal frame shift — not just a label difference —
+so the canopy-top samples were coming from a differently-positioned
+point cloud than the ground samples. Fixed by parameterizing both
+scripts' clean-tile path on `target_epsg` (matching `lidar/02.R`'s own
+convention) and rebuilding the canopy-top raster from the correct
+tiles; numbers above are post-fix. The fix mildly *improved* RMSE
+(0.397→0.386, 0.363→0.349) as expected from removing spatial-mismatch
+noise, and left the bias-decomposition story intact.
+
+**A second CRS bug, found while wiring up Phase 2 below:**
+`massgis_plus_floor_summer.tif` was built directly from the MassGIS
+BE tile without reprojecting it — MassGIS publishes in **EPSG:6348**
+(NAD83(2011)/UTM19N), not this project's EPSG:6491 (Mass State Plane)
+standard. `sample_dtm()`'s ECP sampling is CRS-aware (reprojects the
+ECPs to match the raster), so this didn't affect any number reported
+above. But `lidR::normalize_height()` — used by
+`rasterize_veg_heights()` in Phase 2 — does a **raw coordinate lookup
+with no reprojection**, so every point silently missed the raster
+entirely and fell into an unbounded `knnidw` fallback, which is what
+actually caused Phase 2's out-of-memory crashes (see Phase 2 below for
+the full chain). Fixed `lidar/07_floor_corrected_ground.R` to
+`terra::project()` the MassGIS raster to `target_epsg` before adding
+the floor bias; rebuilt `massgis_plus_floor_summer.tif`. Re-ran
+`lidar/08_veg_height_validation.R` to confirm: numbers matched the
+pre-fix ones to the fourth decimal place, as expected.
 
 **Separate, larger finding surfaced by this validation — cause still
 unknown.** Both options underestimate true vegetation height by
 ~15 cm *before* the ground-reference difference is even applied
-(back-calculated: canopy-top error ≈ −0.147 m for opt2, −0.146 m for
-opt3 — consistent with each other, meaning it's common to both and not
-a ground-reference artifact).
+(back-calculated: canopy-top error ≈ −0.153 m for both options —
+consistent with each other, meaning it's common to both and not a
+ground-reference artifact).
 
 First hypothesis — that `clean_and_tile()`'s last-return-only
 filtering (used for all inputs in this pipeline) loses the true top of
@@ -617,29 +656,108 @@ Scan density is treated as noise — percent normalizes it out, and with
 percent estimates stable. No direct validation dataset; downstream
 modeling performance is the pseudo-validation.
 
-- [ ] **`R/rasterize_strata.R`** — new function that:
-  - takes the cleaned tile catalog + a DTM raster + bin edges + raster res
-  - inside `catalog_map`: subtracts ground elevation (`lidR::normalize_height()`
-    with the supplied DTM), drops returns < 0 m or > top bin, then uses
-    `pixel_metrics()` with a custom function returning a named numeric
-    vector of length `n_bins` = **percent of returns within the pixel
-    falling in each bin** (sums to 100% across bands per pixel).
-  - writes a multi-band GeoTIFF, one band per bin, plus a sidecar CSV
-    of bin edges and band names.
-- [ ] **`lidar/04_vegetation_strata.R`** — driver: pick the chosen
-  DTM (output of Phase 1), call `rasterize_strata()` for the bin
-  scheme in `lidar/readme.md:14–18` (5 cm bins 0–1 m, 20 cm bins
-  1–3 m → 30 bands), write outputs to
-  `E:/uas_scratch/lidar/<site>/<date>/zzzstrata/`.
-- [ ] **Decision point (deferred):** raster resolution. Default to
-  0.5 m per readme; revisit producing 0.25 m / 1 m alternatives after
-  the first output is in hand.
+**Reconciled and completed 2026-08-24.** `R/rasterize_veg_heights.R`
+and `lidar/05_veg_heights.R` (built and used all session for Phase
+1.7's ground-reference work) already did almost exactly this — same
+bin scheme (5 cm bins 0–1 m, 20 cm bins 1–3 m → 30 bands), same 0.5 m
+default resolution, same normalize-then-bin approach — under the names
+originally planned below as `R/rasterize_strata.R` /
+`lidar/04_vegetation_strata.R`. But it had never actually produced
+output for `rr`: `E:/uas_scratch/lidar/rr/2022_08_10/zzzheights/`
+contained only an empty, stale `veg_dist_0.5m_chunks/` directory dated
+2026-05-21. Tracked down why and got it running:
+
+1. **Closure bug (likely the original blocker).** The per-cell metric
+   function (`fracs_fn`) was defined *inside* `compute_heights()`, the
+   function `lidR::catalog_map()` dispatches per chunk — but
+   `catalog_map()`'s dispatch doesn't preserve that nested closure, so
+   every chunk failed with `could not find function "fracs_fn"`, even
+   running fully sequentially (`plan(sequential)`), so this was never
+   a multisession-only issue. Fixed by promoting it to a top-level
+   function, `R/bin_fractions.R`, with `bin_breaks`/`bin_names` baked
+   into the `pixel_metrics()` formula as literal values via
+   `bquote()` rather than closure lookups.
+2. **The promoted top-level function still wasn't found in
+   `multisession` workers** — `future`'s automatic global-variable
+   detection can't see a symbol referenced only inside a quoted
+   formula, so a worker process never received `bin_fractions`'s
+   definition. Tried embedding the function *object itself* (not a
+   symbol) as a literal in the formula via `bquote()` — this broke a
+   different way: `pixel_metrics()` deparses its formula to text and
+   reconstructs it inside a `data.table` call, and a deparsed
+   multi-line function literal doesn't survive that round-trip
+   (`unexpected 'if'`). Landed on: keep `bin_fractions` as a plain
+   symbol (deparses safely), and have `compute_heights()` source
+   `R/bin_fractions.R` itself, guarded by
+   `exists("bin_fractions", mode = "function")`, so each worker is
+   self-sufficient regardless of what `future` did or didn't ship.
+3. **Out-of-memory crashes, root cause the EPSG:6348 bug above.** Once
+   the closure bug was fixed, chunks started crashing with
+   `std::bad_alloc`. Traced to `lidR::normalize_height()`: given a
+   raster, it does a raw coordinate lookup with no CRS-aware
+   reprojection (unlike `sample_dtm()`), and since
+   `massgis_plus_floor_summer.tif` was in EPSG:6348 while the point
+   cloud is EPSG:6491, *every* point missed the raster and fell into
+   `normalize_height()`'s fallback — an unbounded-radius `knnidw`
+   nearest-neighbor search against the whole raster reinterpreted as
+   points, which is where the memory went. Fixed by the CRS fix
+   above; after that, only a handful of genuinely-outside-coverage
+   points per chunk hit the (now cheap) fallback.
+4. Also reduced `chunk_size` from 200 to 100 m — some `rr` summer
+   tiles run 6-12 million last-return points per 200×200 m tile
+   (~275 pts/m²), and smaller chunks leave more headroom regardless of
+   the fixes above.
+
+Ran `lidar/05_veg_heights.R` for `rr` (real multisession config,
+`workers = 25`) after all four fixes: completed cleanly, producing
+`E:/uas_scratch/lidar/rr/2022_08_10/zzzheights/veg_dist_0.5m.tif` — a
+real 30-band, 0.5 m raster (1463×1571 px, EPSG:6491, extent matching
+the point cloud). Confirmed sane: per-band values in [0, 1], per-pixel
+row sums in [0, 1] (not always 1 — see the open decision below).
+
+- [x] ~~`R/rasterize_strata.R`~~ — superseded by `R/bin_fractions.R` +
+  `R/rasterize_veg_heights.R` (same design).
+- [x] ~~`lidar/04_vegetation_strata.R`~~ — superseded by
+  `lidar/05_veg_heights.R`; output goes to `zzzheights/` rather than
+  the originally planned `zzzstrata/` (naming only).
+- [x] Run `lidar/05_veg_heights.R` for `rr` — done; real
+  `veg_dist_0.5m.tif` confirmed on disk.
+- [ ] **Decision point (still open):** the fraction denominator is
+  *all* returns in the cell (including below-ground/above-ceiling
+  ones), not just in-range returns, so per-pixel bands don't sum to
+  100% as this section's design originally specified. Fix to match
+  the original design, or accept "all returns" as intentional? Ask
+  before changing — this affects every existing output.
+- [ ] **Decision point (still open):** raster resolution. Default to
+  0.5 m per readme; revisit producing 0.25 m / 1 m alternatives now
+  that a real first output is in hand.
 
 ### Phase 3 — apply across sites
 
-- [ ] Once the per-site workflow is solid for `rr`, run it for other
-  sites with ECP coverage. North River (the readme's top priority) is
-  on hold until/unless ECPs become available for it.
+**Site scoping (2026-08-24):**
+
+| Site | Cloud pair (spring + summer) | ECPs (type=EVP) | Status |
+|---|---|---|---|
+| `rr` | 2022-05-14 / 2022-08-10 | 169 | Done (Phase 1–1.7) |
+| `wel` | 2022-05-20 / 2022-08-02 | 153 | **Ready, not started** — has everything the pipeline needs; not yet run through Steps 1–2 (clean/tile → CSF DTM). Best next candidate. |
+| `oth` | none (photogrammetry only) | 145 | **Blocked** — no raw point cloud, so the CSF pipeline can't run here at all; ground-source comparison (photogrammetry + MassGIS only) already done in `lidar/06_compare_ground_sources.R`. |
+| `nor` | 2024-05-24 / 2024-10-06 | **0** | Blocked — no ECPs (readme's top-priority site, but can't validate against anything until ECPs exist for it). |
+| `peg` | 2024-04-19 / 2024-09-23 | **0** | Blocked — same reason as `nor`; not previously noted in this doc. |
+
+`wel`'s raw clouds are larger than `rr`'s (7.38 GB summer, 5.03 GB
+spring, vs. `rr`'s 5.9 GB summer) — Steps 0–2 (reproject, clean & tile,
+CSF tuning per date) will take longer and are memory-bound per
+`lidar/02.R`'s own notes. `wel` also spans two MassGIS tiles
+(`be_19TDG415636.tif`, `be_19TDG417636.tif`, non-overlapping — each
+ECP falls in only one), so extending Phase 1.7's floor-bias approach
+there needs a `terra::merge()` mosaic step first.
+
+- [ ] Run `wel` through Steps 0–2 (`lidar/02.R`, both 2022 dates),
+  Step 3 evaluation, Phase 1.5/1.7 ground comparison + floor-bias
+  correction, and Phase 2 veg heights — **on hold**, pending a decision
+  on when to run the longer Steps 0–2 pass.
+- [ ] `oth`/`nor`/`peg` stay blocked until their respective gaps
+  (no cloud; no ECPs; no ECPs) are resolved.
 
 ## Decisions locked in
 

@@ -75,24 +75,26 @@ rasterize_veg_heights <- function(
                       format(n_chunks, big.mark = ",")))
    }
 
+   # bin_fractions() must be a plain top-level symbol here --
+   # pixel_metrics() deparses this formula's RHS to text and
+   # reconstructs it inside a data.table call, so embedding a literal
+   # (multi-line) function object corrupts that reparse. Bake
+   # bin_breaks/bin_names in as literal values via bquote() since
+   # those deparse safely as simple vectors.
+   metric_call <- bquote(bin_fractions(Z, bin_breaks = .(bin_breaks),
+                                       bin_names = .(bin_names)))
+   metric_formula <- stats::as.formula(call("~", metric_call))
+
    compute_heights <- function(las) {
+      # future's automatic global-detection can't see a reference
+      # buried inside a pixel_metrics() formula, so a multisession
+      # worker doesn't otherwise have bin_fractions() defined.
+      if (!exists("bin_fractions", mode = "function")) {
+         source("R/bin_fractions.R")
+      }
       dtm_r <- terra::rast(dtm_path)
       las   <- lidR::normalize_height(las, dtm_r)
-
-      fracs_fn <- function(z) {
-         if (length(z) == 0L) {
-            return(setNames(as.list(rep(NA_real_, n_bins)), bin_names))
-         }
-         z_pos  <- z[z >= 0 & z < ceiling_ht]
-         counts <- tabulate(
-            .bincode(z_pos, bin_breaks, right = FALSE,
-                     include.lowest = TRUE),
-            nbins = n_bins
-         )
-         setNames(as.list(counts / length(z)), bin_names)
-      }
-
-      lidR::pixel_metrics(las, ~fracs_fn(Z), res = raster_res)
+      lidR::pixel_metrics(las, metric_formula, res = raster_res)
    }
 
    result <- lidR::catalog_map(ctg, compute_heights)

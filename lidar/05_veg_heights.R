@@ -44,11 +44,22 @@ progressr::handlers("cli")
 #------------------------------------------------------------------------------#
 
 workers      <- 25    # parallel workers for plan(multisession)
-chunk_size   <- 200   # tile size in meters
+chunk_size   <- 100   # tile size in meters
 chunk_buffer <- 20    # buffer around each chunk in meters
+
+# Some rr summer tiles run 6-12 million points per 200x200m tile
+# (~275 pts/m^2, last returns) -- rasterize_veg_heights()'s 30-bin
+# tabulate()/.bincode() step ran out of memory on those at the
+# original chunk_size = 200 default (see dev/worklog.md 2026-08-24).
+# 100 m keeps peak per-chunk point count manageable.
 
 site        <- "rr"
 summer_date <- "2022-08-10"   # yyyy-mm-dd; used to locate summer clean dir
+
+# Must match whatever lidar/02.R used to produce the cleaned tiles and
+# ground rasters below. 6491 = NAD83(2011) / Massachusetts Mainland
+# State Plane, this project's current standard (see CRS.md).
+target_epsg <- 6491L
 
 # Ground reference for normalization. Default: floor-bias-corrected
 # MassGIS raster (lidar/07_floor_corrected_ground.R), stored alongside
@@ -60,7 +71,7 @@ summer_date <- "2022-08-10"   # yyyy-mm-dd; used to locate summer clean dir
 #   )
 ground_raster <- file.path(
    "E:/uas_scratch/lidar", site, "2022_08_10",
-   "zzzraster_epsg6491", "massgis_plus_floor_summer.tif"
+   paste0("zzzraster_epsg", target_epsg), "massgis_plus_floor_summer.tif"
 )
 
 raster_res <- 0.5   # output resolution in metres
@@ -95,7 +106,8 @@ summer_cloud <- input_file_paths$path[summer_rows[1]]
 
 summer_date_uu <- gsub("-", "_", summer_date, fixed = TRUE)
 summer_clean_dir <- file.path("E:/uas_scratch/lidar", site,
-                              summer_date_uu, "zzzcleaned")
+                              summer_date_uu,
+                              paste0("zzzcleaned_epsg", target_epsg))
 output_dir <- file.path("E:/uas_scratch/lidar", site,
                         summer_date_uu, "zzzheights")
 output_tif <- file.path(output_dir,

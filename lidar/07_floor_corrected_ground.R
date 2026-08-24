@@ -31,11 +31,21 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
 site       <- "rr"
 output_dir <- file.path("lidar/output", paste0(site, "_ground_comparison"))
 
+# Must match whatever lidar/02.R used to produce the point cloud this
+# raster will be paired with (normalize_height() does a raw coordinate
+# lookup against the raster, with no CRS-aware reprojection -- unlike
+# sample_dtm()'s ECP sampling -- so a CRS mismatch here silently
+# returns NA for every point and falls back to an unbounded knnidw
+# search, which is catastrophically slow/memory-hungry. See
+# dev/worklog.md 2026-08-24.
+target_epsg <- 6491L
+
 # Corrected ground raster is written alongside the other rr summer
 # rasters (CSF DTMs etc.) in the E: scratch tree, not under
 # lidar/output/ — it's a large derived raster like those, not a small
 # comparison artifact.
-summer_raster_dir <- "E:/uas_scratch/lidar/rr/2022_08_10/zzzraster_epsg6491"
+summer_raster_dir <- file.path("E:/uas_scratch/lidar", site, "2022_08_10",
+                               paste0("zzzraster_epsg", target_epsg))
 
 massgis_path <- paste0(
    "X:/scratch/bcompton/LiDAR/be_19TDG412612/be_19TDG412612.tif"
@@ -79,7 +89,17 @@ ggplot2::ggsave(
 # Build the corrected ground raster: massgis + floor_bias_summer
 #------------------------------------------------------------------------------#
 
-massgis_plus_floor <- terra::rast(massgis_path) + floor_summer$floor_bias
+massgis_raw <- terra::rast(massgis_path)
+
+# MassGIS BE tiles are published in EPSG:6348 (NAD83(2011)/UTM19N) --
+# a different, but equally valid, NAD83(2011) projection than this
+# project's EPSG:6491 (Mass State Plane) standard. Reproject so this
+# raster shares a CRS with the point cloud it will be paired with in
+# lidar/05_veg_heights.R (see target_epsg note above).
+massgis_reprojected <- terra::project(massgis_raw,
+                                      paste0("EPSG:", target_epsg))
+
+massgis_plus_floor <- massgis_reprojected + floor_summer$floor_bias
 corrected_ground_tif <- file.path(summer_raster_dir,
                                   "massgis_plus_floor_summer.tif")
 terra::writeRaster(massgis_plus_floor, corrected_ground_tif,
