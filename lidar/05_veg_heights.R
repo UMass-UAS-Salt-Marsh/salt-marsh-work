@@ -1,15 +1,28 @@
 #------------------------------------------------------------------------------#
-# Vegetation height distribution driver — two-date approach
+# Vegetation height distribution driver
 #------------------------------------------------------------------------------#
 #
 # Produces a multi-band GeoTIFF where each band is a height bin and the
 # cell value is the fraction of summer returns in that bin above the
-# spring-season ground reference.
+# ground reference.
+#
+# Ground reference defaults to the floor-bias-corrected MassGIS raster
+# (lidar/07_floor_corrected_ground.R): MassGIS has near-zero bias
+# against ECPs but doesn't share the UAS point cloud's ~10 cm
+# instrument-level offset, so it's shifted up by an estimate of that
+# offset alone (not the full spring-lidar-DTM bias, which also carries
+# a vegetation-dependent CSF ground-finding error). This out-performed
+# the legacy spring-lidar-DTM approach against field-measured
+# vegetation heights — see lidar/08_veg_height_validation.R and
+# dev/work_plan.md Phase 1.7. The legacy path is kept below as a named
+# alternative for comparison.
 #
 # Prerequisite workflow:
-#   1. lidar/02.R with date_filter <- "<spring_date>" — produces spring DTMs.
-#   2. lidar/03_evaluate_dtm.R with that date — picks the best spring DTM.
-#   3. This script — set spring_dtm below to the chosen DTM path.
+#   1. lidar/06_compare_ground_sources.R — ground-source comparison +
+#      cached ECP samples.
+#   2. lidar/07_floor_corrected_ground.R — produces the corrected
+#      ground raster.
+#   3. This script.
 #
 # The summer cloud need not be re-cleaned: if zzzcleaned/ tiles already
 # exist from a previous run of lidar/02.R, clean_and_tile() skips them.
@@ -31,20 +44,23 @@ progressr::handlers("cli")
 #------------------------------------------------------------------------------#
 
 workers      <- 25    # parallel workers for plan(multisession)
-chunk_size   <- 200   # tile size in metres
-chunk_buffer <- 20    # buffer around each chunk in metres
+chunk_size   <- 200   # tile size in meters
+chunk_buffer <- 20    # buffer around each chunk in meters
 
 site        <- "rr"
-spring_date <- "2022-05-14"   # yyyy-mm-dd; used to locate summer clean dir
 summer_date <- "2022-08-10"   # yyyy-mm-dd; used to locate summer clean dir
 
-# Path to the chosen spring DTM — set this after evaluating spring DTMs
-# with lidar/03_evaluate_dtm.R.  Placeholder until evaluation is done.
-spring_dtm <- file.path(
-   "E:/uas_scratch/lidar", site,
-   gsub("-", "_", spring_date, fixed = TRUE),
-   "zzzraster",
-   "csf_th0.01_res0.1_rgd2_0.25m.tif"
+# Ground reference for normalization. Default: floor-bias-corrected
+# MassGIS raster (lidar/07_floor_corrected_ground.R), stored alongside
+# the other rr summer rasters. To compare against the legacy approach
+# instead, set:
+#   ground_raster <- file.path(
+#      "E:/uas_scratch/lidar", site, "2022_05_14",
+#      "zzzraster_epsg6491", "csf_th0.01_res0.1_rgd2_0.25m.tif"
+#   )
+ground_raster <- file.path(
+   "E:/uas_scratch/lidar", site, "2022_08_10",
+   "zzzraster_epsg6491", "massgis_plus_floor_summer.tif"
 )
 
 raster_res <- 0.5   # output resolution in metres
@@ -85,10 +101,10 @@ output_dir <- file.path("E:/uas_scratch/lidar", site,
 output_tif <- file.path(output_dir,
                         paste0("veg_dist_", raster_res, "m.tif"))
 
-if (!file.exists(spring_dtm)) {
-   stop("Spring DTM not found: ", spring_dtm,
-        "\nRun lidar/02.R with date_filter <- \"", spring_date,
-        "\" then lidar/03_evaluate_dtm.R to select a DTM.")
+if (!file.exists(ground_raster)) {
+   stop("Ground raster not found: ", ground_raster,
+        "\nRun lidar/06_compare_ground_sources.R then ",
+        "lidar/07_floor_corrected_ground.R to produce it.")
 }
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
@@ -106,7 +122,7 @@ clean_and_tile(summer_cloud, summer_clean_dir,
 message("Starting vegetation height rasterization ", lubridate::now())
 rasterize_veg_heights(
    input        = summer_clean_dir,
-   dtm          = spring_dtm,
+   dtm          = ground_raster,
    output       = output_tif,
    raster_res   = raster_res,
    chunk_size   = chunk_size,

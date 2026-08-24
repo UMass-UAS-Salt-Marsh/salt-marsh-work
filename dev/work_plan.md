@@ -368,8 +368,10 @@ hack is needed).
 - [x] Write `lidar/06_compare_ground_sources.R`.
 - [x] Run after spring lidar DTMs are evaluated (Phase 1 complete).
 - [x] Record decision in `worklog.md` (2026-08-19).
-- [ ] Update `lidar/05_veg_heights.R`'s ground-reference path —
-  blocked on Phase 1.6a.
+- [x] Update `lidar/05_veg_heights.R`'s ground-reference path —
+  unblocked by Phase 1.6a; superseded by Phase 1.7's
+  floor-bias-corrected MassGIS raster rather than the raw MassGIS
+  tile (see below).
 
 ### Phase 1.6 — diagnose UAS vertical bias
 
@@ -496,6 +498,115 @@ it was already right.
   corrected CRS.
 - [ ] Return to the Phase 1.5 decision point above: wire the ground
   reference into `lidar/05_veg_heights.R`.
+
+### Phase 1.7 — floor-bias-corrected ground reference for veg heights
+
+Added 2026-08-24. Resolves the Phase 1.5 decision point using a
+refinement of the Phase 1.6 bias finding rather than either extreme
+(raw MassGIS, or the legacy spring-lidar-DTM-relative approach).
+
+#### Refined bias decomposition
+
+The UAS ground bias isn't one fixed number — `lidar_spring` = +0.158 m
+vs. `lidar_summer` = +0.215 m at `rr` (Phase 1.5). Hypothesis: this is
+two additive pieces — a roughly constant instrument/PPK-level offset
+(Phase 1.6's still-open diagnosis) plus a CSF ground-finding error that
+grows with vegetation density (worse in summer). Confirmed by
+`estimate_floor_bias()` (`R/estimate_floor_bias.R`) run against the
+cached `lidar_spring_ecp.csv` / `lidar_summer_ecp.csv` residuals
+(`lidar/07_floor_corrected_ground.R`):
+
+| | mean bias | floor bias | implied CSF veg-error |
+|---|---|---|---|
+| spring | 0.158 m | **0.103 m** | 0.055 m |
+| summer | 0.215 m | **0.114 m** | 0.101 m |
+
+The floor estimates (0.103 m, 0.114 m) are close — only 1.1 cm apart —
+strongly supporting a roughly-constant instrument-level offset, with
+the CSF ground-finding error accounting for nearly all of the
+spring-to-summer gap in mean bias.
+
+#### Decision
+
+Ground reference for vegetation heights = **MassGIS + floor_bias_summer
+(0.114 m)**, written by `lidar/07_floor_corrected_ground.R` to
+`lidar/output/rr_ground_comparison/massgis_plus_floor_summer.tif`.
+This keeps MassGIS's near-zero absolute bias while still cancelling
+the instrument-level offset the legacy spring-DTM-relative approach
+relied on — without also inheriting that approach's uncancelled
+spring-only CSF ground-finding error (~5.5 cm).
+
+`lidar/05_veg_heights.R`'s `ground_raster` now defaults to this file;
+the legacy spring-lidar-DTM path is kept as a commented-out
+alternative for comparison.
+
+#### Empirical validation — `lidar/08_veg_height_validation.R`
+
+The ECP dataset has field-measured `veg_height_cm` at all 169 `rr`
+summer survey points — independent ground truth not used to fit
+`floor_bias_summer`. Built a canopy-top DSM
+(`R/rasterize_canopy_top.R`, high-percentile `Z` per pixel from the
+same last-return cleaned tiles the production pipeline uses) and
+compared predicted vegetation height (canopy top minus each candidate
+ground) against `veg_height_m`, n = 164 (5 ECPs fell outside the
+spring DTM extent):
+
+| option | mean bias | rmse | pct within 20 cm |
+|---|---|---|---|
+| opt2 — spring lidar DTM (legacy) | −0.305 m | 0.397 m | 34.8% |
+| opt3 — MassGIS + floor bias | −0.263 m | 0.363 m | 49.4% |
+
+Option 3 wins on every metric, by almost exactly the amount the bias
+decomposition predicts (mean-bias gap 0.042 m ≈ spring mean bias
+0.158 m − summer floor bias 0.114 m + massgis's own small bias).
+**Confirms the Phase 1.7 decision.**
+
+**Separate, larger finding surfaced by this validation — cause still
+unknown.** Both options underestimate true vegetation height by
+~15 cm *before* the ground-reference difference is even applied
+(back-calculated: canopy-top error ≈ −0.147 m for opt2, −0.146 m for
+opt3 — consistent with each other, meaning it's common to both and not
+a ground-reference artifact).
+
+First hypothesis — that `clean_and_tile()`'s last-return-only
+filtering (used for all inputs in this pipeline) loses the true top of
+multi-return pulses through dense canopy — was **checked directly
+against the raw point cloud and refuted**: sampled ~328k pulses from a
+40×40 m box of the raw `rr` summer cloud
+(`.../RESEPI-5FFC59-2022-08-10-20-26-50/clouds/ppk_07Nov2022_cloud_1.las`),
+paired first and last returns by `gpstime`, and found `Z_last -
+Z_first == 0` **exactly, for every single pulse** (all had
+`NumberOfReturns == 2`). First and last returns are byte-identical in
+this point cloud — a RESEPI/sensor characteristic, not a per-pulse
+range difference — so last-return filtering discards no height
+information relative to first returns.
+
+The ~15 cm canopy-top underestimate therefore has some other cause —
+candidates not yet checked: `rasterize_canopy_top()`'s 0.25 m pixel
+size averaging over/missing the single tallest blade near an ECP
+(spatial sampling mismatch vs. a point-measurement field survey),
+lidar beam-footprint effects on thin vegetation, or a difference in
+what `veg_height_m` actually measures (e.g. tallest nearby stem vs.
+exactly at the GPS point). Needs its own investigation before absolute
+(not just relative) vegetation-height outputs from this pipeline
+should be trusted; not scheduled as its own phase yet.
+
+#### Checklist
+
+- [x] `R/estimate_floor_bias.R`, `R/plot_floor_bias.R`.
+- [x] `R/rasterize_canopy_top.R`.
+- [x] `lidar/07_floor_corrected_ground.R` — run for `rr`; floor
+  biases and corrected raster produced (raster written to
+  `E:/uas_scratch/lidar/rr/2022_08_10/zzzraster_epsg6491/`, alongside
+  the other rr summer rasters — not under `lidar/output/`).
+- [x] `lidar/08_veg_height_validation.R` — run for `rr`; confirms the
+  decision against field-measured `veg_height_m`.
+- [x] Wire `lidar/05_veg_heights.R` to the corrected ground raster.
+- [x] Check whether last-return filtering explains the ~15 cm
+  canopy-top underestimate — **refuted** (see above).
+- [ ] Investigate the actual cause of the ~15 cm canopy-top
+  underestimate — separate from this phase's ground-reference
+  decision, still open.
 
 ### Phase 2 — vegetation strata (Goal 2)
 

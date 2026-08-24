@@ -17,6 +17,94 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-08-24 — branch lidar
+
+### Phase 1.7: floor-bias-corrected ground reference for veg heights
+
+Resolved the Phase 1.5 decision point (which ground source to use for
+vegetation heights) by refining the Phase 1.6 bias finding rather than
+picking one of the two extremes discussed (raw MassGIS vs. the legacy
+spring-lidar-DTM-relative approach). See `dev/work_plan.md` Phase 1.7
+for the full write-up; summary here.
+
+**Bias decomposition.** The UAS ground bias (Phase 1.6) isn't one
+fixed number — spring mean bias +0.158 m vs. summer +0.215 m at `rr`.
+Hypothesis: a roughly-constant instrument/PPK-level offset plus a
+vegetation-density-dependent CSF ground-finding error (worse in
+summer). New `estimate_floor_bias()` (`R/estimate_floor_bias.R`)
+isolates the former by excluding below-floor outliers (MAD threshold)
+then taking a low percentile of the remaining DTM-vs-ECP residuals.
+Run against the cached `lidar_spring_ecp.csv`/`lidar_summer_ecp.csv`
+via new `lidar/07_floor_corrected_ground.R`: floor bias = 0.103 m
+(spring), 0.114 m (summer) — only 1.1 cm apart, strongly supporting
+the constant-instrument-offset hypothesis, with the CSF error
+accounting for nearly all the remaining spring→summer bias gap
+(0.055 m spring, 0.101 m summer).
+
+**Decision**: ground = MassGIS + 0.114 m (the summer floor bias),
+written to
+`lidar/output/rr_ground_comparison/massgis_plus_floor_summer.tif`.
+Wired into `lidar/05_veg_heights.R` as the new default `ground_raster`
+(replacing the hardcoded `spring_dtm` variable); legacy path kept as a
+commented alternative.
+
+**Empirical validation** (new `lidar/08_veg_height_validation.R` +
+`R/rasterize_canopy_top.R`, a new top-of-canopy DSM function
+analogous to `R/rasterize_ground.R`): compared predicted vegetation
+height against the ECP dataset's field-measured `veg_height_m`
+(independent of the fitting data — all 169 `rr` summer EVP points have
+it). Option 3 (MassGIS + floor) beat the legacy spring-DTM approach on
+every metric (mean bias −0.263 m vs. −0.305 m; RMSE 0.363 m vs.
+0.397 m; 49.4% vs. 34.8% of points within 20 cm), by almost exactly
+the margin the bias decomposition predicts.
+
+**New finding, not yet addressed**: both options underestimate true
+vegetation height by ~15 cm *before* the ground-reference difference —
+common to both, so not a ground-reference artifact. Likely cause: the
+canopy-top DSM (and the production `veg_dist_*.tif` raster) reads the
+same last-return-only cleaned tiles from `clean_and_tile()` used
+throughout this pipeline, and a last return can sit well below the
+top of a multi-return pulse through dense marsh vegetation. This is a
+bigger error source than the ground-bias issue just fixed. Logged as
+an open item in Phase 1.7's checklist — needs its own investigation
+before absolute (not just relative) vegetation heights from
+`lidar/05_veg_heights.R` should be trusted.
+
+**Files**: new `R/estimate_floor_bias.R`, `R/plot_floor_bias.R`,
+`R/rasterize_canopy_top.R`, `lidar/07_floor_corrected_ground.R`,
+`lidar/08_veg_height_validation.R`; edited `lidar/05_veg_heights.R`
+(ground-reference wiring). All new `R/` files pass `lintr::lint()`
+clean. Both new driver scripts were actually run for `rr` (not just
+written) — see numbers above and
+`lidar/output/rr_ground_comparison/veg_height_validation.csv`.
+
+### Checked and refuted the last-return canopy-top hypothesis
+
+Before investigating the ~15 cm canopy-top underestimate found above
+any further, checked the premise directly: sampled a 40×40 m box from
+the raw `rr` summer point cloud (~328k pulses,
+`.../ppk_07Nov2022_cloud_1.las`), paired first/last returns by
+`gpstime`. Result: every pulse has `NumberOfReturns == 2`, and
+`Z_last - Z_first == 0` exactly for all of them — first and last
+returns are byte-identical. So `clean_and_tile()`'s last-return
+filtering isn't discarding any height information, and isn't the
+explanation. Corrected the Phase 1.7 write-up in `dev/work_plan.md`
+accordingly; the ~15 cm underestimate's actual cause is still open.
+
+### Moved large derived rasters out of `lidar/output/`
+
+`massgis_plus_floor_summer.tif` (~18 MB) and `canopy_top_summer.tif`
+(~10 MB) were initially written to `lidar/output/rr_ground_comparison/`
+alongside the small CSV/HTML comparison artifacts, but that directory
+isn't gitignored and these are large derived rasters like the CSF
+DTMs, not comparison-report artifacts. Moved both to
+`E:/uas_scratch/lidar/rr/2022_08_10/zzzraster_epsg6491/`, next to the
+other `rr` summer rasters, and updated the three scripts that
+reference them (`lidar/07_floor_corrected_ground.R`,
+`lidar/08_veg_height_validation.R`, `lidar/05_veg_heights.R`)
+accordingly. The small `*_ecp.csv` caches stay in
+`lidar/output/rr_ground_comparison/` as before.
+
 ## 2026-08-20 — branch lidar
 
 ### Prep for the Phase 1.6a re-run: fix stale zzzraster paths, archive old output
