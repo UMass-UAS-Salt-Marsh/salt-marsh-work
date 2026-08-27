@@ -17,6 +17,40 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-08-27 — branch lidar
+
+### Checked and ruled out a frame-shift hypothesis for the UAS vertical bias
+
+User asked whether the +10–16 cm UAS elevation bias (see
+`lidar/readme.md`, "Systematic vertical bias in UAS-derived elevation
+data") could come from shifting latitude/longitude from WGS 84 to
+NAD 83 without also shifting the ellipsoidal height, then applying
+NAVD 88 geoid subtraction to that unshifted height.
+
+Tested numerically rather than just reasoning about it. Found
+`Rscript`, Python, and an OSGeo4W PROJ install (`cs2cs`, `projinfo`,
+`cct`, PROJ 9.8.1) already on the machine; installed `pyproj` (pip)
+for a reliable epoch-aware transform after a hand-assembled PROJ
+pipeline via `cct` gave an implausible ~8 m result (later traced to a
+transcription slip, not a real effect — `pyproj`'s
+`Transformer.from_crs("EPSG:7912", "EPSG:6319")` gave clean, plausible
+numbers that cross-checked against `CRS.md`'s existing ~0.5–1 m
+horizontal estimate).
+
+Result: the vertical component of the ITRF2014 → NAD83(2011) frame
+shift at Red River is ≈ +1.23 m (survey epoch 2022.6, and ≈ +1.24 m
+at NAD83(2011)'s 2010.0 reference epoch — so it's the static
+translation/rotation, not epoch drift, that dominates). That's ~10x
+the observed bias and the wrong sign (would read ~1.2 m too low, not
+~10 cm too high), so this mechanism is ruled out as the explanation.
+Also reconfirmed, via `projinfo`, that PROJ treats generic "WGS 84"
+(EPSG:4979) → NAD83(2011) as `+proj=noop` — zero shift at all, not
+just "near-identity" as `CRS.md` currently phrases it.
+
+Wrote up the ruled-out hypothesis (with numbers) as item 4 under
+`lidar/readme.md`'s "Likely causes" list, alongside the existing
+lever-arm-error and outdated-geoid-model hypotheses.
+
 ## 2026-08-24 — branch lidar
 
 ### Documentation reorganization: new `lidar/ARCHITECTURE.md`, trimmed `dev/work_plan.md`

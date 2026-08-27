@@ -267,7 +267,7 @@ Reference doc:
    - `g2012bu0.gtx` — GEOID12B CONUS tile
    - `g2012bu4.gtx` — described as "around MA coast"
 
-### Likely causes (revised 2026-08-19 — see `CRS.md`)
+### Likely causes (revised 2026-08-27 — see `CRS.md`)
 
 1. ~~Wrong GEOID12B tile~~ — **still not the explanation, confirmed
    empirically.** `g2012bu0.gtx` (the combined CONUS grid) and
@@ -286,6 +286,27 @@ Reference doc:
    standard in `CRS.md`), but typical GEOID12B→GEOID18 differences in
    this region are a few cm, not the observed 10–16 cm — worth fixing
    regardless, unlikely to be the whole story.
+4. ~~Horizontal-only frame shift, elevation left unconverted~~ —
+   **checked and ruled out, 2026-08-27.** Hypothesis: if some step in
+   the workflow shifted latitude/longitude from the RESEPI delivery's
+   WGS 84 frame to NAD 83 without also shifting the ellipsoidal
+   height, and NAVD 88 conversion (geoid subtraction) was then applied
+   to that unshifted height, the quantity silently dropped would be
+   the vertical component of the WGS 84/ITRF → NAD 83(2011) frame
+   shift. Computed that shift directly with PROJ (`pyproj`,
+   ITRF2014 → NAD83(2011), EPSG:7912 → EPSG:6319) at Red River
+   (41.668°N, −70.043°W): **≈ +1.23 m** at the 2022 survey epoch, and
+   essentially the same (≈ +1.24 m) at NAD83(2011)'s reference epoch
+   2010.0 — so the effect is dominated by the static frame
+   translation/rotation, not epoch drift since 2010. That's an order
+   of magnitude larger than the observed 10–16 cm bias, and the wrong
+   sign: omitting this correction would make NAVD 88 heights read
+   ~1.2 m *too low*, not ~10 cm too high. Ruled out as an explanation
+   for this bias. (Separately, and still relevant to the frame-shift
+   issue documented in [`CRS.md`](../CRS.md): PROJ resolves a source
+   tagged as generic "WGS 84" (EPSG:4979) to NAD83(2011) as a literal
+   `+proj=noop` — no shift at all, horizontal or vertical — confirmed
+   with `projinfo`.)
 
 ### Implication for vegetation height work
 
