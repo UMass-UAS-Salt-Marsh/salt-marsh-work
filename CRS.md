@@ -104,20 +104,84 @@ EPSG:4269) resolves, in PROJ, to an early-1980s-epoch realization.
 **NAD83(2011)** is the modern, GPS-era readjustment and is what
 survey-grade GNSS equipment and current NGS products actually use.
 
-For a 2022 UAS lidar acquisition in eastern Massachusetts compared
-against NAD83(2011) coordinates, the practical difference is:
+The RESEPI LAS headers tag the source cloud as **EPSG:32619**
+("WGS 84 / UTM zone 19N") — the generic WGS 84 *datum ensemble*, not
+a specific realization like ITRF2014 or WGS 84(G2139).
+That labeling turns out to matter more than which target EPSG code is
+picked:
 
-- **EPSG:26919** (legacy, no realization): PROJ's default transform
-  from the source WGS84 realization is close to a no-op — horizontal
-  coordinates shift by less than 5 mm (confirmed empirically in
-  `lidar/readme.md`'s reprojection testing).
-  This *sounds* convenient but it means the frame shift is silently
-  **not applied**, and downstream comparisons against genuinely
-  NAD83(2011)-referenced data (survey ECPs, MassGIS rasters) carry a
-  real, uncorrected ~0.5–1 m horizontal offset in this region.
-- **EPSG:6348 / EPSG:6491** (NAD83(2011)): PROJ picks a
-  realization-specific transformation pipeline and actually applies
-  that ~0.5–1 m shift.
+- **EPSG:26919** (legacy NAD83, no realization) as the target:
+  `projinfo -s EPSG:32619 -t EPSG:26919` returns a literal
+  `+proj=noop` — not just "close to" one.
+  This *sounds* convenient but means the frame shift is silently
+  **not applied at all**, and downstream comparisons against
+  genuinely NAD83(2011)-referenced data (survey ECPs, MassGIS
+  rasters) carry a real, uncorrected offset in this region.
+- **EPSG:6348 / EPSG:6491** (NAD83(2011)) as the target: **checked
+  2026-08-27, and this does not fix it either**, as long as the
+  source stays tagged EPSG:32619. `projinfo -s EPSG:32619 -t
+  EPSG:6348 -o PROJ` returns:
+  ```
+  +proj=pipeline
+    +step +inv +proj=utm +zone=19 +ellps=WGS84
+    +step +proj=utm +zone=19 +ellps=GRS80
+  ```
+  — just the inverse UTM projection followed by the new one, with the
+  reference ellipsoid swapped from WGS84 to GRS80. No Helmert /
+  frame-shift step at all, and PROJ labels the operation's own
+  accuracy as "2 m" — its standard signal for a *ballpark*
+  transformation (the WGS 84 datum ensemble's stated accuracy is wide
+  enough that PROJ treats generic "WGS 84" as coincident with
+  NAD83(2011) and skips the real shift, exactly as for EPSG:26919
+  above). Confirmed with an actual coordinate too: transforming a
+  Red River-area point via `EPSG:32619 → EPSG:6491` and via
+  `EPSG:32619 → <EPSG:6491's proj4string>` (what
+  `reproject_las_pdal()` currently builds as `out_srs`) land on
+  **identical** projected coordinates to the last digit.
+  This means the claim previously made here — and
+  `reproject_las_pdal()`'s docstring's claim of "eliminates the
+  ~1–2 m WGS 84 ↔ NAD 83 frame-realization offset" — is **not
+  currently true** for LAS files tagged EPSG:32619, regardless of
+  which NAD83(2011) target EPSG is passed in.
+- **A source tagged with a specific realization** is what actually
+  triggers the real shift. `projinfo -s EPSG:7912 -t EPSG:6319`
+  (ITRF2014 → NAD83(2011)) picks the genuine, time-dependent
+  14-parameter Helmert transformation NGS publishes for this pair,
+  not a ballpark op. WGS 84(G2139) — RESEPI's actual GNSS frame per
+  the field notes — is defined to track ITRF2014 to within a few cm,
+  so EPSG:7912 is a reasonable stand-in for testing purposes.
+  **Getting the real shift applied in practice therefore requires
+  retagging or re-deriving the source CRS as a specific realization
+  before reprojecting** — switching only the *target* EPSG, which is
+  all `reproject_las_pdal()`/`reproject_las_lastools()` currently do,
+  is not sufficient.
+
+### Magnitude of the real shift (computed 2026-08-27)
+
+Using `pyproj`/PROJ (ITRF2014 → NAD83(2011), EPSG:7912 → EPSG:6319)
+at Red River (41.668°N, −70.043°W):
+
+- **Horizontal:** ≈ 1.15 m north, ≈ 0.45 m east at the 2022 survey
+  epoch (≈ 1.2 m combined) — consistent with the "~0.5–1 m" figure
+  this file previously cited, so that estimate was directionally
+  reasonable even though, per above, it wasn't actually being applied
+  by the current code.
+- **Vertical (ellipsoidal height):** ≈ +1.23 m at the 2022 survey
+  epoch, and essentially the same (≈ +1.24 m) at NAD83(2011)'s
+  2010.0 reference epoch — so this is dominated by the static
+  translation/rotation between the frames, not by plate-motion drift
+  accumulated since 2010.
+
+This vertical component was checked against the observed +10–16 cm
+UAS elevation bias (see [`lidar/readme.md`](lidar/readme.md),
+"Systematic vertical bias in UAS-derived elevation data") and ruled
+out as its explanation: it's an order of magnitude too large, and the
+wrong sign (omitting it would make heights read ~1.2 m too *low*, not
+~10 cm too high). It's a real, separate correction from the
+GEOID12B/18 undulation difference discussed below — that one is only
+a few cm here.
+
+### Practical consequence
 
 This offset is small enough to be invisible to CSF ground
 classification (a local point-cloud algorithm, not a coordinate
@@ -130,7 +194,11 @@ That exact case is what surfaced this issue: `lidR::normalize_height()`
 extracts raster values at a LAS point's X/Y with **no CRS check or
 reprojection** (confirmed by reading `lidR:::normalize_height.LAS`),
 so feeding it a DTM in a different horizontal frame than the point
-cloud silently mis-samples by however large the frame shift is.
+cloud silently mis-samples by however large the frame shift is. Given
+the finding above, that mis-sample risk currently applies to *every*
+lidar output produced so far, including ones already reprojected to
+EPSG:6348/6491 — the ballpark op means they never actually left the
+generic-WGS84 frame.
 
 ## The geoid issue: GEOID12B vs. GEOID18
 
@@ -227,6 +295,24 @@ NAD83(2011) + NAVD88/GEOID18 is the right target, not NAPGD2022.
   (`JoshSurveyPoints_AllSites_*.xlsx`) computed with?**
   Same access problem as above — would need to ask the surveyor or
   check the GNSS receiver's configuration.
+- **Open, 2026-08-27: does reprojecting to EPSG:6348/6491 actually
+  apply the frame shift for any lidar output produced so far?** No —
+  see "The frame-shift issue" above. Because the source LAS files are
+  tagged EPSG:32619 (the generic WGS 84 ensemble, not a specific
+  realization), PROJ resolves EPSG:32619 → EPSG:6348/6491 as a
+  ballpark ellipsoid swap with no real Helmert shift, identically to
+  EPSG:32619 → EPSG:26919. This means every lidar output reprojected
+  so far via `reproject_las_pdal()`/`reproject_las_lastools()` —
+  including any already labeled EPSG:6348/6491 — has *not* actually
+  received the ~1.2 m horizontal + ~1.2 m vertical frame correction,
+  contrary to what the target EPSG label implies and what
+  `reproject_las_pdal()`'s docstring currently claims. Fixing this
+  needs the *source* CRS re-derived as a specific realization (e.g.
+  ITRF2014, EPSG:7912, or whatever WGS 84(G2139)'s actual EPSG code
+  turns out to be) before reprojection, not just picking a good
+  target EPSG. Not yet fixed in code — flagging here so it isn't
+  lost; see `dev/workplan.md` / `dev/worklog.md` for whether this has
+  moved to an active task.
 
 ## Practical checklist for new code
 
@@ -240,6 +326,11 @@ NAD83(2011) + NAVD88/GEOID18 is the right target, not NAPGD2022.
   (`lidar/02.R`, `R/reproject_las.R`, `R/load_ecp.R`, `R/evaluate_dtm.R`,
   `R/plot_residual_map.R`, `R/las_needs_reprojection.R`) — see
   `dev/worklog.md`, 2026-08-20.
+  **Caveat added 2026-08-27: setting `target_epsg` alone does not
+  currently apply the real frame shift** — see the open question
+  above. Until the source-CRS side is fixed, treat EPSG:6348/6491
+  output from this pipeline as no more frame-corrected than legacy
+  EPSG:26919 output.
 - Don't assume two rasters/point clouds are pixel-aligned just because
   both claim "NAD83" — check the specific EPSG code (realization
   matters) and reproject explicitly rather than relying on downstream
