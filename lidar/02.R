@@ -28,7 +28,7 @@
 #   4. (Partial) DTM evaluation against elevation control points.
 #      Reads the ECP xlsx, filters to the current site.  The full
 #      per-parameter-set comparison via `evaluate_dtm()` is the
-#      Phase 1 work scoped in `dev/work_plan.md`; the code at the
+#      Phase 1 work scoped in `dev/workplan.md`; the code at the
 #      bottom of this file is the current scaffold.
 #
 # Inputs

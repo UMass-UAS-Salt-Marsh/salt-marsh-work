@@ -20,7 +20,7 @@ other lidar docs stick to their own lane:
 - [`CRS.md`](../CRS.md) (project root) — the project-wide
   CRS/datum/geoid standard, decided independently of any one
   pipeline stage.
-- [`dev/work_plan.md`](../dev/work_plan.md) — the currently active,
+- [`dev/workplan.md`](../dev/workplan.md) — the currently active,
   still-open work items.
 - [`dev/worklog.md`](../dev/worklog.md) /
   [`dev/worklog-archive.md`](../dev/worklog-archive.md) — dated
@@ -79,7 +79,7 @@ full investigation.
 
 Every driver currently hardcodes `site` (and often `date`) as a
 top-of-file parameter rather than looping over sites — see
-`dev/work_plan.md`'s Phase 3 for the site-by-site rollout status.
+`dev/workplan.md`'s Phase 3 for the site-by-site rollout status.
 
 ## Pipeline stages
 
@@ -290,5 +290,5 @@ green boxes are the two rendered HTML reports.
 - [`lidar/readme.md`](readme.md) — goals, site priorities, data
   source locations, CRS/bias background.
 - [`CRS.md`](../CRS.md) — the project-wide CRS/datum/geoid standard.
-- [`dev/work_plan.md`](../dev/work_plan.md) — active open items.
+- [`dev/workplan.md`](../dev/workplan.md) — active open items.
 - [`dev/worklog.md`](../dev/worklog.md) — dated history and findings.

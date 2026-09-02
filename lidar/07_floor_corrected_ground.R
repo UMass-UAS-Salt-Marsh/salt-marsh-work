@@ -4,7 +4,7 @@
 #
 # UAS-derived ground rasters carry a positive bias against ECPs that
 # confounds two things: a roughly constant instrument/PPK-level offset
-# (~10 cm, tracked as the open Phase 1.6 diagnosis in dev/work_plan.md)
+# (~10 cm, tracked as the open Phase 1.6 diagnosis in dev/workplan.md)
 # and a vegetation-density-dependent CSF ground-finding error (worse in
 # summer than spring). MassGIS's aerial lidar has ~no bias but doesn't
 # share that instrument offset with the UAS point cloud, so using it

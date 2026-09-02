@@ -14,7 +14,7 @@
 # a vegetation-dependent CSF ground-finding error). This out-performed
 # the legacy spring-lidar-DTM approach against field-measured
 # vegetation heights — see lidar/08_veg_height_validation.R and
-# dev/work_plan.md Phase 1.7. The legacy path is kept below as a named
+# dev/workplan.md Phase 1.7. The legacy path is kept below as a named
 # alternative for comparison.
 #
 # Prerequisite workflow:
