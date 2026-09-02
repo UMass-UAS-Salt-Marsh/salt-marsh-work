@@ -322,7 +322,9 @@ See the "Phase 1.6 — diagnose UAS vertical bias" and "Phase 1.6a —
 establish and migrate to the correct CRS/geoid standard" sections in
 `dev/workplan.md` for the diagnostic plan, and
 [`CRS.md`](../CRS.md) for the project-wide CRS/datum/geoid standard
-this investigation produced.
+this investigation produced. `dev/scan_angle_bias.md` has a proposed
+(not yet implemented) plan for testing the boresight-calibration
+hypothesis via scan-angle correlation.
 
 ## Comparing ground elevation datasets
 
