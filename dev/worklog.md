@@ -17,6 +17,46 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-09-02 — branch lidar
+
+### Built three global Claude Code skills for recurring workflow patterns
+
+Discussed which recurring process patterns in this repo (and other R
+projects like BirdFlowR) were worth turning into installed skills.
+Landed on three that recur consistently enough to automate globally,
+at `~/.claude/skills/` (available in every project, not just this
+one):
+
+- `lint-changed` — computes the changed-file set (unstaged + staged +
+  committed-but-not-yet-merged) and lints only those, dispatching to
+  whatever linter a project already has configured (`lintr` for `.R`
+  via that project's own `.lintr`; `eslint`/`ruff`/`flake8` if
+  configured elsewhere), then fixes hits. Directly codifies the
+  "lint before commit" rule in this project's `CLAUDE.md`.
+- `new-r-function` — scaffolds `R/<name>.R` with a roxygen doc
+  skeleton for the one-function-per-file convention. Detects indent
+  width from the target project's `.lintr` (`indentation_linter`) or
+  `.Rproj` (`NumSpacesForTab`) rather than hardcoding a width — this
+  repo's own config sets 3 spaces, which won't match every project.
+  Pipe operator is always `|>` (never `%>%`) by explicit request, not
+  auto-detected.
+- `worklog-entry` — automates the mechanics of this very convention:
+  matching today's date/branch against the top heading, inserting
+  new sub-headings above existing ones for the same day, and
+  flagging (without acting on its own) when `dev/worklog-archive.md`
+  rotation is due.
+
+No global skills existed before this (`~/.claude/skills/` was empty).
+Format modeled on an installed plugin skill
+(`discord/skills/access/SKILL.md`) for the YAML-frontmatter +
+Markdown-body structure. Smoke-tested the underlying logic manually
+(git diff computation, `.lintr`/`.Rproj` indent detection, heading-
+match against this file) rather than invoking the skills themselves,
+since newly created global skills aren't picked up by the Skill tool
+mid-session — they'll be available starting next session. Also added
+a reference memory (`global_skills.md`) pointing at these so future
+sessions in this project know they exist.
+
 ## 2026-08-28 — branch lidar
 
 ### Wrote up a plan for the scan-angle-correlation boresight test
