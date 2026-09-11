@@ -19,6 +19,52 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-09-11 — branch lidar
 
+### Added a per-cell return-count raster to rasterize_veg_heights()
+
+Per the plan in `dev/workplan.md`. `rasterize_veg_heights()` now
+writes a second, single-band GeoTIFF (`count_output`, a new required
+parameter) recording `n_returns`: how many returns landed in each
+cell — the same `length(Z)` value the height-bin fractions are
+already divided by. Deliberately a separate file, not an extra band
+on the 31-band fraction raster.
+
+**`R/rasterize_veg_heights.R`.** The `pixel_metrics()` formula (built
+via `bquote()`) now evaluates
+`c(bin_fractions(Z, ...), list(n_returns = length(Z)))` instead of
+just `bin_fractions(...)` — added at this call site rather than
+inside `bin_fractions()` itself, keeping that function focused on
+fractions only. After `catalog_map()` assembles the merged `result`
+raster (31 fraction bands + `n_returns`), it's split by band name via
+`terra::subset()`: the fraction bands go to `output` as before, and
+the `n_returns` band goes to `count_output`, written with
+`datatype = "INT4S"` (counts are always non-negative whole numbers,
+so an explicit integer type is smaller and unambiguous vs. the
+default float). Function now returns `c(output, count_output)`
+invisibly instead of just `output`. Updated roxygen docs/`@examples`
+to match.
+
+**`lidar/data/paths.yml`.** Added `veg_return_count_raster` template
+(`{@veg_heights_dir}/return_counts_{raster_res}m.tif`), alongside the
+existing `veg_heights_raster`.
+
+**`lidar/05_veg_heights.R`.** Resolves `veg_return_count_raster` and
+passes it as `count_output`; updated the header-comment outputs list
+(also fixed a stale "30-band" reference left over from the earlier
+height-bin-adjustment task — should have said 31-band since that
+change).
+
+**`lidar/ARCHITECTURE.md`.** Updated the vegetation-height-distribution
+section (30-band → 31-band, added the count-raster output) and the
+Mermaid data-flow diagram (`W` node for the new count raster, added to
+the `data` node-class list).
+
+Verified the formula deparse/reparse round-trip, per-pixel metric
+evaluation, band splitting by name, and the `INT4S` write against a
+synthetic multi-layer `terra::rast()` standing in for the merged
+catalog result (matches `bin_names` + `n_returns` naming). `lintr` on
+all three changed R files: no lints. Working-tree changes only — not
+committed, per instructions not to commit unless asked.
+
 ### Adjusted height-strata bins (floor + open-ended top bin)
 
 Changed the default height bins used by `rasterize_veg_heights()` /

@@ -98,6 +98,9 @@ paths:
   veg_heights_raster:
     template: "{@veg_heights_dir}/veg_dist_{raster_res}m.tif"
     type: file
+  veg_return_count_raster:
+    template: "{@veg_heights_dir}/return_counts_{raster_res}m.tif"
+    type: file
 
   # ---------------------------------------------------------------------
   # Reports-root templates (outside the repo)

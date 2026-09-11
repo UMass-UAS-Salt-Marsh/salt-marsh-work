@@ -6,6 +6,5 @@ For how the pipeline works (stages, functions, data flow), see
 history of what was done, found, and decided, see `worklog.md` /
 `worklog-archive.md`.
 
-The site-rollout plan is sidelined for now in `dev/rollout_workplan.md`
-— return to it once one more cleanup task is done.
+The site-rollout plan is sidelined for now in `dev/rollout_workplan.md`.
 

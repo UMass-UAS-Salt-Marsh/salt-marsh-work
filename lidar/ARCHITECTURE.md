@@ -214,13 +214,16 @@ the chosen ground raster and bins them per pixel via
 `bin_fractions()` (a top-level per-cell metric function — it must not
 be nested, since `lidR`'s chunked dispatch doesn't preserve closures
 referenced only inside a `pixel_metrics()` formula), writing a
-30-band GeoTIFF where each band is the fraction of returns in that
-height bin.
+31-band GeoTIFF where each band is the fraction of returns in that
+height bin, plus a second single-band GeoTIFF recording how many
+returns landed in each cell (`n_returns`, the denominator the
+fractions are divided by).
 
 - **Driver:** `lidar/05_veg_heights.R`.
 - **Input:** summer cleaned tiles (Step 1) + the floor-bias-corrected
   ground raster.
-- **Output:** `zzzheights/veg_dist_<res>m.tif`.
+- **Output:** `zzzheights/veg_dist_<res>m.tif`,
+  `zzzheights/return_counts_<res>m.tif`.
 
 ## Data flow
 
@@ -285,14 +288,15 @@ flowchart TD
     E2 --> U
     P --> U
     U["rasterize_veg_heights()<br/>+ bin_fractions() per pixel<br/>(lidar/05_veg_heights.R)"]
-    U --> V[/"veg_dist_0.5m.tif<br/>30-band height distribution<br/>(final deliverable)"/]
+    U --> V[/"veg_dist_0.5m.tif<br/>31-band height distribution<br/>(final deliverable)"/]
+    U --> W[/"return_counts_0.5m.tif<br/>per-cell return count"/]
 
     classDef process fill:#dbe9f6,stroke:#4a77a8,color:#1a2b3c
     classDef data fill:#fff3cd,stroke:#b8860b,color:#4a3b00
     classDef report fill:#e1f5e6,stroke:#2f855a,color:#1a3b28
 
     class B0,D1,D2,LE,F,J,M,O,Q,S,U process
-    class A1,A2,C1,C2,E1,E2,ECP,G1,G2,OTHER,P,R,T,V data
+    class A1,A2,C1,C2,E1,E2,ECP,G1,G2,OTHER,P,R,T,V,W data
     class K,N report
 ```
 

@@ -28,7 +28,10 @@
 # exist from a previous run of lidar/02.R, clean_and_tile() skips them.
 #
 # Outputs (under E:/uas_scratch/lidar/<site>/<summer_date>/zzzheights/)
-#   * veg_dist_<raster_res>m.tif — 30-band height distribution raster.
+#   * veg_dist_<raster_res>m.tif — 31-band height distribution raster.
+#   * return_counts_<raster_res>m.tif — single-band raster of how many
+#     returns landed in each cell (the denominator behind the
+#     fractions above).
 #
 # Run from the project root in RStudio so relative paths resolve.
 #------------------------------------------------------------------------------#
@@ -82,6 +85,8 @@ summer_clean_dir <- get_path("cleaned_tiles", site = site, date = summer_date,
 output_dir <- get_path("veg_heights_dir", site = site, date = summer_date)
 output_tif <- get_path("veg_heights_raster", site = site, date = summer_date,
                        raster_res = raster_res)
+count_tif <- get_path("veg_return_count_raster", site = site,
+                      date = summer_date, raster_res = raster_res)
 
 # Ground reference for normalization. Default: floor-bias-corrected
 # MassGIS raster (lidar/07_floor_corrected_ground.R), stored alongside
@@ -117,6 +122,7 @@ rasterize_veg_heights(
    input        = summer_clean_dir,
    dtm          = ground_raster,
    output       = output_tif,
+   count_output = count_tif,
    raster_res   = raster_res,
    chunk_size   = chunk_size,
    chunk_buffer = chunk_buffer
