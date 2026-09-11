@@ -25,11 +25,15 @@
 # Run from the project root in RStudio so relative paths resolve.
 #------------------------------------------------------------------------------#
 
+library(pathtools)
+
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
+set_path_scheme("lidar/data/paths.yml")
+
 site       <- "rr"
-output_dir <- file.path("lidar/output", paste0(site, "_ground_comparison"))
+output_dir <- get_path("ground_comparison_report", site = site)
 
 # Must match whatever lidar/02.R used to produce the point cloud this
 # raster will be paired with (normalize_height() does a raw coordinate
@@ -41,15 +45,13 @@ output_dir <- file.path("lidar/output", paste0(site, "_ground_comparison"))
 target_epsg <- 6491L
 
 # Corrected ground raster is written alongside the other rr summer
-# rasters (CSF DTMs etc.) in the E: scratch tree, not under
-# lidar/output/ — it's a large derived raster like those, not a small
+# rasters (CSF DTMs etc.) in the E: scratch tree, not in the reports
+# directory — it's a large derived raster like those, not a small
 # comparison artifact.
-summer_raster_dir <- file.path("E:/uas_scratch/lidar", site, "2022_08_10",
-                               paste0("zzzraster_epsg", target_epsg))
+summer_raster_dir <- get_path("ground_raster_dir", site = site,
+                              date = "2022_08_10", target_epsg = target_epsg)
 
-massgis_path <- paste0(
-   "X:/scratch/bcompton/LiDAR/be_19TDG412612/be_19TDG412612.tif"
-)
+massgis_path <- get_path("massgis_tile", tile = "19TDG412612")
 
 #------------------------------------------------------------------------------#
 # Estimate the floor bias for each flight
@@ -100,8 +102,10 @@ massgis_reprojected <- terra::project(massgis_raw,
                                       paste0("EPSG:", target_epsg))
 
 massgis_plus_floor <- massgis_reprojected + floor_summer$floor_bias
-corrected_ground_tif <- file.path(summer_raster_dir,
-                                  "massgis_plus_floor_summer.tif")
+corrected_ground_tif <- ensure_parent(get_path(
+   "corrected_ground_raster", site = site, date = "2022_08_10",
+   target_epsg = target_epsg
+))
 terra::writeRaster(massgis_plus_floor, corrected_ground_tif,
                    overwrite = TRUE)
 

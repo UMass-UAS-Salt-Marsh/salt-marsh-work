@@ -28,7 +28,7 @@ after 1 meter switch to 20 cm up to 3m. Multiband geoTIFF.
 
 * Height GCP:Additional elevation control points that josh collected for
 Old Town Hill, Wellfleet, and Red River.
-`X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx`
+`X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_One_Sheet.xlsx`
 * Vegetation locations - good to use
 
 * Caution with water loggers as the location is the location of the logger not the floor, offset is standard so can subtract to get floor. (Subtract approximately 10 mm - need to get measurement from device). This would give us 40 to 60 additional points.
@@ -36,7 +36,7 @@ Old Town Hill, Wellfleet, and Red River.
 
 ### Files
 #### Elevation control points
-"X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx". -- Use type = "training"
+"X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_One_Sheet.xlsx". -- Use type = "training". Resolved via `pathtools::get_path("ecp_path")` (see `lidar/data/paths.yml`).
 "X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_ExtractValues.xlsx"
 
 ####LAS files - two schemes

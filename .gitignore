@@ -57,6 +57,9 @@ docs
 # Calibrated hydrology files
 inundation_metrics/Data/*/Calibrated*
 
+# Raw pipeline run logs (large, narrated in dev/worklog.md instead)
+/dev/run_logs/
+
 # Mac OS file
 .DS_Store
 

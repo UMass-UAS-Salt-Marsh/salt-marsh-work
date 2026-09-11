@@ -107,14 +107,11 @@
 #' @examples
 #' \dontrun{
 #' reproject_las_lastools(
-#'    input = paste0(
-#'       "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-#'       "Red River/2022/LiDAR/10Aug2022_Low/",
-#'       "RESEPI-5FFC59-2022-08-10-20-26-50/clouds/",
-#'       "ppk_07Nov2022_cloud_1.las"
-#'    ),
-#'    output = paste0(
-#'       "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/",
+#'    input = pathtools::get_path("raw_lidar", site = "rr",
+#'                                date = "2022_08_10"),
+#'    output = file.path(
+#'       pathtools::get_path("reprojected_dir", site = "rr",
+#'                           date = "2022_08_10"),
 #'       "ppk_07Nov2022_cloud_1_epsg26919_navd88.las"
 #'    ),
 #'    target_epsg = 26919

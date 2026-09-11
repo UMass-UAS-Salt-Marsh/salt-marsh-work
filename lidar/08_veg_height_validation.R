@@ -31,33 +31,32 @@ library(progressr)
 progressr::handlers(global = TRUE)
 progressr::handlers("cli")
 
+library(pathtools)
+
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
+set_path_scheme("lidar/data/paths.yml")
+
 site        <- "rr"
-summer_date <- "2022-08-10"
-output_dir  <- file.path("lidar/output", paste0(site, "_ground_comparison"))
+summer_date <- "2022_08_10"   # yyyy_mm_dd; matches lidar/data/paths.yml
+output_dir  <- get_path("ground_comparison_report", site = site)
 
 # Must match whatever lidar/02.R used to produce the cleaned tiles and
 # ground rasters below. 6491 = NAD83(2011) / Massachusetts Mainland
 # State Plane, this project's current standard (see CRS.md).
 target_epsg <- 6491L
 
-ecp_path <- paste0(
-   "X:/legacy/gdrive/saltmarsh_UAS_native/",
-   "In Situ Data Collection/",
-   "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-)
+ecp_path <- get_path("ecp_path")
 
 spring_dtm_path <- file.path(output_dir, "lidar_spring_ecp.csv")
-summer_date_uu  <- gsub("-", "_", summer_date, fixed = TRUE)
 
 # Large derived rasters live alongside the other rr summer rasters in
-# the E: scratch tree, not under lidar/output/.
-summer_raster_dir <- file.path("E:/uas_scratch/lidar", site, summer_date_uu,
-                               paste0("zzzraster_epsg", target_epsg))
-massgis_floor_tif <- file.path(summer_raster_dir,
-                               "massgis_plus_floor_summer.tif")
+# the E: scratch tree, not in the reports directory.
+summer_raster_dir <- get_path("ground_raster_dir", site = site,
+                              date = summer_date, target_epsg = target_epsg)
+massgis_floor_tif <- get_path("corrected_ground_raster", site = site,
+                              date = summer_date, target_epsg = target_epsg)
 
 if (!file.exists(massgis_floor_tif)) {
    stop("Corrected ground raster not found: ", massgis_floor_tif,
@@ -68,10 +67,10 @@ workers      <- 25
 chunk_size   <- 200
 chunk_buffer <- 20
 
-summer_clean_dir <- file.path("E:/uas_scratch/lidar", site,
-                              summer_date_uu,
-                              paste0("zzzcleaned_epsg", target_epsg))
-canopy_top_tif   <- file.path(summer_raster_dir, "canopy_top_summer.tif")
+summer_clean_dir <- get_path("cleaned_tiles", site = site, date = summer_date,
+                             target_epsg = target_epsg)
+canopy_top_tif   <- get_path("canopy_top_raster", site = site,
+                             date = summer_date, target_epsg = target_epsg)
 
 plan(multisession, workers = workers)
 
@@ -98,9 +97,9 @@ site_ecp <- load_ecp(ecp_path, site = site)
 site_ecp <- site_ecp[tolower(site_ecp$type) %in% "evp", , drop = FALSE]
 
 spring_elev <- sample_dtm(
-   dtm        = file.path("E:/uas_scratch/lidar", site, "2022_05_14",
-                          paste0("zzzraster_epsg", target_epsg),
-                          "csf_th0.01_res0.1_rgd2_0.25m.tif"),
+   dtm        = get_path("ground_raster", site = site, date = "2022_05_14",
+                         target_epsg = target_epsg, csf_threshold = 0.01,
+                         csf_res = 0.1, csf_rigidness = 2, raster_res = 0.25),
    ecp        = site_ecp,
    output_csv = spring_dtm_path
 )

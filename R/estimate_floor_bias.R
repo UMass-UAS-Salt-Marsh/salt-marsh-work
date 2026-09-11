@@ -42,7 +42,8 @@
 #' @examples
 #' \dontrun{
 #' spring <- readr::read_csv(
-#'    "lidar/output/rr_ground_comparison/lidar_spring_ecp.csv"
+#'    file.path(pathtools::get_path("ground_comparison_report", site = "rr"),
+#'              "lidar_spring_ecp.csv")
 #' )
 #' estimate_floor_bias(spring)$floor_bias
 #' }

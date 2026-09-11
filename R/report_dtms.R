@@ -5,8 +5,7 @@
 #' renders a self-contained HTML report via
 #' [rmarkdown::render()].
 #'
-#' **Prerequisites**: DTMs must exist under
-#' `<base_output>/zzzraster_epsg<target_epsg>/` (produced by
+#' **Prerequisites**: DTMs must exist under `dtm_dir` (produced by
 #' `lidar/02.R`).
 #' Per-DTM ECP cache CSVs are written automatically on the first
 #' run and reused on subsequent calls.
@@ -15,10 +14,16 @@
 #'    (e.g. `"rr"`).
 #' @param date Date string in `"yyyy_mm_dd"` format
 #'    (e.g. `"2022_08_10"`).
+#' @param target_epsg Integer EPSG code the DTMs and ECPs are in.
+#'    Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'    Plane — see [`CRS.md`](../CRS.md)).
+#'    Used to locate `dtm_dir` and to reproject the ECPs to match
+#'    via `load_ecp(target_crs = )`.
 #' @param ecp_path Path to the all-sites ECP xlsx.
-#' @param base_output Directory containing
-#'    `zzzraster_epsg<target_epsg>/` with the DTM GeoTIFFs.
-#'    Defaults to `E:/uas_scratch/lidar/<site>/<date>`.
+#'    Defaults to `pathtools::get_path("ecp_path")`.
+#' @param dtm_dir Directory containing the DTM GeoTIFFs to evaluate.
+#'    Defaults to
+#'    `pathtools::get_path("ground_raster_dir", site, date, target_epsg)`.
 #' @param tolerances Numeric vector of absolute-difference
 #'    thresholds (metres) for `pct_within_*` columns.
 #'    Default `c(0.10, 0.20)`.
@@ -27,15 +32,10 @@
 #'    Default `"Training"` (the survey-grade ground control
 #'    points).
 #'    Pass `character(0)` to include all non-excluded types.
-#' @param target_epsg Integer EPSG code the DTMs and ECPs are in.
-#'    Default `6491` (NAD83(2011) / Massachusetts Mainland State
-#'    Plane — see [`CRS.md`](../CRS.md)).
-#'    Used to locate `zzzraster_epsg<target_epsg>/` and to
-#'    reproject the ECPs to match via `load_ecp(target_crs = )`.
 #' @param eval_dir Directory for report outputs
 #'    (`dtm_eval_summary.csv`, HTML).
-#'    Defaults to `lidar/output/<site>_<date>` relative to the
-#'    project root.
+#'    Defaults to `pathtools::get_path("dtm_eval_report", site, date)`
+#'    (`../lidar_reports/<site>_<date>`, outside the repo).
 #' @param output_file Name of the output HTML file.
 #'    Defaults to `dtm_eval_<site>_<date>.html`.
 #' @param open If `TRUE` (default), open the rendered HTML in
@@ -50,18 +50,14 @@
 report_dtms <- function(
       site,
       date,
-      ecp_path    = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS_native/",
-         "In Situ Data Collection/",
-         "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-      ),
-      base_output = file.path("E:/uas_scratch/lidar", site, date),
+      target_epsg = 6491L,
+      ecp_path    = get_path("ecp_path"),
+      dtm_dir     = get_path("ground_raster_dir", site = site, date = date,
+                             target_epsg = target_epsg),
       tolerances  = c(0.10, 0.20),
       ecp_types   = "EVP",
-      eval_dir    = file.path("lidar/output",
-                              paste0(site, "_", date)),
+      eval_dir    = get_path("dtm_eval_report", site = site, date = date),
       output_file = paste0("dtm_eval_", site, "_", date, ".html"),
-      target_epsg = 6491L,
       open        = TRUE) {
 
    stopifnot(
@@ -85,7 +81,7 @@ report_dtms <- function(
       params      = list(site        = site,
                          date        = date,
                          ecp_path    = ecp_path,
-                         base_output = base_output,
+                         dtm_dir     = dtm_dir,
                          tolerances  = tolerances,
                          ecp_types   = ecp_types,
                          eval_dir    = eval_dir,

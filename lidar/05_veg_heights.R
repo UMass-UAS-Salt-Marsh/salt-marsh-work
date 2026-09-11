@@ -36,6 +36,7 @@
 library(lidR)
 library(future)
 library(progressr)
+library(pathtools)
 progressr::handlers(global = TRUE)
 progressr::handlers("cli")
 
@@ -54,25 +55,12 @@ chunk_buffer <- 20    # buffer around each chunk in meters
 # 100 m keeps peak per-chunk point count manageable.
 
 site        <- "rr"
-summer_date <- "2022-08-10"   # yyyy-mm-dd; used to locate summer clean dir
+summer_date <- "2022_08_10"   # yyyy_mm_dd; matches lidar/data/paths.yml
 
 # Must match whatever lidar/02.R used to produce the cleaned tiles and
 # ground rasters below. 6491 = NAD83(2011) / Massachusetts Mainland
 # State Plane, this project's current standard (see CRS.md).
 target_epsg <- 6491L
-
-# Ground reference for normalization. Default: floor-bias-corrected
-# MassGIS raster (lidar/07_floor_corrected_ground.R), stored alongside
-# the other rr summer rasters. To compare against the legacy approach
-# instead, set:
-#   ground_raster <- file.path(
-#      "E:/uas_scratch/lidar", site, "2022_05_14",
-#      "zzzraster_epsg6491", "csf_th0.01_res0.1_rgd2_0.25m.tif"
-#   )
-ground_raster <- file.path(
-   "E:/uas_scratch/lidar", site, "2022_08_10",
-   paste0("zzzraster_epsg", target_epsg), "massgis_plus_floor_summer.tif"
-)
 
 raster_res <- 0.5   # output resolution in metres
 
@@ -81,37 +69,30 @@ plan(multisession, workers = workers)
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 
+set_path_scheme("lidar/data/paths.yml")
 
 #------------------------------------------------------------------------------#
-# Resolve paths from paths.csv
+# Resolve paths
 #------------------------------------------------------------------------------#
 
-input_file_paths <- readr::read_csv("lidar/data/paths.csv")
-input_file_paths$path <- gsub("\\\\", "/", input_file_paths$path)
-input_file_paths$preferred <- as.logical(input_file_paths$preferred)
-input_file_paths$path <- gsub("^[[:blank:]/\"\\\\]+|[[:blank:]/\"\\\\]+$",
-                              "", input_file_paths$path)
+summer_cloud <- get_path("raw_lidar", site = site, date = summer_date)
 
-summer_rows <- which(
-   input_file_paths$site == site &
-      input_file_paths$type == "cloud" &
-      input_file_paths$preferred &
-      format(input_file_paths$date, "%Y-%m-%d") == summer_date
-)
-if (length(summer_rows) == 0L) {
-   stop("No preferred cloud row found for site=", site,
-        " date=", summer_date, " in lidar/data/paths.csv")
-}
-summer_cloud <- input_file_paths$path[summer_rows[1]]
+summer_clean_dir <- get_path("cleaned_tiles", site = site, date = summer_date,
+                             target_epsg = target_epsg)
+output_dir <- get_path("veg_heights_dir", site = site, date = summer_date)
+output_tif <- get_path("veg_heights_raster", site = site, date = summer_date,
+                       raster_res = raster_res)
 
-summer_date_uu <- gsub("-", "_", summer_date, fixed = TRUE)
-summer_clean_dir <- file.path("E:/uas_scratch/lidar", site,
-                              summer_date_uu,
-                              paste0("zzzcleaned_epsg", target_epsg))
-output_dir <- file.path("E:/uas_scratch/lidar", site,
-                        summer_date_uu, "zzzheights")
-output_tif <- file.path(output_dir,
-                        paste0("veg_dist_", raster_res, "m.tif"))
+# Ground reference for normalization. Default: floor-bias-corrected
+# MassGIS raster (lidar/07_floor_corrected_ground.R), stored alongside
+# the other rr summer rasters. To compare against the legacy approach
+# instead, set:
+#   ground_raster <- get_path("ground_raster", site = site,
+#      date = "2022_05_14", target_epsg = target_epsg,
+#      csf_threshold = 0.01, csf_res = 0.1, csf_rigidness = 2,
+#      raster_res = 0.25)
+ground_raster <- get_path("corrected_ground_raster", site = site,
+                          date = summer_date, target_epsg = target_epsg)
 
 if (!file.exists(ground_raster)) {
    stop("Ground raster not found: ", ground_raster,

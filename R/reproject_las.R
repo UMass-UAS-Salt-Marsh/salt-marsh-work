@@ -49,9 +49,9 @@
 #'    realization) default.
 #' @param vgrid Path to the geoid grid file (`.gtx` or GeoTIFF —
 #'    PROJ accepts both the same way).
-#'    Default points at the project-stored **GEOID18** CONUS grid
-#'    (`us_noaa_g2018u0.tif`), the current NGS standard.
-#'    See [`CRS.md`](../CRS.md).
+#'    Default is `pathtools::get_path("geoid_grid")`, the
+#'    project-stored **GEOID18** CONUS grid (`us_noaa_g2018u0.tif`),
+#'    the current NGS standard. See [`CRS.md`](../CRS.md).
 #' @param overwrite If `FALSE` (default) and `output` already
 #'    exists, return early without calling either helper.
 #'    If `TRUE`, run the transformation and replace the existing
@@ -68,18 +68,22 @@
 #' \dontrun{
 #' # Default: PDAL, datum-aware, single-pass.
 #' reproject_las(
-#'    input = "X:/.../ppk_07Nov2022_cloud_1.las",
-#'    output = paste0(
-#'       "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/",
+#'    input = pathtools::get_path("raw_lidar", site = "rr",
+#'                                date = "2022_08_10"),
+#'    output = file.path(
+#'       pathtools::get_path("reprojected_dir", site = "rr",
+#'                           date = "2022_08_10"),
 #'       "ppk_07Nov2022_cloud_1_epsg6491_navd88.las"
 #'    )
 #' )
 #'
 #' # Reproduce a historical LAStools-produced file.
 #' reproject_las(
-#'    input = "X:/.../ppk_07Nov2022_cloud_1.las",
-#'    output = paste0(
-#'       "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/",
+#'    input = pathtools::get_path("raw_lidar", site = "rr",
+#'                                date = "2022_08_10"),
+#'    output = file.path(
+#'       pathtools::get_path("reprojected_dir", site = "rr",
+#'                           date = "2022_08_10"),
 #'       "ppk_07Nov2022_cloud_1_lastools.las"
 #'    ),
 #'    method = "lastools"
@@ -88,12 +92,7 @@
 reproject_las <- function(input,
                           output,
                           target_epsg = 6491L,
-                          vgrid = paste0(
-                             "X:/legacy/gdrive/UMassAir User",
-                             " Resources/LASTools/Geoid",
-                             " Transformation GTX Files/",
-                             "geoid18/us_noaa_g2018u0.tif"
-                          ),
+                          vgrid = get_path("geoid_grid"),
                           overwrite = FALSE,
                           method = c("pdal", "lastools"),
                           ...) {

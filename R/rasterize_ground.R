@@ -27,9 +27,12 @@
 #' @examples
 #' \dontrun{
 #' rasterize_ground(
-#'    input  = "E:/uas_scratch/lidar/rr/2022_08_10/zzzcleaned",
-#'    output = paste0("E:/uas_scratch/lidar/rr/2022_08_10/zzzraster/",
-#'                    "csf_th0.06_res0.10_rgd2_0.25m.tif"),
+#'    input  = pathtools::get_path("cleaned_tiles", site = "rr",
+#'                                 date = "2022_08_10", target_epsg = 6491),
+#'    output = pathtools::get_path("ground_raster", site = "rr",
+#'                                 date = "2022_08_10", target_epsg = 6491,
+#'                                 csf_threshold = 0.06, csf_res = 0.10,
+#'                                 csf_rigidness = 2, raster_res = 0.25),
 #'    csf_threshold = 0.06,
 #'    csf_res       = 0.10,
 #'    csf_rigidness = 2

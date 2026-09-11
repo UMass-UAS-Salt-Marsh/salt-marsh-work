@@ -64,13 +64,18 @@ full investigation.
 - **`rmd/*.Rmd`** — parameterized R Markdown report templates,
   rendered by `report_dtms()` and `report_ground_sources()` rather
   than knitted directly.
-- **`lidar/data/paths.csv`** — registry of available input point
-  clouds and ECP files (columns: `site`, `type`, `date`, `path`,
-  `preferred`). Drivers look up their input row here rather than
-  hardcoding paths.
-- **`lidar/output/<site>_*/`** — small, committed-size artifacts:
-  cached per-DTM/per-source ECP-sample CSVs and rendered HTML
-  reports.
+- **`lidar/data/paths.yml`** — a `pathtools` path scheme: every raw
+  input cloud/ECP path (fully enumerated — the 2022/2024+ naming
+  conventions are too irregular for a template), plus every
+  scratch/output path template (`cleaned_tiles`, `ground_raster`,
+  `dtm_eval_report`, etc.). Drivers resolve paths via
+  `pathtools::get_path("<entry>", site = , date = , ...)` rather than
+  hardcoding them. See `dev/path_lookup_plan.md` for the migration
+  this replaced (`paths.csv` + `R/update_path.R`).
+- **`../lidar_reports/<site>_*/`** — a sibling directory to the repo,
+  entirely outside git: cached per-DTM/per-source ECP-sample CSVs and
+  rendered HTML reports (`ground_comparison_report`,
+  `dtm_eval_report` entries in `paths.yml`).
 - **`E:/uas_scratch/lidar/<site>/<date>/`** — large derived rasters
   and point-cloud tiles, not committed. Namespaced by
   `target_epsg` so a CRS-standard change doesn't collide with prior
@@ -99,7 +104,8 @@ target CRS. Otherwise `reproject_las()` dispatches to
 (needs a paid `lasvdatum` license — see `lidar/readme.md`).
 
 - **Driver:** `lidar/02.R` (top of file).
-- **Input:** raw LAS from `lidar/data/paths.csv`.
+- **Input:** raw LAS resolved via `get_path("raw_lidar", site = , date = )`
+  from `lidar/data/paths.yml`.
 - **Output:** `<base_output>/reprojected/*_epsg<N>_navd88.las`.
 
 ### Step 1 — clean & tile
@@ -119,8 +125,9 @@ target CRS. Otherwise `reproject_las()` dispatches to
 For each row of a small hand-picked CSF (Cloth Simulation Filter)
 parameter grid, `rasterize_ground()` classifies ground points and
 interpolates a DTM via k-NN IDW, writing one GeoTIFF per parameter
-set. `update_path()` fills in the output filename template from the
-parameter values.
+set. `get_path("ground_raster", ...)` resolves the output filename
+from the parameter values, per the `ground_raster` template in
+`lidar/data/paths.yml`.
 
 - **Driver:** `lidar/02.R` (main loop).
 - **Input:** cleaned tiles (Step 1).
@@ -142,7 +149,7 @@ diagnostic plots (`plot_pred_vs_obs()`, `plot_residual_map()`,
 
 - **Driver:** `lidar/03_evaluate_dtm.R` → `report_dtms()`.
 - **Report:** `rmd/dtm_evaluation_report.Rmd`.
-- **Output:** `lidar/output/<site>_<date>/dtm_eval_summary.csv` +
+- **Output:** `../lidar_reports/<site>_<date>/dtm_eval_summary.csv` +
   HTML report + PNG plots.
 
 ### Ground-source comparison
@@ -158,7 +165,7 @@ aerial-lidar bare-earth tile — using the same `sample_dtm()` +
 - **Report:** `rmd/ground_source_comparison.Rmd`.
 - **Finding:** MassGIS beats every UAS-derived source by a wide
   margin at every site tested, with near-zero bias.
-- **Output:** `lidar/output/<site>_ground_comparison/` (per-source
+- **Output:** `../lidar_reports/<site>_ground_comparison/` (per-source
   ECP CSVs, `ground_source_comparison.csv`, HTML report).
 
 ### Floor-bias-corrected ground reference
@@ -190,7 +197,7 @@ compared against `veg_height_m` via `sample_dtm()` +
 `summarize_residuals()`.
 
 - **Driver:** `lidar/08_veg_height_validation.R`.
-- **Output:** `lidar/output/<site>_ground_comparison/veg_height_validation.csv`.
+- **Output:** `../lidar_reports/<site>_ground_comparison/veg_height_validation.csv`.
 
 ### Vegetation height distribution (final deliverable)
 

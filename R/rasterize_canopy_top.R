@@ -29,8 +29,10 @@
 #' @examples
 #' \dontrun{
 #' rasterize_canopy_top(
-#'    input  = "E:/uas_scratch/lidar/rr/2022_08_10/zzzcleaned",
-#'    output = "lidar/output/rr_ground_comparison/canopy_top_summer.tif"
+#'    input  = pathtools::get_path("cleaned_tiles", site = "rr",
+#'                                 date = "2022_08_10", target_epsg = 6491),
+#'    output = pathtools::get_path("canopy_top_raster", site = "rr",
+#'                                 date = "2022_08_10", target_epsg = 6491)
 #' )
 #' }
 rasterize_canopy_top <- function(

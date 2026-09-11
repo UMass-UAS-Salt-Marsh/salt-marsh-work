@@ -62,11 +62,7 @@
 #' @examples
 #' \dontrun{
 #' rr_ecp <- load_ecp(
-#'    path = paste0(
-#'       "X:/legacy/gdrive/saltmarsh_UAS_native/",
-#'       "In Situ Data Collection/",
-#'       "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-#'    ),
+#'    path = pathtools::get_path("ecp_path"),
 #'    site = "rr"
 #' )
 #' }

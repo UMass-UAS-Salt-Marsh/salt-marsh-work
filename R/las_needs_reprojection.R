@@ -58,7 +58,8 @@
 #' @examples
 #' \dontrun{
 #' las_needs_reprojection(
-#'    "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/foo.las"
+#'    file.path(pathtools::get_path("reprojected_dir", site = "rr",
+#'                                  date = "2022_08_10"), "foo.las")
 #' )
 #' }
 las_needs_reprojection <- function(input,
