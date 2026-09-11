@@ -19,6 +19,36 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-09-11 — branch lidar
 
+### Ran lidar/05_veg_heights.R for rr to test the return-count raster
+
+Real end-to-end test (not the synthetic dry run from the earlier
+implementation entry below) of the return-count-raster change,
+against `rr`'s existing cleaned tiles (104.82M points, 20 files) and
+corrected ground raster — both already present, so Step 1
+(`clean_and_tile()`) skipped and the run went straight to
+`rasterize_veg_heights()`. 20 catalog chunks, ~3.3 minutes wall time
+(16:46:40–16:50:00), exit code 0.
+
+Output checked with `terra`: `veg_dist_0.5m.tif` — 31 bands, names
+`hn05_005 ... h300_Inf` as expected; `return_counts_0.5m.tif` —
+single `n_returns` band, `datatype = "INT4S"`, same grid as the
+fraction raster, values 1-8374 returns/cell, no negatives/NAs where
+populated. Spot-checked one cell: fractions summed to 1 exactly at
+`n_returns = 2`, i.e. both of that cell's returns landed inside the
+bin range (expected — nothing below the -5 cm floor or NA-DTM-derived
+noise there).
+
+Only warnings were the pre-existing, benign `pathtools`
+`when_value_unchecked` ones (unconstrained `date` parameter, same ~20
+seen since the pathtools migration) and three `normalize_height()`
+"points do not belong in the raster" nearest-neighbor warnings —
+unrelated to this change, inherent to DTM normalization.
+
+This overwrote the existing scratch `veg_dist_0.5m.tif` (regenerated
+with the new bin scheme + naming) and created `return_counts_0.5m.tif`
+for the first time. Scratch-tree output only, nothing under version
+control changed by this run.
+
 ### Added a per-cell return-count raster to rasterize_veg_heights()
 
 Per the plan in `dev/workplan.md`. `rasterize_veg_heights()` now
