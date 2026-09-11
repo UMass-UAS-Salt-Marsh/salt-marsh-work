@@ -19,6 +19,53 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-09-11 — branch lidar
 
+### Adjusted height-strata bins (floor + open-ended top bin)
+
+Changed the default height bins used by `rasterize_veg_heights()` /
+`bin_fractions()` to classify the fraction of returns by height
+strata, per the plan in `dev/workplan.md` (site-rollout work is
+sidelined in `dev/rollout_workplan.md` while this and one other
+cleanup task are done first).
+
+**`R/rasterize_veg_heights.R`.** Default `bin_breaks` changed from
+`c(seq(0, 1, by = 0.05), seq(1.2, 3.0, by = 0.20))` (30 bins, 0–3 m)
+to `c(-0.05, seq(0.05, 1, by = 0.05), seq(1.2, 3.0, by = 0.20), Inf)`
+(31 bins, -5 cm–3 m plus an open-ended top bin). The lowered floor
+(-5 cm) catches near-zero returns that are slightly negative (ground
+jitter/noise close to zero) while still excluding larger negative
+values as errors; the new top bin (`3.0` to `Inf`) counts returns
+above the old ceiling instead of silently dropping them from every
+band's numerator. Band-name generation (`sprintf("h%03d_%03d", ...)`)
+couldn't handle a negative edge or `Inf` directly — `sprintf("%03d",
+Inf)` errors, and a literal `-` prefix would make the bin name an
+invalid, unquoted R name — so replaced it with a per-edge
+`format_edge()` helper (`vapply`'d over `low_cm`/`high_cm`) that emits
+`n05` for a -5 cm edge and `Inf` for the open-ended edge. Removed an
+unused `ceiling_ht <- bin_breaks[n_bins + 1L]` line found dead in the
+same block (only `bin_fractions()`'s own copy is actually used).
+Updated the function's roxygen docs (`@param bin_breaks`, `@details`)
+to match.
+
+**`R/bin_fractions.R`.** Generalized the floor filter from the
+hardcoded `z >= 0` to `z >= bin_breaks[1]`, so it respects whatever
+floor the caller's `bin_breaks` sets rather than assuming zero.
+
+**Naming convention** (decided with the user, 2026-09-11): edges use
+`n` for a negative sign (e.g. `hn05_005`) rather than a literal `-`,
+since a `-` would make the resulting list/column name invalid without
+backtick-quoting; `n05` is also the same 3-character width as `005`,
+so bin names stay visually aligned. Confirmed the first-3/last-3
+resolved names: `hn05_005`, `h005_010`, `h010_015`, ...,
+`h260_280`, `h280_300`, `h300_Inf`.
+
+Verified interactively (`.bincode()` behavior with `-Inf`/`Inf`-ish
+breaks, `format_edge()` outputs, `make.names()` on the full
+`bin_names` vector, and `bin_fractions()` against a small sample `z`
+vector spanning below-floor/first-bin/last-bin/above-ceiling values)
+before linting. `lintr::lint()` on both changed files: no lints.
+Working-tree changes only — not committed, per instructions not to
+commit unless asked.
+
 ### Implemented dev/path_lookup_plan.md (v2, pathtools-based)
 
 Implemented the revised plan (see the "Revised path_lookup_plan.md"

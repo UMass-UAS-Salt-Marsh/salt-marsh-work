@@ -10,8 +10,13 @@
 #' @param dtm Path to the single-band spring-season reference DTM `.tif`.
 #' @param output Path for the output multi-band `.tif`.
 #' @param bin_breaks Numeric vector of break points (metres) defining the
-#'   height bins.
-#'   Default: 5 cm bins 0–1 m then 20 cm bins 1–3 m (30 bands total).
+#'   height bins. The first and last breaks act as the floor and
+#'   ceiling: returns below the floor are treated as noise and
+#'   excluded, while `Inf` as the last break keeps the top bin
+#'   open-ended.
+#'   Default: a -5 to 5 cm bin to catch near-zero returns, then 5 cm
+#'   bins up to 1 m, 20 cm bins 1–3 m, and an open-ended bin above
+#'   3 m (31 bands total).
 #' @param raster_res Output raster resolution in metres. Default `0.5`.
 #' @param chunk_size Tile size for [lidR::LAScatalog] processing (metres).
 #'   Default `200`.
@@ -22,11 +27,14 @@
 #' @details
 #' **Fraction denominator**: cell values are `count_in_bin / total_returns`
 #' where the denominator is all returns in the cell (including returns
-#' below ground or above the ceiling of `bin_breaks`).
+#' below the floor of `bin_breaks`, or above its ceiling for a custom,
+#' non-open-ended `bin_breaks`).
 #' Per-band fractions therefore need not sum to 1.
 #'
-#' **Band names** encode bin edges in centimetres:
-#' `h000_005` = 0–5 cm, `h100_120` = 100–120 cm, etc.
+#' **Band names** encode bin edges in centimetres, with `n` marking a
+#' negative edge and `Inf` marking an open-ended one:
+#' `hn05_005` = -5–5 cm, `h100_120` = 100–120 cm, `h300_Inf` = above
+#' 3 m.
 #'
 #' @examples
 #' \dontrun{
@@ -45,7 +53,8 @@ rasterize_veg_heights <- function(
       input,
       dtm,
       output,
-      bin_breaks   = c(seq(0, 1, by = 0.05), seq(1.2, 3.0, by = 0.20)),
+      bin_breaks   = c(-0.05, seq(0.05, 1, by = 0.05),
+                       seq(1.2, 3.0, by = 0.20), Inf),
       raster_res   = 0.5,
       chunk_size   = 200,
       chunk_buffer = 20,
@@ -57,8 +66,25 @@ rasterize_veg_heights <- function(
    n_bins    <- length(bin_breaks) - 1L
    low_cm    <- round(bin_breaks[-length(bin_breaks)] * 100)
    high_cm   <- round(bin_breaks[-1L] * 100)
-   bin_names <- sprintf("h%03d_%03d", low_cm, high_cm)
-   ceiling_ht <- bin_breaks[n_bins + 1L]
+
+   # `sprintf("%03d", ...)` errors on `Inf`, and a literal `-` prefix
+   # would make the resulting bin name an invalid, unquoted R name --
+   # format each edge individually instead of vectorizing over
+   # low_cm/high_cm directly.
+   format_edge <- function(cm) {
+      if (is.infinite(cm)) {
+         "Inf"
+      } else if (cm < 0) {
+         sprintf("n%02d", abs(cm))
+      } else {
+         sprintf("%03d", cm)
+      }
+   }
+   bin_names <- sprintf(
+      "h%s_%s",
+      vapply(low_cm, format_edge, character(1L)),
+      vapply(high_cm, format_edge, character(1L))
+   )
 
    dtm_path <- dtm   # path string — serialises safely to workers
 
