@@ -70,8 +70,9 @@ full investigation.
   scratch/output path template (`cleaned_tiles`, `ground_raster`,
   `dtm_eval_report`, etc.). Drivers resolve paths via
   `pathtools::get_path("<entry>", site = , date = , ...)` rather than
-  hardcoding them. See `dev/path_lookup_plan.md` for the migration
-  this replaced (`paths.csv` + `R/update_path.R`).
+  hardcoding them. Replaces the old `lidar/data/paths.csv` +
+  `R/update_path.R` combination — see `dev/worklog.md`, 2026-09-11,
+  for the migration.
 - **`../lidar_reports/<site>_*/`** — a sibling directory to the repo,
   entirely outside git: cached per-DTM/per-source ECP-sample CSVs and
   rendered HTML reports (`ground_comparison_report`,
@@ -84,7 +85,7 @@ full investigation.
 
 Every driver currently hardcodes `site` (and often `date`) as a
 top-of-file parameter rather than looping over sites — see
-`dev/workplan.md`'s Phase 3 for the site-by-site rollout status.
+`dev/workplan.md` for the site-by-site rollout status.
 
 ## Pipeline stages
 
@@ -151,6 +152,13 @@ diagnostic plots (`plot_pred_vs_obs()`, `plot_residual_map()`,
 - **Report:** `rmd/dtm_evaluation_report.Rmd`.
 - **Output:** `../lidar_reports/<site>_<date>/dtm_eval_summary.csv` +
   HTML report + PNG plots.
+
+Two matching decisions worth knowing when reading or extending this
+step: ECPs are matched to a DTM by site only, ignoring date — every
+site ECP is compared against each of that site's DTMs regardless of
+survey date. And water-logger locations are deliberately excluded as
+ECPs, even though a fixed logger-to-floor offset could in principle
+convert them into additional elevation points.
 
 ### Ground-source comparison
 

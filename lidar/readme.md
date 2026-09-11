@@ -278,9 +278,19 @@ Reference doc:
    into one file, not an independent surface, so picking one over the
    other can't change the result. Full detail in
    [`CRS.md`](../CRS.md).
-2. **Lever arm error** — now the leading hypothesis. The 0.3355 m
-   vertical offset is for the RESEPI sensor; a misconfigured value
-   propagates directly into every point height.
+2. ~~Lever arm error~~ — **cleared, 2026-08-28.** Inertial Explorer
+   auto-refines the GNSS-antenna lever arm per flight via IMU/GNSS
+   misclosure minimization rather than using the generic starting
+   value quoted above; pulling the final refined Z-component from all
+   6 processed 2022 flights (RR/WEL/OTH, spring/summer) shows them
+   agreeing to well under 1 cm (387.5–393.9 mm). An error here would
+   have to be a real mismeasurement that's *itself* wrong at the
+   sub-cm level across every flight, which this consistency makes
+   implausible. See `dev/worklog.md`, 2026-08-27/28, for the full
+   account. This narrows the live candidates to the boresight
+   calibration (below) and the base-station coordinates — the latter
+   checked (each 2022 site used a different CORS station: RR = MACM,
+   WEL = MATU) but not conclusively cleared.
 3. **Outdated geoid model** — GEOID12B is superseded by **GEOID18**
    (current NGS standard since ~2019; adopted as this project's
    standard in `CRS.md`), but typical GEOID12B→GEOID18 differences in
@@ -307,6 +317,19 @@ Reference doc:
    tagged as generic "WGS 84" (EPSG:4979) to NAD83(2011) as a literal
    `+proj=noop` — no shift at all, horizontal or vertical — confirmed
    with `projinfo`.)
+5. **Boresight calibration — leading hypothesis, 2026-08-28.** Every
+   2022 RESEPI mission (all three sites, spring and summer) was flown
+   with the same physical unit (serial `5FFC59`) and every mission's
+   `log.txt` records an *identical* boresight offset — linear
+   `(0, 0.060, 0) m`, angular `(yaw 0.02°, pitch −0.06°, roll −0.58°)`
+   — copied unchanged into every flight's `ppk.pcmp` rather than
+   re-derived per flight. That makes it the one parameter set common
+   to every biased 2022 dataset regardless of site or base station,
+   and — unlike the lever arm above — its correctness can't be checked
+   by flight-to-flight consistency alone, since it's never
+   independently re-solved. `dev/scan_angle_bias.md` proposes a
+   scan-angle correlation check that could confirm or weaken it
+   without needing new external data.
 
 ### Implication for vegetation height work
 
@@ -318,13 +341,49 @@ Absolute elevation deliverables will need the offset corrected.
 
 ### Diagnosing the cause
 
-See the "Phase 1.6 — diagnose UAS vertical bias" and "Phase 1.6a —
-establish and migrate to the correct CRS/geoid standard" sections in
-`dev/workplan.md` for the diagnostic plan, and
-[`CRS.md`](../CRS.md) for the project-wide CRS/datum/geoid standard
-this investigation produced. `dev/scan_angle_bias.md` has a proposed
+**Status: paused, 2026-09-11** — site rollout (`dev/workplan.md`)
+takes priority over absolute-elevation accuracy for now; relative
+vegetation heights are unaffected by this bias (see above), so it
+isn't blocking. To resume: `dev/scan_angle_bias.md` has a proposed
 (not yet implemented) plan for testing the boresight-calibration
-hypothesis via scan-angle correlation.
+hypothesis via scan-angle correlation, using data already on disk.
+See `dev/worklog.md` (2026-08-19 through 2026-08-28) for the full
+diagnostic history, and [`CRS.md`](../CRS.md) for the project-wide
+CRS/datum/geoid standard this investigation produced.
+
+## Canopy-top underestimate in vegetation-height validation
+
+### Finding
+
+Both candidate ground references (floor-bias-corrected MassGIS and
+the legacy spring-DTM-relative approach) underestimate true
+vegetation height by roughly 15 cm against field-measured
+`veg_height_m` — common to both, so it isn't a ground-reference
+artifact. It's a separate issue from the vertical bias above, which
+affects the *ground* measurement; this one affects the *canopy-top*
+measurement.
+
+### Causes checked
+
+- **Last-return filtering** — hypothesized that filtering to last
+  return (`clean_and_tile()`) could be clipping canopy-top detections
+  that only ever produced a single, non-last return. Checked directly
+  against the raw `rr` summer point cloud: first and last returns are
+  byte-identical for every pulse. Ruled out.
+
+### Candidates not yet checked
+
+- `rasterize_canopy_top()`'s 0.25 m pixel averaging vs. a
+  point-measurement field survey.
+- Lidar beam-footprint effects on thin vegetation.
+- A difference in what `veg_height_m` actually measures in the field
+  protocol.
+
+### Status
+
+**Paused, 2026-09-11** — site rollout (`dev/workplan.md`) takes
+priority. Needs its own investigation before absolute (not relative)
+vegetation heights from this pipeline should be trusted.
 
 ## Comparing ground elevation datasets
 

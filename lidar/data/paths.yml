@@ -1,8 +1,7 @@
 # Path configuration for the lidar pipeline, read via
 # pathtools::path_scheme() / get_path(). Replaces the old paths.csv +
-# R/update_path.R combination (see dev/path_lookup_plan.md for the
-# migration this came from, dev/worklog.md 2026-09-11 for the log
-# entry). See vignette("pathtools") for the schema itself.
+# R/update_path.R combination -- see dev/worklog.md, 2026-09-11, for
+# the migration. See vignette("pathtools") for the schema itself.
 #
 # No machine-local overlay file exists yet. Roots are each their own
 # entry specifically so that adding one later (lidar/data/paths-local.yml,
@@ -101,7 +100,7 @@ paths:
     type: file
 
   # ---------------------------------------------------------------------
-  # Reports-root templates (outside the repo -- see dev/path_lookup_plan.md)
+  # Reports-root templates (outside the repo)
   # ---------------------------------------------------------------------
   ground_comparison_report:
     template: "{@reports_root}/{site}_ground_comparison"
@@ -156,8 +155,8 @@ paths:
 # ---------------------------------------------------------------------
 # `site` is enumerated -- the canonical lidar site-code list (see
 # CLAUDE.md "Data conventions"). Everything else is left unconstrained
-# for now (declared, no `values:`), per dev/path_lookup_plan.md open
-# question 2 -- a firmer list can be added once convenient.
+# for now (declared, no `values:`) -- a firmer list can be added once
+# convenient.
 parameters:
   site: [rr, oth, wel, nor, peg, bar]
   date:

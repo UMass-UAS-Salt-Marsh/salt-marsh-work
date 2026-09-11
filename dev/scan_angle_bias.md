@@ -1,9 +1,13 @@
 # Plan: test whether the UAS vertical bias correlates with lidar scan angle
 
-**Status: proposed, not yet implemented.** Written up for review before
-any code changes — see `dev/worklog.md` for how this fits into the
-broader vertical-bias investigation, and `lidar/readme.md`'s
-"Systematic vertical bias..." section for the underlying finding.
+**Status: paused, 2026-09-11.** Proposed, not yet implemented, and
+deprioritized behind the site rollout (`dev/workplan.md`) — the bias
+doesn't block relative vegetation heights, only absolute elevation.
+Still valid to resume as-is when bias work picks back up. Written up
+for review before any code changes — see `dev/worklog.md` for how
+this fits into the broader vertical-bias investigation, and
+`lidar/readme.md`'s "Systematic vertical bias..." section for the
+underlying finding.
 
 ## Context
 
