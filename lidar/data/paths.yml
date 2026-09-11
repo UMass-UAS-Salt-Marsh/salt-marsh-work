@@ -1,0 +1,170 @@
+# Path configuration for the lidar pipeline, read via
+# pathtools::path_scheme() / get_path(). Replaces the old paths.csv +
+# R/update_path.R combination (see dev/path_lookup_plan.md for the
+# migration this came from, dev/worklog.md 2026-09-11 for the log
+# entry). See vignette("pathtools") for the schema itself.
+#
+# No machine-local overlay file exists yet. Roots are each their own
+# entry specifically so that adding one later (lidar/data/paths-local.yml,
+# gitignored, layered on top via
+# path_scheme(c("lidar/data/paths.yml", "lidar/data/paths-local.yml")))
+# only ever needs to redefine these few lines.
+
+paths:
+
+  # ---------------------------------------------------------------------
+  # Roots
+  # ---------------------------------------------------------------------
+  scratch_root:      "E:/uas_scratch/lidar"
+  reports_root:      "../lidar_reports"
+  legacy_data_root:  "X:/legacy/gdrive"
+  sites_data_root:   "X:/projects/uas/sites"
+  massgis_root:      "X:/scratch/bcompton/LiDAR"
+
+  # ---------------------------------------------------------------------
+  # Constants
+  # ---------------------------------------------------------------------
+  geoid_grid: "{@legacy_data_root}/UMassAir User Resources/LASTools/Geoid Transformation GTX Files/geoid18/us_noaa_g2018u0.tif"
+
+  ecp_path: "{@legacy_data_root}/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
+  # Superseded per-site legacy ECP sheets (old paths.csv preferred = 0
+  # rows) -- never selected by any live code path, kept only as a
+  # record of what used to exist:
+  # oth: "{@legacy_data_root}/2022_23_field_data/Classification Points/Organized Data/OTH_AllPoints_Fixed_Join.xlsx"
+  # rr:  "{@legacy_data_root}/2022_23_field_data/Classification Points/Organized Data/RED_AllPoints_Fixed_Join.xlsx"
+  # wel: "{@legacy_data_root}/2022_23_field_data/Classification Points/Organized Data/WEL_AllPoints_Fixed_Join.xlsx"
+
+  # ---------------------------------------------------------------------
+  # Raw input clouds -- fully enumerated (no general template; the 2022
+  # vs. 2024+ naming conventions are irregular, per lidar/readme.md).
+  # One override per site/date that was `preferred = 1` in the old
+  # paths.csv; superseded rows are kept as comments immediately below
+  # the row that replaced them.
+  # ---------------------------------------------------------------------
+  raw_lidar:
+    overrides:
+      - when: {site: rr, date: "2022_08_10"}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Red River/2022/LiDAR/10Aug2022_Low/RESEPI-5FFC59-2022-08-10-20-26-50/clouds/ppk_07Nov2022_cloud_1.las"
+      # Superseded: an earlier processing pass of the same site/date.
+      # - path: ".../clouds/ppk_cloud_1.las"
+      - when: {site: rr, date: "2022_05_14"}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Red River/2022/LiDAR/26May2022_Low/RESEPI-5FFC59-2022-05-26-22-14-33/clouds/ppk_processed14Oct2022_cloud_1.las"
+      - when: {site: nor, date: "2024_10_06"}
+        path: "{@sites_data_root}/nor/lidar_point_cloud/2024_10_06_low_hesaixt32/RESEPI-A84717-2024-10-06-12-46-16/clouds/NOR_2024_10_06_low_lidar_pointcloud.las"
+      - when: {site: nor, date: "2024_05_24"}
+        path: "{@sites_data_root}/nor/lidar_point_cloud/2024_05_24_low_hesaixt32/RESEPI-A84717-2024-05-24-22-51-29/clouds/NOR_PointCloud_24May2024.las"
+      - when: {site: peg, date: "2024_04_19"}
+        path: "{@sites_data_root}/peg/lidar_point_cloud/2024_04_19_low_hesaixt32/RESEPI-A84717-2024-04-19-19-13-05/clouds/PEG_PointCloud_19Apr2024.las"
+      - when: {site: peg, date: "2024_09_23"}
+        path: "{@sites_data_root}/peg/lidar_point_cloud/2024_09_23_low_hesaixt32/RESEPI-A84717-2024-09-23-13-46-23/clouds/PEG_PointCloud_23Sep2024.las"
+      - when: {site: wel, date: "2024_06_01"}
+        path: "{@sites_data_root}/wel/lidar_point_cloud/2024_06_01_low_hesaixt32/RESEPI-A84717-2024-06-01-20-12-47/clouds/WEL_PointCloud_01Jun2024.las"
+      - when: {site: wel, date: "2022_08_02"}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/2022/LiDAR/LiDAR_WEL_02Aug2022/RESEPI-5FFC59-2022-08-02-13-39-18/clouds/ppk_07Nov2022_cloud_1.las"
+      - when: {site: wel, date: "2022_05_20"}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/2022/LiDAR/LiDAR_Wellfleet_20May2022/RESEPI-5FFC59-2022-05-20-17-17-50/clouds/ppk_AllTransects_14Jun2022_220to310.las"
+    type: file
+
+  # ---------------------------------------------------------------------
+  # Scratch-tree templates. `site_date_root` is a composition root
+  # (like pathtools's out_root -> out_dir -> scenario_dir example) so
+  # every downstream entry only ever names its own subdirectory, not
+  # the full scratch path.
+  # ---------------------------------------------------------------------
+  site_date_root:
+    template: "{@scratch_root}/{site}/{date}"
+    type: dir
+
+  cleaned_tiles:
+    template: "{@site_date_root}/zzzcleaned_epsg{target_epsg}"
+    type: dir
+  reprojected_dir:
+    template: "{@site_date_root}/reprojected"
+    type: dir
+  ground_raster_dir:
+    template: "{@site_date_root}/zzzraster_epsg{target_epsg}"
+    type: dir
+  ground_raster:
+    template: "{@ground_raster_dir}/csf_th{csf_threshold}_res{csf_res}_rgd{csf_rigidness}_{raster_res}m.tif"
+    type: file
+  corrected_ground_raster:
+    template: "{@ground_raster_dir}/massgis_plus_floor_summer.tif"
+    type: file
+  canopy_top_raster:
+    template: "{@ground_raster_dir}/canopy_top_summer.tif"
+    type: file
+  veg_heights_dir:
+    template: "{@site_date_root}/zzzheights"
+    type: dir
+  veg_heights_raster:
+    template: "{@veg_heights_dir}/veg_dist_{raster_res}m.tif"
+    type: file
+
+  # ---------------------------------------------------------------------
+  # Reports-root templates (outside the repo -- see dev/path_lookup_plan.md)
+  # ---------------------------------------------------------------------
+  ground_comparison_report:
+    template: "{@reports_root}/{site}_ground_comparison"
+    type: dir
+  dtm_eval_report:
+    template: "{@reports_root}/{site}_{date}"
+    type: dir
+
+  # ---------------------------------------------------------------------
+  # Third-party reference rasters -- fully enumerated. Naming is
+  # irregular (rr's tile sits in its own be_<tile>/ subdirectory; oth's
+  # and wel's tiles sit directly in massgis_root), so this cannot be a
+  # single template.
+  # ---------------------------------------------------------------------
+  massgis_tile:
+    overrides:
+      - when: {tile: "19TDG412612"}
+        path: "{@massgis_root}/be_19TDG412612/be_19TDG412612.tif"
+      - when: {tile: "19TCH346737"}
+        path: "{@massgis_root}/be_19TCH346737.tif"
+      - when: {tile: "19TCH346735"}
+        path: "{@massgis_root}/be_19TCH346735.tif"
+      - when: {tile: "19TDG415636"}
+        path: "{@massgis_root}/be_19TDG415636.tif"
+      - when: {tile: "19TDG417636"}
+        path: "{@massgis_root}/be_19TDG417636.tif"
+    type: file
+
+  # ---------------------------------------------------------------------
+  # Orthophoto-derived ground DEMs -- fully enumerated, one override
+  # per (site, source) combination from
+  # lidar/06_compare_ground_sources.R.
+  # ---------------------------------------------------------------------
+  photo_dem:
+    overrides:
+      - when: {site: rr, source: spring_hesai}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Red River/Orthos and DEMs 2022/26May2022/Low/26May2022_RED_Low_HesaiRGB_DEM.tif"
+      - when: {site: rr, source: spring_mica}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Red River/Orthos and DEMs 2022/26May2022/Low/26May22_RR_Low_Mica_DEM.tif"
+      - when: {site: rr, source: summer}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Red River/Orthos and DEMs 2022/10Aug2022/Low/10Aug22_RR_Low_Mavic_DEM.tif"
+      - when: {site: oth, source: may_14_ortho}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Old Town Hill/Orthos and DEMs 2022/14May2022/14May2022_OTH_Low_HESAI_DEM.tif"
+      - when: {site: oth, source: may_02_ortho}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Old Town Hill/Orthos and DEMs 2022/02May2022/02May2022_OTH_Low_Mavic_DEM.tif"
+      - when: {site: wel, source: may_22_ortho}
+        path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/Orthos and DEMs 2022/20May2022/Low/20May22_WEL_Low_Hesai_DEM.tif"
+    type: file
+
+# ---------------------------------------------------------------------
+# Parameter declarations
+# ---------------------------------------------------------------------
+# `site` is enumerated -- the canonical lidar site-code list (see
+# CLAUDE.md "Data conventions"). Everything else is left unconstrained
+# for now (declared, no `values:`), per dev/path_lookup_plan.md open
+# question 2 -- a firmer list can be added once convenient.
+parameters:
+  site: [rr, oth, wel, nor, peg, bar]
+  date:
+  target_epsg:
+  csf_threshold:
+  csf_res:
+  csf_rigidness:
+  raster_res:
+  tile:
+  source:

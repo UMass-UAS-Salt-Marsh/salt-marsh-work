@@ -49,7 +49,7 @@ docs
 /tests/testthat/Rplots.pdf
 
 # Rendered Rmarkdown
-/hydrology/*.html
+/inundation_metrics/*.html
 /lidar/*.html
 /rmd/*.html
 /logger_recalibration/*.html
@@ -57,5 +57,11 @@ docs
 # Calibrated hydrology files
 inundation_metrics/Data/*/Calibrated*
 
+# Raw pipeline run logs (large, narrated in dev/worklog.md instead)
+/dev/run_logs/
+
 # Mac OS file
-.DS_Store 
+.DS_Store
+
+# Claude Code local settings (per-user, machine-specific paths)
+.claude/

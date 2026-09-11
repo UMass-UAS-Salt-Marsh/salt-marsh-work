@@ -8,8 +8,12 @@
 # Run from the project root in RStudio so relative paths resolve.
 #------------------------------------------------------------------------------#
 
+library(pathtools)
+
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
+
+set_path_scheme("lidar/data/paths.yml")
 
 #------------------------------------------------------------------------------#
 # Red River
@@ -20,37 +24,31 @@ site <- "rr"
 # Best CSF stems from Phase 1 evaluation (lowest overall RMSE).
 # Spring: RMSE 0.174 m, bias +0.165 m
 # Summer: RMSE 0.245 m, bias +0.221 m
-best_csf_spring <- "csf_th0.01_res0.1_rgd2_0.25m.tif"
-best_csf_summer <- "csf_th0.12_res0.2_rgd2_0.25m.tif"
+best_csf_spring <- list(csf_threshold = 0.01, csf_res = 0.1,
+                        csf_rigidness = 2, raster_res = 0.25)
+best_csf_summer <- list(csf_threshold = 0.12, csf_res = 0.2,
+                        csf_rigidness = 2, raster_res = 0.25)
+
+# Must match whatever lidar/03.R used to produce best_csf_spring
+# and best_csf_summer.
+target_epsg <- 6491L
 
 sources <- c(
-   lidar_spring = file.path(
-      "E:/uas_scratch/lidar", site, "2022_05_14",
-      "zzzraster", best_csf_spring
-   ),
-   lidar_summer = file.path(
-      "E:/uas_scratch/lidar", site, "2022_08_10",
-      "zzzraster", best_csf_summer
-   ),
-   photo_spring_hesai = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Red River/Orthos and DEMs 2022/26May2022/Low/",
-      "26May2022_RED_Low_HesaiRGB_DEM.tif"
-   ),
-   photo_spring_mica = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Red River/Orthos and DEMs 2022/26May2022/Low/",
-      "26May22_RR_Low_Mica_DEM.tif"
-   ),
-   photo_summer = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Red River/Orthos and DEMs 2022/10Aug2022/Low/",
-      "10Aug22_RR_Low_Mavic_DEM.tif"
-   ),
-   massgis = paste0(
-      "X:/scratch/bcompton/LiDAR/",
-      "be_19TDG412612/be_19TDG412612.tif"
-   )
+   lidar_spring = get_path("ground_raster", c(
+      list(site = site, date = "2022_05_14", target_epsg = target_epsg),
+      best_csf_spring
+   )),
+   lidar_summer = get_path("ground_raster", c(
+      list(site = site, date = "2022_08_10", target_epsg = target_epsg),
+      best_csf_summer
+   )),
+   photo_spring_hesai = get_path("photo_dem", site = site,
+                                 source = "spring_hesai"),
+   photo_spring_mica  = get_path("photo_dem", site = site,
+                                 source = "spring_mica"),
+   photo_summer       = get_path("photo_dem", site = site,
+                                 source = "summer"),
+   massgis            = get_path("massgis_tile", tile = "19TDG412612")
 )
 
 # Render report
@@ -65,18 +63,12 @@ report_ground_sources(sources = sources, site = site)
 
 site <- "oth"
 sources <- c(
-   may_14_ortho    = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Old Town Hill/Orthos and DEMs 2022/14May2022/",
-      "14May2022_OTH_Low_HESAI_DEM.tif"
-   ),
-   may_02_ortho    = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Old Town Hill/Orthos and DEMs 2022/02May2022/",
-      "02May2022_OTH_Low_Mavic_DEM.tif"
-   ),
-   massgis_346737  = "X:/scratch/bcompton/LiDAR/be_19TCH346737.tif",
-   massgis_346735  = "X:/scratch/bcompton/LiDAR/be_19TCH346735.tif"
+   may_14_ortho   = get_path("photo_dem", site = site,
+                             source = "may_14_ortho"),
+   may_02_ortho   = get_path("photo_dem", site = site,
+                             source = "may_02_ortho"),
+   massgis_346737 = get_path("massgis_tile", tile = "19TCH346737"),
+   massgis_346735 = get_path("massgis_tile", tile = "19TCH346735")
 )
 
 report_ground_sources(sources = sources, site = site)
@@ -89,13 +81,10 @@ report_ground_sources(sources = sources, site = site)
 #------------------------------------------------------------------------------#
 site <- "wel"
 sources <- c(
-   may_22_ortho   = paste0(
-      "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-      "Wellfleet Bay/Orthos and DEMs 2022/20May2022/Low/",
-      "20May22_WEL_Low_Hesai_DEM.tif"
-   ),
-   massgis_415636 = "X:/scratch/bcompton/LiDAR/be_19TDG415636.tif",
-   massgis_417636 = "X:/scratch/bcompton/LiDAR/be_19TDG417636.tif"
+   may_22_ortho   = get_path("photo_dem", site = site,
+                             source = "may_22_ortho"),
+   massgis_415636 = get_path("massgis_tile", tile = "19TDG415636"),
+   massgis_417636 = get_path("massgis_tile", tile = "19TDG417636")
 )
 
 report_ground_sources(sources = sources, site = site)

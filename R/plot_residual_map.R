@@ -8,10 +8,11 @@
 #'   `easting`, `northing`, `residual`, and `type` columns.
 #' @param crs Coordinate reference system to attach to the points.
 #'   Accepts any form accepted by [sf::st_crs()].
-#'   Default `26919` (NAD83 / UTM 19N, the project standard).
+#'   Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'   Plane, the project standard — see [`CRS.md`](../CRS.md)).
 #'
 #' @return A `ggplot` object.
-plot_residual_map <- function(points, crs = 26919L) {
+plot_residual_map <- function(points, crs = 6491L) {
    sf_pts <- sf::st_as_sf(points,
                           coords = c("easting", "northing"),
                           crs = crs)

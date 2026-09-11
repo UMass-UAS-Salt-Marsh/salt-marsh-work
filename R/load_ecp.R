@@ -11,9 +11,11 @@
 #' columns alongside the geometry.
 #'
 #' **Source CRS is hardcoded** as **EPSG:26919**
-#' (NAD83 / UTM 19N) —
-#' the CRS the ECP coordinates were collected in for this
-#' project.
+#' (NAD83 / UTM 19N, legacy realization) —
+#' confirmed by Josh Ward's thesis (who collected the ECPs/GCPs),
+#' which states they were measured in NAD83/UTM19N, NAVD88.
+#' See [`CRS.md`](../CRS.md) at the project root for the full
+#' CRS/datum standard and how this fact was verified.
 #' If `target_crs` differs from the source,
 #' the geometry is transformed and the `easting` / `northing`
 #' columns are updated to match.
@@ -38,8 +40,11 @@
 #' @param path Path to the ECP xlsx.
 #' @param target_crs Integer EPSG code for the returned sf
 #'    object.
-#'    Default `26919` (NAD83 / UTM 19N),
-#'    matching the source CRS and the project's DTMs.
+#'    Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'    Plane) — the project's current standard for DTMs and other new
+#'    output, per [`CRS.md`](../CRS.md). Differs from `source_crs`
+#'    (still legacy NAD83/26919, see above), so the default call now
+#'    performs a real ~0.5-1 m frame-shift transform, not a pass-through.
 #' @param exclude_types Character vector of values in the `type`
 #'    column to drop.
 #'    Default `"Logger Array"`.
@@ -57,16 +62,12 @@
 #' @examples
 #' \dontrun{
 #' rr_ecp <- load_ecp(
-#'    path = paste0(
-#'       "X:/legacy/gdrive/saltmarsh_UAS_native/",
-#'       "In Situ Data Collection/",
-#'       "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-#'    ),
+#'    path = pathtools::get_path("ecp_path"),
 #'    site = "rr"
 #' )
 #' }
 load_ecp <- function(path,
-                     target_crs = 26919L,
+                     target_crs = 6491L,
                      exclude_types = "Logger Array",
                      site = NULL) {
 

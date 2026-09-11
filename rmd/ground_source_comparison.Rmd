@@ -10,8 +10,8 @@ output:
 params:
   site:       "oth"
   sources:  NULL
-  ecp_path:   "X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-  output_dir: "lidar/output/[site]_ground_comparison"
+  ecp_path:   NULL
+  output_dir: NULL
   tolerances: [0.10, 0.20]
   ecp_types:  ["EVP"]
 ---
@@ -22,39 +22,33 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
 library(here)
 library(ggplot2)
 library(dplyr)
+library(pathtools)
 setwd(here::here())
 
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
-
+set_path_scheme("lidar/data/paths.yml")
 
 # Unpack params to local variables for convenience.
 site       <- params$site
 sources    <- params$sources
-ecp_path   <- params$ecp_path
-output_dir <- params$output_dir
+ecp_path   <- params$ecp_path %||% get_path("ecp_path")
+output_dir <- params$output_dir %||% get_path("ground_comparison_report",
+                                              site = site)
 tolerances <- params$tolerances
 ecp_types  <- params$ecp_types
-
-output_dir <- gsub("[site]", site, x = output_dir, fixed = TRUE)
 
 # Default sources for standalone knitting (oth values).
 if (is.null(sources) || length(sources) == 0L) {
    if (!site == "oth")
       stop("Default sources are for site oth")
    sources <- c(
-      may_14_ortho   = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-         "Old Town Hill/Orthos and DEMs 2022/14May2022/",
-         "14May2022_OTH_Low_HESAI_DEM.tif"
-      ),
-      may_02_ortho   = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-         "Old Town Hill/Orthos and DEMs 2022/02May2022/",
-         "02May2022_OTH_Low_Mavic_DEM.tif"
-      ),
-      massgis_346737 = "X:/scratch/bcompton/LiDAR/be_19TCH346737.tif",
-      massgis_346735 = "X:/scratch/bcompton/LiDAR/be_19TCH346735.tif"
+      may_14_ortho   = get_path("photo_dem", site = site,
+                                source = "may_14_ortho"),
+      may_02_ortho   = get_path("photo_dem", site = site,
+                                source = "may_02_ortho"),
+      massgis_346737 = get_path("massgis_tile", tile = "19TCH346737"),
+      massgis_346735 = get_path("massgis_tile", tile = "19TCH346735")
    )
 }
 

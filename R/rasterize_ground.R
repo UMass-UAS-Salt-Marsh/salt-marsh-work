@@ -27,9 +27,12 @@
 #' @examples
 #' \dontrun{
 #' rasterize_ground(
-#'    input  = "E:/uas_scratch/lidar/rr/2022_08_10/zzzcleaned",
-#'    output = paste0("E:/uas_scratch/lidar/rr/2022_08_10/zzzraster/",
-#'                    "csf_th0.06_res0.10_rgd2_0.25m.tif"),
+#'    input  = pathtools::get_path("cleaned_tiles", site = "rr",
+#'                                 date = "2022_08_10", target_epsg = 6491),
+#'    output = pathtools::get_path("ground_raster", site = "rr",
+#'                                 date = "2022_08_10", target_epsg = 6491,
+#'                                 csf_threshold = 0.06, csf_res = 0.10,
+#'                                 csf_rigidness = 2, raster_res = 0.25),
 #'    csf_threshold = 0.06,
 #'    csf_res       = 0.10,
 #'    csf_rigidness = 2
@@ -57,7 +60,7 @@ rasterize_ground <- function(
    # only loses the in-progress chunk, not the whole DTM.
    chunk_dir <- paste0(tools::file_path_sans_ext(output), "_chunks")
    dir.create(chunk_dir, recursive = TRUE, showWarnings = FALSE)
-   opt_output_files(ctg) <- file.path(chunk_dir, "{ORIGINALFILENAME}")
+   opt_output_files(ctg) <- file.path(chunk_dir, "{XLEFT}_{YBOTTOM}")
 
    n_chunks <- nrow(ctg@data)
    if (n_chunks == 0L) stop("Input catalog contains zero chunks.")

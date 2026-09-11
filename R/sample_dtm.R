@@ -46,10 +46,10 @@
 #' @examples
 #' \dontrun{
 #' elevations <- sample_dtm(
-#'    dtm = paste0(
-#'       "E:/uas_scratch/lidar/rr/2022_08_10/zzzraster/",
-#'       "csf_th0.005_res0.05_rgd2_0.25m.tif"
-#'    ),
+#'    dtm = pathtools::get_path("ground_raster", site = "rr",
+#'                              date = "2022_08_10", target_epsg = 6491,
+#'                              csf_threshold = 0.005, csf_res = 0.05,
+#'                              csf_rigidness = 2, raster_res = 0.25),
 #'    ecp = site_ecp
 #' )
 #' }

@@ -28,7 +28,7 @@ after 1 meter switch to 20 cm up to 3m. Multiband geoTIFF.
 
 * Height GCP:Additional elevation control points that josh collected for
 Old Town Hill, Wellfleet, and Red River.
-`X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx`
+`X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_One_Sheet.xlsx`
 * Vegetation locations - good to use
 
 * Caution with water loggers as the location is the location of the logger not the floor, offset is standard so can subtract to get floor. (Subtract approximately 10 mm - need to get measurement from device). This would give us 40 to 60 additional points.
@@ -36,7 +36,7 @@ Old Town Hill, Wellfleet, and Red River.
 
 ### Files
 #### Elevation control points
-"X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx". -- Use type = "training"
+"X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_One_Sheet.xlsx". -- Use type = "training". Resolved via `pathtools::get_path("ecp_path")` (see `lidar/data/paths.yml`).
 "X:\legacy\gdrive\saltmarsh_UAS_native\In Situ Data Collection\JoshSurveyPoints_AllSites_Meta_ExtractValues.xlsx"
 
 ####LAS files - two schemes
@@ -47,25 +47,10 @@ Old Town Hill, Wellfleet, and Red River.
 
 
 
-## Aproach
+## Approach
 
-We need to use the LAScatalog feature of lidR to work in tiles.
-
-Step 1:  clean_and_tile()
-   Filter to last hit
-   Remove outliers
-   Remove Buffer
-   Write to new set of tiles
-   
-Step 2: 
-   Run on output from step 1
-   Find and export ground for a number of parameter sets and output as raster
-   
-Step 3 
-   Compare to Elev. Control Points and evaluate performance
-   
-Step 4
-   Use chosen models to generate raster with pcts in each bin.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current pipeline:
+stages, scripts, functions, and a data-flow diagram.
 
 
 
@@ -80,6 +65,14 @@ is actually three intertwined geodetic shifts,
 each of which different tools handle differently.
 This section documents them so future maintainers
 know what to expect.
+
+**See [`CRS.md`](../CRS.md) (project root) for the project-wide
+CRS/datum/geoid standard** — it supersedes the EPSG:26919 + GEOID12B
+pairing described below as the target for new work, and documents the
+current, unresolved question about whether the ECPs' horizontal CRS
+label is actually correct. The geodetic background below (the three
+shifts, why each reprojection method handles them differently) still
+applies regardless of which specific EPSG codes are current.
 
 ### Source CRS
 
@@ -246,9 +239,12 @@ photogrammetry DEMs) show a consistent **+10–16 cm positive bias**
 against the field-collected ECPs (predicted > observed).
 The MassGIS 2021 aerial lidar tile for the same area shows no bias.
 
-Since MassGIS is unbiased, the ECPs are correctly placed in
-EPSG:26919 / NAVD 88 and our CRS assumptions are right.
-The offset is in the UAS geo-referencing, not in the ECP datum.
+Since MassGIS is unbiased, the ECPs' *vertical* datum/geoid is right —
+this rules out a vertical CRS/datum error in the ECPs themselves.
+The offset is in the UAS geo-referencing, not in the ECP vertical
+datum.
+(This says nothing about the ECPs' *horizontal* CRS label, which is a
+separate, still-open question — see [`CRS.md`](../CRS.md).)
 
 Because the lidar and photogrammetry measure by completely different
 physical principles but share the same PPK GPS solution, the bias
@@ -271,15 +267,46 @@ Reference doc:
    - `g2012bu0.gtx` — GEOID12B CONUS tile
    - `g2012bu4.gtx` — described as "around MA coast"
 
-### Likely causes
+### Likely causes (revised 2026-08-27 — see `CRS.md`)
 
-1. **Wrong GEOID12B tile** — `g2012bu0.gtx` vs `g2012bu4.gtx` give
-   different undulation values for Cape Cod.
-   Using the wrong tile consistently across all flights would produce a
-   uniform bias across lidar and photogrammetry.
-2. **Lever arm error** — the 0.3355 m vertical offset is for the RESEPI
-   sensor; a misconfigured value propagates directly into every point
-   height.
+1. ~~Wrong GEOID12B tile~~ — **still not the explanation, confirmed
+   empirically.** `g2012bu0.gtx` (the combined CONUS grid) and
+   `g2012bu4.gtx` (one of its eight regional sub-tiles, covering the MA
+   coast as described) both exist locally. Sampled both with `terra` at
+   Red River and across a 1°×1° grid around it: identical to the last
+   digit everywhere (max |diff| = 0.0 m) — `u0` is the sub-tiles merged
+   into one file, not an independent surface, so picking one over the
+   other can't change the result. Full detail in
+   [`CRS.md`](../CRS.md).
+2. **Lever arm error** — now the leading hypothesis. The 0.3355 m
+   vertical offset is for the RESEPI sensor; a misconfigured value
+   propagates directly into every point height.
+3. **Outdated geoid model** — GEOID12B is superseded by **GEOID18**
+   (current NGS standard since ~2019; adopted as this project's
+   standard in `CRS.md`), but typical GEOID12B→GEOID18 differences in
+   this region are a few cm, not the observed 10–16 cm — worth fixing
+   regardless, unlikely to be the whole story.
+4. ~~Horizontal-only frame shift, elevation left unconverted~~ —
+   **checked and ruled out, 2026-08-27.** Hypothesis: if some step in
+   the workflow shifted latitude/longitude from the RESEPI delivery's
+   WGS 84 frame to NAD 83 without also shifting the ellipsoidal
+   height, and NAVD 88 conversion (geoid subtraction) was then applied
+   to that unshifted height, the quantity silently dropped would be
+   the vertical component of the WGS 84/ITRF → NAD 83(2011) frame
+   shift. Computed that shift directly with PROJ (`pyproj`,
+   ITRF2014 → NAD83(2011), EPSG:7912 → EPSG:6319) at Red River
+   (41.668°N, −70.043°W): **≈ +1.23 m** at the 2022 survey epoch, and
+   essentially the same (≈ +1.24 m) at NAD83(2011)'s reference epoch
+   2010.0 — so the effect is dominated by the static frame
+   translation/rotation, not epoch drift since 2010. That's an order
+   of magnitude larger than the observed 10–16 cm bias, and the wrong
+   sign: omitting this correction would make NAVD 88 heights read
+   ~1.2 m *too low*, not ~10 cm too high. Ruled out as an explanation
+   for this bias. (Separately, and still relevant to the frame-shift
+   issue documented in [`CRS.md`](../CRS.md): PROJ resolves a source
+   tagged as generic "WGS 84" (EPSG:4979) to NAD83(2011) as a literal
+   `+proj=noop` — no shift at all, horizontal or vertical — confirmed
+   with `projinfo`.)
 
 ### Implication for vegetation height work
 
@@ -291,8 +318,13 @@ Absolute elevation deliverables will need the offset corrected.
 
 ### Diagnosing the cause
 
-See the "Phase 1.6 — diagnose UAS vertical bias" section in
-`dev/work_plan.md` for the diagnostic plan.
+See the "Phase 1.6 — diagnose UAS vertical bias" and "Phase 1.6a —
+establish and migrate to the correct CRS/geoid standard" sections in
+`dev/workplan.md` for the diagnostic plan, and
+[`CRS.md`](../CRS.md) for the project-wide CRS/datum/geoid standard
+this investigation produced. `dev/scan_angle_bias.md` has a proposed
+(not yet implemented) plan for testing the boresight-calibration
+hypothesis via scan-angle correlation.
 
 ## Comparing ground elevation datasets
 

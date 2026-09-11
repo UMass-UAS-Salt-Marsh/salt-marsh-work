@@ -45,7 +45,8 @@
 #' @param input Path to the `.las` file to inspect.
 #' @param target_epsg Integer EPSG code for the target horizontal
 #'    CRS.
-#'    Default `26919` (NAD83 / UTM 19N).
+#'    Default `6491` (NAD83(2011) / Massachusetts Mainland State
+#'    Plane) — see [`CRS.md`](../CRS.md).
 #' @param target_vertical_epsg Integer EPSG code for the target
 #'    vertical CRS.
 #'    Default `5703` (NAVD88 height).
@@ -57,11 +58,12 @@
 #' @examples
 #' \dontrun{
 #' las_needs_reprojection(
-#'    "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/foo.las"
+#'    file.path(pathtools::get_path("reprojected_dir", site = "rr",
+#'                                  date = "2022_08_10"), "foo.las")
 #' )
 #' }
 las_needs_reprojection <- function(input,
-                                   target_epsg = 26919L,
+                                   target_epsg = 6491L,
                                    target_vertical_epsg = 5703L,
                                    quiet = FALSE) {
 

@@ -7,8 +7,10 @@
 #' 1. **WGS 84 → NAD 83 frame shift** is applied via PROJ's
 #'    bundled NADCON5 / ITRF transformation grids.
 #' 2. **Ellipsoidal → NAVD 88** vertical shift is applied via the
-#'    supplied `.gtx` geoid grid
-#'    (e.g. `g2012bu0.gtx` for GEOID12B in CONUS).
+#'    supplied geoid grid
+#'    (e.g. `us_noaa_g2018u0.tif` for GEOID18 in CONUS — the
+#'    project's current standard, see `CRS.md` at the project root;
+#'    `.gtx` files like GEOID12B's `g2012bu0.gtx` work identically).
 #'
 #' Unlike [`reproject_las_lastools()`],
 #' this method eliminates the ~1–2 m WGS 84 ↔ NAD 83
@@ -46,11 +48,14 @@
 #' @param output Path to write the reprojected `.las` file.
 #' @param target_epsg Integer EPSG code for the target horizontal
 #'    CRS
-#'    (e.g. `26919` for NAD83 / UTM 19N).
+#'    (e.g. `6491` for NAD83(2011) / Massachusetts Mainland State
+#'    Plane, the project's current standard — see
+#'    [`CRS.md`](../CRS.md)).
 #'    Used to build the target PROJ string via
 #'    `sf::st_crs(target_epsg)$proj4string` plus appended
 #'    `+geoidgrids=` and `+vunits=m`.
-#' @param vgrid Path to the `.gtx` geoid grid file.
+#' @param vgrid Path to the geoid grid file (`.gtx` or GeoTIFF —
+#'    PROJ resolves either the same way via `+geoidgrids=`).
 #'    The grid's directory is added to the subprocess's
 #'    `PROJ_DATA`, and the grid is referenced in the PROJ string
 #'    by basename only.
@@ -76,21 +81,15 @@
 #' @examples
 #' \dontrun{
 #' reproject_las_pdal(
-#'    input = paste0(
-#'       "X:/legacy/gdrive/saltmarsh_UAS/UAS Data Collection/",
-#'       "Red River/2022/LiDAR/10Aug2022_Low/",
-#'       "RESEPI-5FFC59-2022-08-10-20-26-50/clouds/",
-#'       "ppk_07Nov2022_cloud_1.las"
+#'    input = pathtools::get_path("raw_lidar", site = "rr",
+#'                                date = "2022_08_10"),
+#'    output = file.path(
+#'       pathtools::get_path("reprojected_dir", site = "rr",
+#'                           date = "2022_08_10"),
+#'       "ppk_07Nov2022_cloud_1_epsg6491_navd88.las"
 #'    ),
-#'    output = paste0(
-#'       "E:/uas_scratch/lidar/rr/2022_08_10/reprojected/",
-#'       "ppk_07Nov2022_cloud_1_epsg26919_navd88.las"
-#'    ),
-#'    target_epsg = 26919,
-#'    vgrid = paste0(
-#'       "X:/legacy/gdrive/UMassAir User Resources/LASTools/",
-#'       "Geoid Transformation GTX Files/geoid12b/g2012bu0.gtx"
-#'    )
+#'    target_epsg = 6491,
+#'    vgrid = pathtools::get_path("geoid_grid")
 #' )
 #' }
 reproject_las_pdal <- function(input,

@@ -10,9 +10,12 @@
 #'    massgis = "X:/…/be_tile.tif")`).
 #' @param site 2- or 3-character lowercase site code (e.g. `"rr"`).
 #' @param ecp_path Path to the all-sites ECP xlsx.
+#'    Defaults to `pathtools::get_path("ecp_path")`.
 #' @param output_dir Directory for cached per-source ECP CSVs,
 #'    `ground_source_comparison.csv`, and the HTML report.
-#'    Defaults to `lidar/output/<site>_ground_comparison`.
+#'    Defaults to
+#'    `pathtools::get_path("ground_comparison_report", site)`
+#'    (`../lidar_reports/<site>_ground_comparison`, outside the repo).
 #' @param tolerances Numeric vector of absolute-difference thresholds
 #'    (metres) for `pct_within_*` columns. Default `c(0.10, 0.20)`.
 #' @param ecp_types Character vector of ECP `type` values to include
@@ -28,10 +31,14 @@
 #' \dontrun{
 #' report_ground_sources(
 #'    sources = c(
-#'       lidar_spring = paste0("E:/uas_scratch/lidar/rr/2022_05_14/",
-#'                             "zzzraster/csf_th0.01_res0.1_rgd2_0.25m.tif"),
-#'       massgis      = paste0("X:/scratch/bcompton/LiDAR/",
-#'                             "be_19TDG412612/be_19TDG412612.tif")
+#'       lidar_spring = pathtools::get_path("ground_raster", site = "rr",
+#'                                          date = "2022_05_14",
+#'                                          target_epsg = 6491,
+#'                                          csf_threshold = 0.01,
+#'                                          csf_res = 0.1, csf_rigidness = 2,
+#'                                          raster_res = 0.25),
+#'       massgis      = pathtools::get_path("massgis_tile",
+#'                                          tile = "19TDG412612")
 #'    ),
 #'    site = "rr"
 #' )
@@ -39,13 +46,8 @@
 report_ground_sources <- function(
       sources,
       site,
-      ecp_path    = paste0(
-         "X:/legacy/gdrive/saltmarsh_UAS_native/",
-         "In Situ Data Collection/",
-         "JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-      ),
-      output_dir  = file.path("lidar/output",
-                              paste0(site, "_ground_comparison")),
+      ecp_path    = get_path("ecp_path"),
+      output_dir  = get_path("ground_comparison_report", site = site),
       tolerances  = c(0.10, 0.20),
       ecp_types   = "EVP",
       output_file = paste0("ground_comparison_", site, ".html"),

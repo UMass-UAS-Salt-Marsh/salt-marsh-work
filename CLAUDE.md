@@ -14,16 +14,16 @@ There is no build, install, lint, or test command. Function files in `R/` are so
 a <- lapply(list.files("R/", pattern = "\\.[Rr]$", full.names = TRUE), source)
 ```
 
-Workflow scripts live under topic subdirectories (`hydrology/`, `lidar/`, `logger_recalibration/`) and are numbered (`01_…`, `02_…`) to indicate execution order. Run them from the project root in RStudio (open `salt-marsh-work.Rproj`) so relative paths like `"hydrology/Data/sites.txt"` resolve. `.Rmd` files use `here::here()` and `setwd(here::here())` in their setup chunks for the same reason.
+Workflow scripts live under topic subdirectories (`inundation_metrics/`, `lidar/`, `logger_recalibration/`) and are numbered (`01_…`, `02_…`) to indicate execution order. Run them from the project root in RStudio (open `salt-marsh-work.Rproj`) so relative paths like `"inundation_metrics/Data/sites.txt"` resolve. `.Rmd` files use `here::here()` and `setwd(here::here())` in their setup chunks for the same reason.
 
 ## High-level architecture
 
 Two largely independent pipelines that share the `R/` function library:
 
-### Hydrology pipeline (`hydrology/`)
+### Inundation metrics pipeline (`inundation_metrics/`)
 Processes water-depth logger time series into per-logger inundation metrics, then fits regressions of inundation vs. logger elevation.
 
-- `01_calculate_metrics_and_combine.R` — for each of four sites (RED, OTH, WES, WEL) reads calibrated logger Excel files plus a deployment CSV, calls `calculate_inundation_metrics()`, and writes the combined result to `hydrology/Data/four_sites.Rds`.
+- `01_calculate_metrics_and_combine.R` — for each of four sites (RED, OTH, WES, WEL) reads calibrated logger Excel files plus a deployment CSV, calls `calculate_inundation_metrics()`, and writes the combined result to `inundation_metrics/Data/four_sites.Rds`.
 - `02_hydrology_regression_and_plots.Rmd` — consumes `four_sites.Rds`, produces scatter plots and a per-site/per-response linear model table (`Model_Coefficients.csv`).
 - Key shared functions: `calculate_inundation_metrics()` (orchestrator), `read_water_logger_data()` (handles header serial-number check, text-date recovery, and the various depth column names — `sensor_depth`, `sensor_depth_brackish`), `read_water_logger_deployments()` (handles both `Serial` and `Serial #`, and both `dmy` and `mdy` date formats encountered across sites).
 - Logger inundation threshold is hardcoded at `depth > 0.02` m. Metrics use `VulnToolkit::fld.dur()`, `dur.events()`, `fld.depth()`.
@@ -32,22 +32,26 @@ Processes water-depth logger time series into per-logger inundation metrics, the
 Processes LAS point clouds into ground rasters (DTMs) for a single site at a time, evaluating multiple Cloth Simulation Filter (CSF) parameter sets.
 
 - `01_explore_data.R` — interactive exploration on a single chunk; not part of the production flow.
-- `02.R` — production-style driver. Reads `lidar/data/paths.csv` (a table of available input clouds and elevation control point files, columns include `site`, `type`, `date`, `path`, `preferred`), picks the preferred cloud for a target `site`, runs `clean_and_tile()` once, then loops over a small grid of CSF parameters calling `rasterize_ground()` and writes per-parameter `.tif` files.
+- `02.R` — production-style driver. Resolves the input cloud and ECP file via `pathtools::get_path("raw_lidar", site = , date = )` / `get_path("ecp_path")` (backed by `lidar/data/paths.yml`, a `pathtools` path scheme — see below), runs `clean_and_tile()` once, then loops over a small grid of CSF parameters calling `rasterize_ground()` and writes per-parameter `.tif` files.
 - `R/clean_and_tile.R` — Step 1: filter to last return, classify+drop noise via `lidR::sor`, write cleaned tiles. Skips automatically if output tiles already exist.
 - `R/rasterize_ground.R` — Step 2: classify ground with `csf(class_threshold, cloth_resolution, rigidness)`, then `rasterize_terrain()` with `knnidw` into a single GeoTIFF.
 - Both functions use `lidR::LAScatalog` + `catalog_map()` to process in tiles (`chunk_size`/`chunk_buffer` defaults 200/20 m). The full pipeline is memory-bound, not CPU-bound — be cautious with `future::plan(multisession, workers = N)` (see comments in `lidar/02.R`).
-- Output directories: cleaned tiles → `E:/uas_scratch/lidar/<site>/<date>/zzzcleaned/`; DTMs → `…/zzzraster/csf_th<...>_res<...>_rgd<...>_<res>m.tif`. The `paths$ground_raster_template` uses `[name]` placeholders substituted by `update_path()`.
-- See `lidar/readme.md` for the dream output (multi-band veg-height-distribution raster), site priorities, and important file-layout notes (2022 LAS files live under `X:/legacy/gdrive/saltmarsh_UAS/…`; 2024+ under `X:/projects/uas/sites/<site>/lidar_point_cloud/…`).
+- Output directories: cleaned tiles → `E:/uas_scratch/lidar/<site>/<date>/zzzcleaned_epsg<N>/`; DTMs → `…/zzzraster_epsg<N>/csf_th<...>_res<...>_rgd<...>_<res>m.tif`. Every scratch/output path is a `pathtools::get_path()` call against `lidar/data/paths.yml`'s `ground_raster` (and related) templates — no more hardcoded `file.path()`/`paste0()` construction or `[name]`-placeholder substitution.
+- `pathtools` (<https://github.com/ethanplunkett/pathtools>) is a non-CRAN dependency the lidar pipeline requires: `remotes::install_github("ethanplunkett/pathtools")`.
+- See `lidar/ARCHITECTURE.md` for the pipeline's stages, functions, and
+  data flow (with a diagram). See `lidar/readme.md` for the dream output
+  (multi-band veg-height-distribution raster), site priorities, and
+  important file-layout notes (2022 LAS files live under `X:/legacy/gdrive/saltmarsh_UAS/…`; 2024+ under `X:/projects/uas/sites/<site>/lidar_point_cloud/…`).
 
 ### `logger_recalibration/`
-Separate exploratory scripts by another collaborator for finding common high tides across loggers and producing recalibration diagnostics. Uses the same `R/` helpers (`find_high_tides`, `find_common_high_tides`, `assess_water_logger_errors`, `spatial_plotting`). `recalibate_sites.R` and `recalibrate_sites2.R` are alternate drafts — confirm with the user which is current before editing.
+Separate exploratory scripts by another collaborator for finding common high tides across loggers and producing recalibration diagnostics. Uses the same `R/` helpers (`find_high_tides`, `find_common_high_tides`, `assess_water_logger_errors`, `spatial_plotting`). `recalibrate_sites.R` and `recalibration_report.Rmd` are intentionally redundant — both call the same shared functions, with the Rmd being the latest. Earlier drafts (`readme.Rmd`, the previous `recalibate_sites.R`) live under `logger_recalibration/old/`.
 
 ## Data conventions
 
-- Site codes are 3-letter lowercase for lidar (`rr`, `nor`, `bar`, `wel`) and 3-letter uppercase for hydrology (`RED`, `OTH`, `WES`, `WEL`). They are not always the same code for the same site — `RED` ↔ `rr` (Red River). The canonical mapping table is `hydrology/Data/sites.txt`.
-- Hydrology data folders (`hydrology/Data/<SITE>/Calibrated Data/*cal.xlsx` plus a per-site deployment CSV) are gitignored — never committed.
-- `lidar/data/` is also gitignored except for `paths.csv` and `RedRiver_11May2022.csv` (a small GCP file).
-- Elevation control points live in `X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_Meta_Datapoints.xlsx` (use rows with `type = "training"`).
+- Site codes are 3-letter lowercase for lidar (`rr`, `nor`, `bar`, `wel`) and 3-letter uppercase for hydrology (`RED`, `OTH`, `WES`, `WEL`). They are not always the same code for the same site — `RED` ↔ `rr` (Red River). The canonical mapping table is `inundation_metrics/Data/sites.txt`.
+- Inundation-metrics data (`inundation_metrics/Data/`) is committed, including per-site deployment CSVs — only the raw `Calibrated Data/*cal.xlsx` files stay gitignored.
+- `lidar/data/` is also gitignored except for `paths.yml` and `RedRiver_11May2022.csv` (a small GCP file).
+- Elevation control points live in `X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx` (use rows with `type = "training"`; resolve via `pathtools::get_path("ecp_path")` rather than hardcoding this).
 
 ## Style and workflow
 
