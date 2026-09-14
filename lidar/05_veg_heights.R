@@ -128,3 +128,19 @@ rasterize_veg_heights(
    chunk_buffer = chunk_buffer
 )
 message("Done ", lubridate::now())
+
+# Step 3: write a shared metadata sidecar for both outputs. bin_breaks
+# is recorded explicitly (not just raster_res) because it's the
+# rasterize_veg_heights() default here, with no override -- this
+# sidecar is the only place it's ever recorded.
+write_output_metadata(
+   output       = c(output_tif, count_tif),
+   created_by   = "rasterize_veg_heights",
+   source_cloud = summer_cloud,
+   crs          = paste0("EPSG:", target_epsg),
+   inputs       = list(cleaned_tiles = summer_clean_dir,
+                       ground_raster = ground_raster),
+   params       = list(raster_res = raster_res,
+                       bin_breaks = c(-0.05, seq(0.05, 1, by = 0.05),
+                                      seq(1.2, 3.0, by = 0.20), Inf))
+)

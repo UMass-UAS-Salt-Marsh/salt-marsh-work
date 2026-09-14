@@ -125,13 +125,107 @@ package):
   `rasterize_veg_heights()` — one shared sidecar for both
   `veg_heights_raster`/`veg_return_count_raster`, so `output` should
   accept a vector of paths, sidecar filename derived from the first).
-- [ ] Confirm the 5-output list above (`ground_raster` — all CSF grid
+- [x] Confirm the 5-output list above (`ground_raster` — all CSF grid
   combos, not just winners — `corrected_ground_raster`,
   `canopy_top_raster`, `veg_heights_raster`, `veg_return_count_raster`)
-  is the right scope — nothing more, nothing less.
-- [ ] Write `R/write_output_metadata.R` (roxygen-documented, one
-  function per file per convention) and wire in the 4 driver-script
-  call sites above.
+  is the right scope — nothing more, nothing less. Confirmed
+  2026-09-14: no additions or removals.
+
+**Implementation plan (2026-09-14), signed off, ready to build:**
+
+`R/write_output_metadata.R` — one function, roxygen-documented:
+
+```r
+write_output_metadata <- function(output, source_cloud, crs, inputs,
+                                  params = list(), overwrite = FALSE)
+```
+
+- `output` — one path, or a character vector when several outputs
+  share one sidecar (`veg_heights_raster` +
+  `veg_return_count_raster`). Sidecar path is `output[1]` with its
+  extension swapped for `.yaml` (same dir, same stem), same
+  derivation style as `sample_dtm()`'s `_ecp.csv` swap.
+- Skip-if-exists like every other producing step in this pipeline
+  (`reproject_las()`, `clean_and_tile()`, `sample_dtm()`): if the
+  sidecar exists and `overwrite = FALSE`, message and return its path
+  invisibly without writing. This is what makes it safe to call
+  unconditionally after every producing step, including ones the
+  surrounding driver code itself skipped as already-existing.
+- Otherwise write `list(created_at, output, crs, source_cloud, inputs,
+  params)` via `yaml::write_yaml()` (`yaml` is already an indirect
+  dependency through `pathtools`, confirmed installed — no new
+  package). `created_at` from `format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")`.
+- Stays generic: no `pathtools`/lidar-scheme knowledge, just takes
+  already-resolved paths/values, per the refinement noted above.
+
+Call-site wiring (all four calls placed *after* the driver's existing
+skip-if-exists conditional for the raster itself, so the sidecar
+still gets backfilled on a rerun against a pre-existing raster):
+
+- **`lidar/02.R`**, inside the CSF loop, after each `rasterize_ground()`
+  call (i.e., after the `if (!file.exists(output_path)) {...} else
+  {...}` block, once per grid row):
+  - `source_cloud`: the *original raw* cloud, not `paths$input` (which
+    gets reassigned to the reprojected path when reprojection
+    happens) — capture `raw_cloud_path <- get_path("raw_lidar", site =
+    site, date = date)` near the top of the script, before the
+    reprojection step, and use that.
+  - `crs`: `paste0("EPSG:", target_epsg)`.
+  - `inputs`: `list(cleaned_tiles = paths$cleaned_catalog_dir)`.
+  - `params`: the loop's existing `params` list (`csf_threshold`,
+    `csf_res`, `csf_rigidness`, `raster_res`).
+- **`lidar/07_floor_corrected_ground.R`**, after the
+  `terra::writeRaster(massgis_plus_floor, corrected_ground_tif, ...)`
+  call:
+  - `source_cloud`: summer raw cloud —
+    `get_path("raw_lidar", site = site, date = "2022_08_10")`.
+  - `crs`: `paste0("EPSG:", target_epsg)`.
+  - `inputs`: `list(massgis_tile = massgis_path, lidar_spring_ecp_cache
+    = get_path("ground_comparison_ecp_cache", site = site, source_name
+    = "lidar_spring"), lidar_summer_ecp_cache =
+    get_path("ground_comparison_ecp_cache", site = site, source_name =
+    "lidar_summer"))` — both caches recorded per the sign-off above,
+    even though only `floor_summer` feeds the output formula.
+  - `params`: `list(floor_bias_summer = floor_summer$floor_bias)`.
+- **`lidar/08_veg_height_validation.R`**, after the
+  `rasterize_canopy_top()` call (inside the `if
+  (!file.exists(canopy_top_tif))` block's success path, i.e. right
+  after the call, still backfilled on the `else` skip branch same as
+  the others):
+  - `source_cloud`: `get_path("raw_lidar", site = site, date =
+    summer_date)`.
+  - `crs`: `paste0("EPSG:", target_epsg)`.
+  - `inputs`: `list(cleaned_tiles = summer_clean_dir)`.
+  - `params`: `list(top_percentile = 1, raster_res = 0.25)` — the
+    call uses `rasterize_canopy_top()`'s defaults with no explicit
+    override, and since `canopy_top_raster`'s path template embeds no
+    parameters at all, this sidecar is the *only* place these values
+    are ever recorded — worth being explicit rather than passing
+    `list()`.
+- **`lidar/05_veg_heights.R`**, after the `rasterize_veg_heights()`
+  call, one shared sidecar for both outputs:
+  - `output`: `c(output_tif, count_tif)`.
+  - `source_cloud`: `summer_cloud` (already resolved via
+    `get_path("raw_lidar", ...)` near the top of the script).
+  - `crs`: `paste0("EPSG:", target_epsg)`.
+  - `inputs`: `list(cleaned_tiles = summer_clean_dir, ground_raster =
+    ground_raster)`.
+  - `params`: `list(raster_res = raster_res, bin_breaks =
+    c(-0.05, seq(0.05, 1, by = 0.05), seq(1.2, 3.0, by = 0.20), Inf))`
+    — the script uses `rasterize_veg_heights()`'s default `bin_breaks`
+    with no override; recorded explicitly for the same reason as
+    `top_percentile` above.
+
+- [x] Write `R/write_output_metadata.R` per the contract above. Done
+  2026-09-14, with one addition beyond the original contract: a
+  `created_by` field (the producing function's name, or the driver
+  script's path for the one inline-built output), inserted as the
+  second YAML field after `created_at`.
+- [x] Wire in the 4 call sites above. Done 2026-09-14 — see
+  `dev/worklog.md` for per-site detail.
+- [ ] `lintr::lint()` the 5 touched files, fix hits, then commit.
+  Linted 2026-09-14 (one hanging-indent hit fixed in
+  `lidar/05_veg_heights.R`); not yet committed.
 
 ### Part E — Clean `rr` re-run
 

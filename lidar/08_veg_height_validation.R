@@ -89,6 +89,19 @@ if (!file.exists(canopy_top_tif)) {
    message("Canopy-top raster exists, skipping: ", canopy_top_tif)
 }
 
+# top_percentile / raster_res are recorded explicitly even though the
+# call above uses rasterize_canopy_top()'s defaults for both --
+# canopy_top_raster's path template embeds no parameters, so this
+# sidecar is the only place they're ever recorded.
+write_output_metadata(
+   output       = canopy_top_tif,
+   created_by   = "rasterize_canopy_top",
+   source_cloud = get_path("raw_lidar", site = site, date = summer_date),
+   crs          = paste0("EPSG:", target_epsg),
+   inputs       = list(cleaned_tiles = summer_clean_dir),
+   params       = list(top_percentile = 1, raster_res = 0.25)
+)
+
 #------------------------------------------------------------------------------#
 # Sample all three surfaces at the same ECP set
 #------------------------------------------------------------------------------#

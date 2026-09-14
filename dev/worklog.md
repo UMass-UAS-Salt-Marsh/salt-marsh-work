@@ -19,6 +19,56 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-09-14 — branch lidar
 
+### Implemented Part D: metadata sidecar for final output rasters
+
+Added `R/write_output_metadata.R` (new, roxygen-documented): takes
+already-resolved `output` path(s), `created_by`, `source_cloud`, `crs`,
+`inputs`, and `params = list()`, and writes a YAML sidecar next to
+`output[1]` (same dir, same stem, `.yaml` extension). Skip-if-exists
+like `reproject_las()`/`clean_and_tile()`/`sample_dtm()`, so it's safe
+to call unconditionally after a producing step even when the driver
+script itself skipped recomputing the raster. Fields, in order:
+`created_at`, `created_by` (the producing function's name, or the
+driver script's path when the output is built inline with no dedicated
+function), `output`, `crs`, `source_cloud`, `inputs`, `params`. Stays
+generic — no `pathtools`/lidar-scheme knowledge, per the refinement
+noted in `dev/workplan.md`. `yaml` confirmed already installed
+(indirect dependency via `pathtools`) — no new package.
+
+Wired into the 4 driver-script call sites named in the workplan, each
+call placed after the raster's own skip-if-exists block so a missing
+sidecar gets backfilled even against a pre-existing raster:
+
+- `lidar/02.R` — one sidecar per CSF grid combo in the tuning loop
+  (all combos, not just winners). Added `raw_cloud_path`, captured
+  before `paths$input` gets reassigned to the reprojected path, so
+  `source_cloud` always traces back to the true original raw cloud
+  regardless of whether reprojection ran.
+- `lidar/07_floor_corrected_ground.R` — `inputs` records both
+  `lidar_spring_ecp_cache` and `lidar_summer_ecp_cache` even though
+  only `floor_summer` feeds the output formula (confirmed with Ethan);
+  `created_by` is the script's own path since this output has no
+  dedicated producing function.
+- `lidar/08_veg_height_validation.R` — after `rasterize_canopy_top()`.
+  `params` records `top_percentile`/`raster_res` explicitly even
+  though the call uses both as defaults, since `canopy_top_raster`'s
+  path template embeds no parameters — this sidecar is the only place
+  they're ever recorded.
+- `lidar/05_veg_heights.R` — one shared sidecar for
+  `veg_heights_raster` + `veg_return_count_raster` (`output` takes
+  both paths, sidecar filename derived from the first). `params`
+  likewise records the default `bin_breaks` explicitly for the same
+  reason as `top_percentile` above.
+
+Verified: `R/write_output_metadata.R` and all 4 edited driver scripts
+parse cleanly; manually ran `write_output_metadata()` against dummy
+data to confirm the skip-if-exists behavior and YAML shape, and against
+the real `rr` summer paths (resolved via `pathtools`, written to a temp
+file rather than the real — currently raster-less — `veg_heights/`
+directory) to preview the exact sidecar `05_veg_heights.R` will produce
+once Part E's re-run happens. `lintr::lint()` clean on all 5 touched
+files (one hanging-indent hit in `lidar/05_veg_heights.R` fixed).
+
 ### Implemented Part C: migrated every ad hoc path onto pathtools
 
 Fixed a typo in `lidar/readme.md` ("vegitation" -> "vegetation",

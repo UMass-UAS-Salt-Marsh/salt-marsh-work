@@ -113,3 +113,23 @@ terra::writeRaster(massgis_plus_floor, corrected_ground_tif,
                    overwrite = TRUE)
 
 message("Corrected ground raster written: ", corrected_ground_tif)
+
+# Both ECP caches are recorded as inputs even though only
+# floor_summer feeds the formula above -- both are part of the same
+# floor-bias analysis this script performs.
+write_output_metadata(
+   output       = corrected_ground_tif,
+   created_by   = "lidar/07_floor_corrected_ground.R",
+   source_cloud = get_path("raw_lidar", site = site, date = "2022_08_10"),
+   crs          = paste0("EPSG:", target_epsg),
+   inputs       = list(
+      massgis_tile           = massgis_path,
+      lidar_spring_ecp_cache = get_path("ground_comparison_ecp_cache",
+                                        site = site,
+                                        source_name = "lidar_spring"),
+      lidar_summer_ecp_cache = get_path("ground_comparison_ecp_cache",
+                                        site = site,
+                                        source_name = "lidar_summer")
+   ),
+   params       = list(floor_bias_summer = floor_summer$floor_bias)
+)

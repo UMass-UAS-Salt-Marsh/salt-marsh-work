@@ -135,6 +135,11 @@ paths <- list()
 paths$input <- get_path("raw_lidar", site = site, date = date)
 paths$ecp   <- get_path("ecp_path")
 
+# Kept separate from `paths$input` (which gets reassigned to the
+# reprojected path below, if reprojection happens) so output metadata
+# can always trace back to the true original raw cloud.
+raw_cloud_path <- paths$input
+
 paths$cleaned_catalog_dir <- get_path(
    "cleaned_tiles", site = site, date = date, target_epsg = target_epsg
 )
@@ -209,6 +214,18 @@ for (i in seq_len(nrow(csf_grid))) {
    } else {
       message("Skipping DTM. ", output_path, " already exists. ")
    }
+
+   # Write metadata for every grid combo, not just the eventual
+   # winners -- skip-if-exists, so this also backfills a sidecar for
+   # a DTM produced by an earlier run of this script.
+   write_output_metadata(
+      output       = output_path,
+      created_by   = "rasterize_ground",
+      source_cloud = raw_cloud_path,
+      crs          = paste0("EPSG:", target_epsg),
+      inputs       = list(cleaned_tiles = paths$cleaned_catalog_dir),
+      params       = params
+   )
 }
 
 
