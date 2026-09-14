@@ -33,7 +33,6 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
 set_path_scheme("lidar/data/paths.yml")
 
 site       <- "rr"
-output_dir <- get_path("ground_comparison_report", site = site)
 
 # Must match whatever lidar/02.R used to produce the point cloud this
 # raster will be paired with (normalize_height() does a raw coordinate
@@ -58,10 +57,14 @@ massgis_path <- get_path("massgis_tile", tile = "19TDG412612")
 #------------------------------------------------------------------------------#
 
 lidar_spring <- readr::read_csv(
-   file.path(output_dir, "lidar_spring_ecp.csv"), show_col_types = FALSE
+   get_path("ground_comparison_ecp_cache", site = site,
+            source_name = "lidar_spring"),
+   show_col_types = FALSE
 )
 lidar_summer <- readr::read_csv(
-   file.path(output_dir, "lidar_summer_ecp.csv"), show_col_types = FALSE
+   get_path("ground_comparison_ecp_cache", site = site,
+            source_name = "lidar_summer"),
+   show_col_types = FALSE
 )
 
 floor_spring <- estimate_floor_bias(lidar_spring)
@@ -77,12 +80,12 @@ message(sprintf(
 ))
 
 ggplot2::ggsave(
-   file.path(output_dir, "floor_bias_spring.png"),
+   get_path("floor_bias_plot", site = site, season = "spring"),
    plot_floor_bias(floor_spring, title = paste(site, "spring lidar")),
    width = 6, height = 4
 )
 ggplot2::ggsave(
-   file.path(output_dir, "floor_bias_summer.png"),
+   get_path("floor_bias_plot", site = site, season = "summer"),
    plot_floor_bias(floor_summer, title = paste(site, "summer lidar")),
    width = 6, height = 4
 )

@@ -40,7 +40,6 @@ set_path_scheme("lidar/data/paths.yml")
 
 site        <- "rr"
 summer_date <- "2022_08_10"   # yyyy_mm_dd; matches lidar/data/paths.yml
-output_dir  <- get_path("ground_comparison_report", site = site)
 
 # Must match whatever lidar/02.R used to produce the cleaned tiles and
 # ground rasters below. 6491 = NAD83(2011) / Massachusetts Mainland
@@ -49,7 +48,8 @@ target_epsg <- 6491L
 
 ecp_path <- get_path("ecp_path")
 
-spring_dtm_path <- file.path(output_dir, "lidar_spring_ecp.csv")
+spring_dtm_path <- get_path("ground_comparison_ecp_cache", site = site,
+                            source_name = "lidar_spring")
 
 # Large derived rasters live alongside the other rr summer rasters in
 # the E: scratch tree, not in the reports directory.
@@ -106,12 +106,14 @@ spring_elev <- sample_dtm(
 massgis_floor_elev <- sample_dtm(
    dtm        = massgis_floor_tif,
    ecp        = site_ecp,
-   output_csv = file.path(output_dir, "massgis_plus_floor_summer_ecp.csv")
+   output_csv = get_path("corrected_ground_raster_ecp_cache", site = site,
+                         date = summer_date, target_epsg = target_epsg)
 )
 canopy_elev <- sample_dtm(
    dtm        = canopy_top_tif,
    ecp        = site_ecp,
-   output_csv = file.path(output_dir, "canopy_top_summer_ecp.csv")
+   output_csv = get_path("canopy_top_raster_ecp_cache", site = site,
+                         date = summer_date, target_epsg = target_epsg)
 )
 
 #------------------------------------------------------------------------------#
@@ -142,13 +144,14 @@ veg_height_validation <- veg_height_validation[
    , c("option", setdiff(colnames(veg_height_validation), "option"))
 ]
 
+veg_height_validation_csv <- get_path("veg_height_validation_csv", site = site)
+
 write.csv(
    veg_height_validation,
-   file.path(output_dir, "veg_height_validation.csv"),
+   veg_height_validation_csv,
    row.names = FALSE
 )
 
-message("Vegetation-height validation written: ",
-        file.path(output_dir, "veg_height_validation.csv"))
+message("Vegetation-height validation written: ", veg_height_validation_csv)
 print(veg_height_validation[veg_height_validation$group == "overall",
                             c("option", "n", "mean_bias", "rmse", "mae")])

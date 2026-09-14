@@ -76,7 +76,8 @@ if (length(ecp_types) > 0L) {
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 all_elevations <- do.call(rbind, lapply(names(sources), function(label) {
-   csv_path <- file.path(output_dir, paste0(label, "_ecp.csv"))
+   csv_path <- get_path("ground_comparison_ecp_cache", site = site,
+                        source_name = label)
    elev     <- sample_dtm(sources[[label]], site_ecp,
                           output_csv = csv_path)
    elev$source <- label
@@ -102,7 +103,7 @@ all_summary <- all_summary[, c("source", "group",
                                        c("source", "group")))]
 
 # -- Write summary CSV --------------------------------------------------------
-csv_out <- file.path(output_dir, "ground_source_comparison.csv")
+csv_out <- get_path("ground_source_comparison_csv", site = site)
 write.csv(all_summary, csv_out, row.names = FALSE)
 
 # -- Report helpers -----------------------------------------------------------

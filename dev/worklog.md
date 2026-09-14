@@ -17,7 +17,147 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
-## 2026-09-11 — branch lidar
+## 2026-09-14 — branch lidar
+
+### Implemented Part C: migrated every ad hoc path onto pathtools
+
+Fixed a typo in `lidar/readme.md` ("vegitation" -> "vegetation",
+introduced in an unrelated stray edit) while here.
+
+Per `dev/workplan.md`'s Part C table. Added 11 new leaves to
+`lidar/data/paths.yml` (`reprojected_las`, `ground_raster_ecp_cache`,
+`corrected_ground_raster_ecp_cache`, `canopy_top_raster_ecp_cache`,
+`ground_comparison_report_html`, `ground_source_comparison_csv`,
+`ground_comparison_ecp_cache`, `floor_bias_plot`,
+`veg_height_validation_csv`, `dtm_eval_report_html`,
+`dtm_eval_summary_csv`) plus three new parameters (`orig_stem`,
+`source_name`, `season: [spring, summer]`).
+
+Updated every call site to resolve these via `get_path()` instead of
+`file.path()`/`paste0()`: `lidar/02.R` (reprojected-cloud path, and the
+per-CSF-grid ECP-cache loop — now passes `output_csv` explicitly
+instead of relying on `sample_dtm()`'s default `.tif`->`_ecp.csv`
+derivation), `R/report_dtms.R` and `R/report_ground_sources.R`
+(`output_file` defaults), `rmd/dtm_evaluation_report.Rmd` and
+`rmd/ground_source_comparison.Rmd` (summary CSVs, per-source ECP
+caches), `lidar/07_floor_corrected_ground.R` (floor-bias PNGs, the
+`lidar_spring`/`lidar_summer` ECP cache reads — also dropped its now-
+unused `output_dir` variable), `lidar/08_veg_height_validation.R`
+(`corrected_ground_raster`/`canopy_top_raster` ECP caches,
+`veg_height_validation.csv`).
+
+Deliberately left `rmd/dtm_evaluation_report.Rmd`'s generic per-DTM
+loop relying on `sample_dtm()`'s default derivation (see
+`dev/workplan.md` Part C note) — it iterates over whatever `.tif`s
+exist in a directory without individual CSF params in hand, and the
+default derivation already produces the identical filename.
+
+Verified with a side-by-side script: every migrated leaf reproduces
+the *exact* path the old ad hoc code computed (11/11 `identical()`
+checks passed) — confirms this is a pure refactor, no behavior change.
+`lintr` on all 5 changed `.R` files (fixed two hanging-indent lints
+along the way): no lints. Checked for leftover stale cache files
+(`_ecp.csv` sidecars under `ground_rasters_epsg6491/`, and any
+non-archived `rr_*` report directories) before starting Part D —
+found none; everything relevant was already cleared or archived in
+the 2026-09-12 disposition pass. Working-tree changes only — not
+committed.
+
+### Fixed sites_data_root (uas -> uas_veg rename) and cleared nor's legacy scratch data
+
+User fixed `lidar/data/paths.yml`'s `sites_data_root` root directly:
+`X:/projects/uas/sites` -> `X:/projects/uas_veg/sites` (one line,
+fixes every path built from it) — the `X:/projects/uas` directory had
+been renamed to `X:/projects/uas_veg`, which is why `nor`'s
+`raw_lidar` override didn't resolve when checked 2026-09-12 (see that
+entry below). Verified afterward: `raw_lidar` now resolves to an
+existing file for `nor`/`2024_10_06`, `nor`/`2024_05_24`,
+`wel`/`2024_06_01`, `peg`/`2024_04_19`, and `peg`/`2024_09_23` — every
+override that used `{@sites_data_root}`.
+
+User also manually deleted `nor`'s entire legacy scratch tree
+(`E:/uas_scratch/lidar/nor`, ~7.4 GB — confirmed 2026-09-12 to be
+uniformly in the wrong CRS, EPSG:32619 instead of the project's
+EPSG:6491 standard) after Claude Code's auto-mode classifier blocked
+a `rm -rf` on the whole site directory as "Irreversible Local
+Destruction." Confirmed afterward: `nor/` is now an empty leftover
+directory (0 bytes), safe to leave or remove.
+
+## 2026-09-12 — branch lidar
+
+### Implemented Part B's zzz-drop rename (paths.yml + rr's directories)
+
+Applied the already-decided `dev/workplan.md` Part B naming change:
+dropped the `zzz` prefix from the three affected `lidar/data/paths.yml`
+templates —
+
+- `cleaned_tiles`: `zzzcleaned_epsg{target_epsg}` → `cleaned_epsg{target_epsg}`
+- `ground_raster_dir`: `zzzraster_epsg{target_epsg}` → `ground_rasters_epsg{target_epsg}`
+- `veg_heights_dir`: `zzzheights` → `veg_heights`
+
+(`target_epsg` itself stays, per Part B's decision.) This is a global
+scheme change — before touching it, checked whether any *other* site
+had real data under the old names that would go unreachable: `nor`
+has 30 cleaned tiles + 4 CSF DTMs under `2024_10_06/zzzcleaned`,
+`zzzraster` (no `_epsg` suffix at all) and a separate
+`2024_10_06__cs400/` experiment directory, but all of that was
+*already* unreachable under the pre-rename scheme too (it predates
+the `target_epsg`-suffix convention entirely) — so this rename didn't
+newly orphan anything. `oth`/`wel`/`peg`/`bar` have no scratch
+directories yet. `nor`'s legacy clutter is separately noted in
+`dev/workplan.md` Part A as out of scope for now.
+
+Renamed `rr`'s on-disk directories to match, both dates:
+`zzzcleaned_epsg6491` → `cleaned_epsg6491` (real content — the kept
+cleaned tiles, 20 `.las` files per date) and `zzzraster_epsg6491` →
+`ground_rasters_epsg6491` (empty, after yesterday's cleanup);
+`2022_08_10/zzzheights` → `2022_08_10/veg_heights` (also empty).
+Verified with `pathtools::get_path()` directly afterward:
+`cleaned_tiles` for `rr`/`2022_08_10` resolves to the renamed
+directory and still finds all 20 tiles — the upcoming clean re-run
+will correctly skip `clean_and_tile()` rather than regenerate from
+the raw cloud.
+
+### Cleaned up rr's scratch tree (Part A of the path-rework plan)
+
+Per `dev/workplan.md`'s "scratch-tree cleanup, path-scheme rework,
+output metadata" plan (drafted 2026-09-11, disposition decided
+2026-09-12). Deleted, in order:
+
+1. All 8 CSF-tuning-grid DTMs + their `_ecp.csv` caches, both dates
+   (`zzzraster_epsg6491/csf_th*.tif`/`*_ecp.csv`) — ~86 MB. Only 2 of
+   the 8 fed anything downstream; cheap to regenerate from the kept
+   cleaned tiles.
+2. The 4 outputs the upcoming clean re-run will regenerate anyway
+   (`massgis_plus_floor_summer.tif`, `canopy_top_summer.tif`,
+   `veg_dist_0.5m.tif`, `return_counts_0.5m.tif`) — ~53 MB. Deleted
+   outright rather than relying on `overwrite = TRUE`, for a genuinely
+   clean slate.
+3. Legacy pre-EPSG-6491-migration dead weight: non-`_epsg`-suffixed
+   `zzzcleaned/`/`zzzraster/` dirs (both dates), `_epsg26919_navd88.las`
+   reprojected copies (both dates), and an orphaned
+   `reproject_las_lastools.R` intermediate
+   (`*_lastools_xy_49806f281607.las`) — **~27 GB**, the bulk of the
+   total. All fully superseded by the `_epsg6491` tree.
+4. Legacy `_epsg26919` report directories under `../lidar_reports/`
+   (`rr_2022_05_14_epsg26919/`, `rr_2022_08_10_epsg26919/`,
+   `rr_ground_comparison_epsg26919/`) — ~8.6 MB.
+
+`rr`'s `E:/uas_scratch/lidar/rr` tree: **47 GB → 21 GB**. The kept
+`zzzcleaned_epsg6491/` tiles (both dates) were untouched throughout.
+
+Also **archived** (moved, not deleted) the current reports —
+`../lidar_reports/rr_2022_05_14/`, `rr_2022_08_10/`,
+`rr_ground_comparison/` — into a new `../lidar_reports/archive/`
+subdirectory (same names), so they survive the upcoming clean re-run
+for a side-by-side comparison. Once the re-run produces fresh reports
+at the original paths, the user is to be prompted to compare against
+`archive/` and, if it looks good, delete the archived copies (tracked
+in `dev/workplan.md` Part E).
+
+All actions were plain `rm`/`mv` against `E:/uas_scratch/lidar` and
+`../lidar_reports` (outside the repo) — nothing under version control
+changed.
 
 ### Ran lidar/05_veg_heights.R for rr to test the return-count raster
 

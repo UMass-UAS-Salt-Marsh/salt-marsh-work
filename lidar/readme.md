@@ -388,13 +388,13 @@ vegetation heights from this pipeline should be trusted.
 ## Comparing ground elevation datasets
 
 We have collected high resolution lidar with two goals:
-1. Create acurate DTM rasters of the sites.
+1. Create accurate DTM rasters of the sites.
 2. Collect information on vegetation height.
 
 We've learned that summer lidar doesn't do a good job of detecting 
 ground in saltmarsh vegetation.  Consequently we need a source for ground
-elevation (presumably taken in spring when vegation is low) to compare to
-when evaluating vegation height.
+elevation (presumably taken in spring when vegetation is low) to compare to
+when evaluating vegetation height.
 
 There are three possible sources for DTM and DEM rasters:
 1. MassGIS DEM derived from aerial lidar.

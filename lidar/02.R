@@ -141,10 +141,9 @@ paths$cleaned_catalog_dir <- get_path(
 paths$reprojected_dir <- get_path(
    "reprojected_dir", site = site, date = date
 )
-paths$reprojected_path <- file.path(
-   paths$reprojected_dir,
-   sub("\\.las$", paste0("_epsg", target_epsg, "_navd88.las"),
-       basename(paths$input), ignore.case = TRUE)
+paths$reprojected_path <- get_path(
+   "reprojected_las", site = site, date = date, target_epsg = target_epsg,
+   orig_stem = tools::file_path_sans_ext(basename(paths$input))
 )
 
 # Create output dirs
@@ -224,6 +223,14 @@ for (i in seq_len(nrow(csf_grid))) {
 
 site_ecp <- load_ecp(paths$ecp, site = site, target_crs = target_epsg)
 
-for (d in csf_results$dtm) {
-   sample_dtm(d, site_ecp)
+for (i in seq_len(nrow(csf_results))) {
+   ecp_cache <- get_path(
+      "ground_raster_ecp_cache", site = site, date = date,
+      target_epsg = target_epsg,
+      csf_threshold = csf_results$csf_threshold[i],
+      csf_res       = csf_results$csf_res[i],
+      csf_rigidness = csf_results$csf_rigidness[i],
+      raster_res    = csf_results$raster_res[i]
+   )
+   sample_dtm(csf_results$dtm[i], site_ecp, output_csv = ecp_cache)
 }

@@ -37,7 +37,9 @@
 #'    Defaults to `pathtools::get_path("dtm_eval_report", site, date)`
 #'    (`../lidar_reports/<site>_<date>`, outside the repo).
 #' @param output_file Name of the output HTML file.
-#'    Defaults to `dtm_eval_<site>_<date>.html`.
+#'    Defaults to the basename of
+#'    `pathtools::get_path("dtm_eval_report_html", site, date)`
+#'    (`dtm_eval_<site>_<date>.html`).
 #' @param open If `TRUE` (default), open the rendered HTML in
 #'    the default browser.
 #'
@@ -57,7 +59,8 @@ report_dtms <- function(
       tolerances  = c(0.10, 0.20),
       ecp_types   = "EVP",
       eval_dir    = get_path("dtm_eval_report", site = site, date = date),
-      output_file = paste0("dtm_eval_", site, "_", date, ".html"),
+      output_file = basename(get_path("dtm_eval_report_html", site = site,
+                                      date = date)),
       open        = TRUE) {
 
    stopifnot(
