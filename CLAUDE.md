@@ -29,14 +29,22 @@ Processes water-depth logger time series into per-logger inundation metrics, the
 - Logger inundation threshold is hardcoded at `depth > 0.02` m. Metrics use `VulnToolkit::fld.dur()`, `dur.events()`, `fld.depth()`.
 
 ### Lidar pipeline (`lidar/`)
-Processes LAS point clouds into ground rasters (DTMs) for a single site at a time, evaluating multiple Cloth Simulation Filter (CSF) parameter sets.
+Processes LAS point clouds into ground rasters (DTMs) and a vegetation-height distribution raster, for a single site at a time.
 
-- `01_explore_data.R` — interactive exploration on a single chunk; not part of the production flow.
-- `02.R` — production-style driver. Resolves the input cloud and ECP file via `pathtools::get_path("raw_lidar", site = , date = )` / `get_path("ecp_path")` (backed by `lidar/data/paths.yml`, a `pathtools` path scheme — see below), runs `clean_and_tile()` once, then loops over a small grid of CSF parameters calling `rasterize_ground()` and writes per-parameter `.tif` files.
-- `R/clean_and_tile.R` — Step 1: filter to last return, classify+drop noise via `lidR::sor`, write cleaned tiles. Skips automatically if output tiles already exist.
-- `R/rasterize_ground.R` — Step 2: classify ground with `csf(class_threshold, cloth_resolution, rigidness)`, then `rasterize_terrain()` with `knnidw` into a single GeoTIFF.
-- Both functions use `lidR::LAScatalog` + `catalog_map()` to process in tiles (`chunk_size`/`chunk_buffer` defaults 200/20 m). The full pipeline is memory-bound, not CPU-bound — be cautious with `future::plan(multisession, workers = N)` (see comments in `lidar/02.R`).
-- Output directories: cleaned tiles → `E:/uas_scratch/lidar/<site>/<date>/cleaned_epsg<N>/`; DTMs → `…/ground_rasters_epsg<N>/csf_th<...>_res<...>_rgd<...>_<res>m.tif`. Every scratch/output path is a `pathtools::get_path()` call against `lidar/data/paths.yml`'s `ground_raster` (and related) templates — no more hardcoded `file.path()`/`paste0()` construction or `[name]`-placeholder substitution.
+Drivers split into a tuning half (`lidar/tuning/`) and a production half (`lidar/production/`) — see `dev/worklog.md`, 2026-09-15, for the split and its rationale.
+
+- `00_explore_data.R` — interactive exploration on a single chunk; not part of the production flow.
+- `lidar/tuning/01_csf_tuning.R` — grid-searches CSF parameters for one site/flight and scores each candidate DTM against elevation control points (ECPs). Resolves the input cloud and ECP file via `pathtools::get_path("raw_lidar", site = , date = )` / `get_path("ecp_path")` (backed by `lidar/paths.yml`, a `pathtools` path scheme — see below), calls `prepare_flight()` (conditional reprojection + `clean_and_tile()`), then loops over a small grid of CSF parameters calling `rasterize_ground()` and writes per-parameter `.tif` files. Ends with a reminder to hand-edit the winning parameter set into `lidar/runs.yml`.
+- `lidar/tuning/02_ground_reference_selection.R` — compares a site's tuned CSF DTMs against orthophoto DEMs and MassGIS, then (once a `ground_reference` decision is recorded in `runs.yml`) builds the floor-bias-corrected MassGIS hybrid raster via `build_ground_raster()`.
+- `lidar/tuning/veg_height_check.R` — optional, on-demand diagnostic: validates a candidate ground reference against field-measured vegetation height at ECPs. Not a required gate.
+- `lidar/production/01_ground_raster.R` — thin wrapper around `build_ground_raster()`: once a site/flight's tuning decisions are recorded in `runs.yml`, reproduces its ground raster with no grid search or human judgment.
+- `lidar/production/02_veg_heights.R` — builds the final multi-band vegetation-height-distribution raster, resolving its ground raster via `build_ground_raster()`.
+- `R/clean_and_tile.R` — filter to last return, classify+drop noise via `lidR::sor`, write cleaned tiles. Skips automatically if output tiles already exist.
+- `R/rasterize_ground.R` — classify ground with `csf(class_threshold, cloth_resolution, rigidness)`, then `rasterize_terrain()` with `knnidw` into a single GeoTIFF.
+- `R/prepare_flight.R`, `R/get_run_config.R`, `R/build_ground_raster.R`, `R/build_floor_corrected_ground.R` — shared functions bridging tuning and production; see their roxygen docs.
+- `clean_and_tile()`/`rasterize_ground()` use `lidR::LAScatalog` + `catalog_map()` to process in tiles (`chunk_size`/`chunk_buffer` defaults 200/20 m). The full pipeline is memory-bound, not CPU-bound — be cautious with `future::plan(multisession, workers = N)` (see comments in `lidar/tuning/01_csf_tuning.R`).
+- Output directories: cleaned tiles → `E:/uas_scratch/lidar/<site>/<date>/cleaned_epsg<N>/`; DTMs → `…/ground_rasters_epsg<N>/csf_th<...>_res<...>_rgd<...>_<res>m.tif`. Every scratch/output path is a `pathtools::get_path()` call against `lidar/paths.yml`'s `ground_raster` (and related) templates — no more hardcoded `file.path()`/`paste0()` construction or `[name]`-placeholder substitution.
+- `lidar/runs.yml` — hand-edited, not templated: the single source of truth for each site's `best_csf` per flight and its `ground_reference` decision, read via `get_run_config(site, date)`.
 - `pathtools` (<https://github.com/ethanplunkett/pathtools>) is a non-CRAN dependency the lidar pipeline requires: `remotes::install_github("ethanplunkett/pathtools")`.
 - See `lidar/ARCHITECTURE.md` for the pipeline's stages, functions, and
   data flow (with a diagram). See `lidar/readme.md` for the dream output
@@ -50,7 +58,7 @@ Separate exploratory scripts by another collaborator for finding common high tid
 
 - Site codes are 3-letter lowercase for lidar (`rr`, `nor`, `bar`, `wel`) and 3-letter uppercase for hydrology (`RED`, `OTH`, `WES`, `WEL`). They are not always the same code for the same site — `RED` ↔ `rr` (Red River). The canonical mapping table is `inundation_metrics/Data/sites.txt`.
 - Inundation-metrics data (`inundation_metrics/Data/`) is committed, including per-site deployment CSVs — only the raw `Calibrated Data/*cal.xlsx` files stay gitignored.
-- `lidar/data/` is also gitignored except for `paths.yml` and `RedRiver_11May2022.csv` (a small GCP file).
+- `lidar/data/` holds `RedRiver_11May2022.csv` (a small GCP file); large source formats (`*.las`, `*.lax`, `*.xls`, `*.xlsx`) are gitignored there by extension. `lidar/paths.yml` and `lidar/runs.yml` live at the top of `lidar/`, not under `lidar/data/`.
 - Elevation control points live in `X:/legacy/gdrive/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx` (use rows with `type = "training"`; resolve via `pathtools::get_path("ecp_path")` rather than hardcoding this).
 
 ## Style and workflow

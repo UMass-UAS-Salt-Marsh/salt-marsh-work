@@ -1,12 +1,15 @@
 # Path configuration for the lidar pipeline, read via
 # pathtools::path_scheme() / get_path(). Replaces the old paths.csv +
 # R/update_path.R combination -- see dev/worklog.md, 2026-09-11, for
-# the migration. See vignette("pathtools") for the schema itself.
+# the migration. Moved from lidar/data/paths.yml to lidar/paths.yml
+# as part of the tuning/production driver refactor -- see
+# dev/worklog.md, 2026-09-15. See vignette("pathtools") for the
+# schema itself.
 #
 # No machine-local overlay file exists yet. Roots are each their own
-# entry specifically so that adding one later (lidar/data/paths-local.yml,
+# entry specifically so that adding one later (lidar/paths-local.yml,
 # gitignored, layered on top via
-# path_scheme(c("lidar/data/paths.yml", "lidar/data/paths-local.yml")))
+# path_scheme(c("lidar/paths.yml", "lidar/paths-local.yml")))
 # only ever needs to redefine these few lines.
 
 paths:
@@ -26,6 +29,11 @@ paths:
   geoid_grid: "{@legacy_data_root}/UMassAir User Resources/LASTools/Geoid Transformation GTX Files/geoid18/us_noaa_g2018u0.tif"
 
   ecp_path: "{@legacy_data_root}/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
+
+  # Per-site/flight run parameters recorded by the tuning drivers and
+  # consumed by the production drivers -- see get_run_config(). Human-
+  # written, not templated, so this is a plain path, not a template.
+  run_config: "lidar/runs.yml"
   # Superseded per-site legacy ECP sheets (old paths.csv preferred = 0
   # rows) -- never selected by any live code path, kept only as a
   # record of what used to exist:

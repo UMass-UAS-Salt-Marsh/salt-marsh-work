@@ -27,7 +27,7 @@ setwd(here::here())
 
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
-set_path_scheme("lidar/data/paths.yml")
+set_path_scheme("lidar/paths.yml")
 
 # Unpack params to local variables for convenience.
 site       <- params$site

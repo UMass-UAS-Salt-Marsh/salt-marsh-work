@@ -19,6 +19,119 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-09-15 — branch lidar
 
+### Split lidar drivers into tuning vs. production
+
+Implemented `dev/driver_refactor_plan.md` (moved into `dev/workplan.md`
+per the personal `dev/` convention, then implemented against it in the
+same session — see that file's "Migration checklist" for the itemized
+list, now all checked off except the worklog entry itself). Full
+rationale, decision log, and per-stage design lives in
+`dev/workplan.md`; this entry is the change summary.
+
+**Problem.** The old numbered drivers (`02.R`, `03_evaluate_dtm.R`,
+`06_compare_ground_sources.R`, `07_floor_corrected_ground.R`,
+`08_veg_height_validation.R`, `05_veg_heights.R`) conflated two very
+different jobs in one sequence: human-in-the-loop tuning (grid-search
+CSF parameters, compare ground sources, decide on a ground reference)
+and repeatable production (turn an already-tuned site/flight into
+final rasters). That made CSF parameters and ground-reference
+decisions get hand-copied as literals into multiple driver scripts
+with no single source of truth, and made it unclear which scripts
+were required gates vs. one-off diagnostics.
+
+**New layout.**
+
+- `lidar/paths.yml` (was `lidar/data/paths.yml`) — moved via `git mv`;
+  header comment and local-overlay example paths updated; added a
+  `run_config` entry pointing at the new `runs.yml`.
+- `lidar/runs.yml` — new, hand-edited (not templated) config file: the
+  single source of truth per site for `target_epsg`,
+  `workers`/`chunk_size`/`chunk_buffer` (used only by
+  `prepare_flight()` — every rasterization step still keeps its own
+  driver-local values, since they have different memory footprints),
+  each flight's `best_csf`, and the site's `ground_reference`
+  decision. Pre-populated with `rr`'s current values.
+- `R/get_run_config.R` — reads `runs.yml` fresh from disk every call
+  (deliberately not using `pathtools`'s global-scheme-state pattern);
+  looks up a site and, optionally, a flight; stops with an actionable
+  message if either isn't recorded yet.
+- `R/prepare_flight.R` — extracted from `lidar/02.R` /
+  `lidar/05_veg_heights.R`'s duplicated conditional-reprojection +
+  `clean_and_tile()` logic. Calls `future::plan(multisession, ...)`
+  itself.
+- `R/build_floor_corrected_ground.R` — extracted from
+  `lidar/07_floor_corrected_ground.R`; just the raster build
+  (reproject MassGIS, add floor bias), now with skip-if-exists
+  behavior the original script never had (it always rebuilt
+  unconditionally).
+- `R/build_ground_raster.R` — new. Given a site/flight already
+  recorded in `runs.yml`, produces its ground raster with no grid
+  search or human judgment: dispatches on `ground_reference.method`
+  (`"csf"` → `rasterize_ground()` with the recorded `best_csf`;
+  `"massgis_plus_floor"` → re-reads the tuning step's *cached* ECP
+  residual CSV, re-runs only `estimate_floor_bias()` — cheap — and
+  calls `build_floor_corrected_ground()`). Multi-tile MassGIS mosaicking
+  is explicitly out of scope; stops with a pointer to
+  `dev/rollout_workplan.md` if `massgis_tile` isn't a single value.
+- `lidar/tuning/01_csf_tuning.R` — replaces `02.R` +
+  `03_evaluate_dtm.R`: `prepare_flight()`, the CSF grid loop, then ECP
+  sampling + `report_dtms()`. Ends with a reminder to hand-edit the
+  winning `best_csf` into `runs.yml`.
+- `lidar/tuning/02_ground_reference_selection.R` — replaces
+  `06_compare_ground_sources.R` + `07_floor_corrected_ground.R`. Pulls
+  `best_csf` from `get_run_config()` instead of hardcoding it (this is
+  what kills the drift risk the old scripts had), renders the ground-
+  source comparison report, computes and plots floor-bias diagnostics
+  for every candidate source flight, then — if `rr`'s `runs.yml`
+  already records `ground_reference.method == "massgis_plus_floor"` —
+  calls `build_ground_raster()` to (re)build the hybrid raster;
+  otherwise reminds to record the decision. `oth` and `wel` sections
+  carried over unchanged (photo-DEM + MassGIS only; not yet
+  represented in `runs.yml`, tracked under the site rollout).
+- `lidar/tuning/veg_height_check.R` — replaces
+  `08_veg_height_validation.R`, demoted from a required gate to an
+  optional, on-demand diagnostic per the plan's locked-in decision.
+  Also stopped hardcoding the spring flight's CSF literals, pulling
+  `best_csf` from `get_run_config()` instead.
+- `lidar/production/01_ground_raster.R` — new, thin wrapper around
+  `build_ground_raster()`.
+- `lidar/production/02_veg_heights.R` — replaces `05_veg_heights.R`;
+  no longer hard-stops if a `corrected_ground_raster` doesn't already
+  exist — gets it from `build_ground_raster()` instead, building it on
+  demand.
+- `lidar/00_explore_data.R` (was `01_explore_data.R`) — renamed only,
+  no content change; it's scratch exploration, not part of the
+  numbered production sequence.
+- `rmd/ground_source_comparison.Rmd`, `rmd/dtm_evaluation_report.Rmd`
+  — each independently called `set_path_scheme("lidar/data/paths.yml")`
+  (they render in their own process, not inheriting the calling
+  driver's scheme); missing this would have broken `report_dtms()`/
+  `report_ground_sources()` under the new drivers. Updated to
+  `lidar/paths.yml`.
+- Deleted the six superseded originals listed under "Problem" above.
+- Updated `lidar/ARCHITECTURE.md` ("Where things live" and every
+  affected "Pipeline stages" entry, plus the mermaid diagram) and the
+  root `CLAUDE.md` lidar section (including the `lidar/data/`
+  paragraph, since `paths.yml`/`runs.yml` no longer live there) to
+  match the new layout.
+
+**Testing.** No formal test suite exists for this pipeline. Smoke-
+tested against `rr`'s already-materialized outputs (fully re-run and
+verified as of the 2026-09-14 entries below), via ad hoc `Rscript`
+calls rather than a full interactive driver run: `get_run_config()`'s
+site/flight lookups and both error paths; `build_ground_raster()`'s
+`massgis_plus_floor` branch, which correctly identified the existing
+`massgis_plus_floor_summer.tif` and skipped rebuilding it;
+`prepare_flight()`, which correctly skipped both reprojection and
+`clean_and_tile()` against `rr`'s existing reprojected LAS and cleaned
+tiles. Did not do a full interactive run of any driver script through
+RStudio, and did not exercise the `"csf"` branch of
+`build_ground_raster()` or the two `rmd/` report templates end to end.
+
+`lintr::lint()` run on every new/changed `R/` and driver file; fixed
+line-length, hanging-indent, and one commented-code hit (reworded a
+driver comment from pseudo-code to prose) before this entry.
+
 ### Updated ARCHITECTURE.md and driver header comments to the final path scheme
 
 Closed out the dangling `dev/backlog.md` item carried over from

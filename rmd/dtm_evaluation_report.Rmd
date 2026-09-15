@@ -28,7 +28,7 @@ setwd(here::here())
 
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
-set_path_scheme("lidar/data/paths.yml")
+set_path_scheme("lidar/paths.yml")
 
 ecp_path <- params$ecp_path %||% get_path("ecp_path")
 dtm_dir  <- params$dtm_dir %||% get_path("ground_raster_dir",

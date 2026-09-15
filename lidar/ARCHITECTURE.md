@@ -55,24 +55,42 @@ full investigation.
 
 ## Where things live
 
-- **`lidar/*.R`** — numbered driver scripts, one per pipeline stage,
-  intended to be run in order for a given site. Each sources all of
-  `R/` and is self-contained (re-runnable from a cold start).
+- **`lidar/tuning/*.R`** — driver scripts for the human-in-the-loop,
+  exploratory half of the pipeline: grid-searching CSF parameters,
+  comparing ground sources, and recording the decisions that come out
+  of that (`best_csf`, `ground_reference`) into `lidar/runs.yml`. Not
+  numbered as a strict sequence — `01_csf_tuning.R` and
+  `02_ground_reference_selection.R` are typically run in order per
+  flight, but `veg_height_check.R` is an on-demand diagnostic, not a
+  required gate.
+- **`lidar/production/*.R`** — thin, data-driven driver scripts for
+  the repeatable half: once a site/flight's tuning decisions are
+  recorded in `runs.yml`, these reproduce its ground raster and
+  vegetation-height outputs with no grid search or human judgment
+  left, via `build_ground_raster()`.
 - **`R/*.R`** — one function per file (matching filename), shared
   across the whole repo, not just lidar. Drivers source them all
-  via `lapply(list.files("R/", ...), source)`.
+  via `lapply(list.files("R/", ...), source)`. `prepare_flight()`,
+  `get_run_config()`, `build_ground_raster()`, and
+  `build_floor_corrected_ground()` are the functions that bridge
+  tuning and production — see `dev/worklog.md`, 2026-09-15, for the
+  driver split that introduced them.
 - **`rmd/*.Rmd`** — parameterized R Markdown report templates,
   rendered by `report_dtms()` and `report_ground_sources()` rather
   than knitted directly.
-- **`lidar/data/paths.yml`** — a `pathtools` path scheme: every raw
+- **`lidar/paths.yml`** — a `pathtools` path scheme: every raw
   input cloud/ECP path (fully enumerated — the 2022/2024+ naming
   conventions are too irregular for a template), plus every
   scratch/output path template (`cleaned_tiles`, `ground_raster`,
   `dtm_eval_report`, etc.). Drivers resolve paths via
   `pathtools::get_path("<entry>", site = , date = , ...)` rather than
-  hardcoding them. Replaces the old `lidar/data/paths.csv` +
-  `R/update_path.R` combination — see `dev/worklog.md`, 2026-09-11,
-  for the migration.
+  hardcoding them. Moved from `lidar/data/paths.yml` as part of the
+  tuning/production driver split — see `dev/worklog.md`, 2026-09-15.
+- **`lidar/runs.yml`** — hand-edited, not templated: the single
+  source of truth for each site's `best_csf` per flight and its
+  `ground_reference` decision, read via `get_run_config(site, date)`.
+  Tuning drivers produce the values that go in it; production drivers
+  (and `build_ground_raster()`) only ever read it.
 - **`../lidar_reports/<site>_*/`** — a sibling directory to the repo,
   entirely outside git: cached per-DTM/per-source ECP-sample CSVs and
   rendered HTML reports (`ground_comparison_report`,
@@ -93,33 +111,31 @@ Each stage below names the driver, the `R/` functions it calls, and
 its inputs/outputs. Function names link to their roxygen docs in
 `R/`.
 
-### Step 0 — conditional reprojection
+### Steps 0-1 — prepare the flight (conditional reprojection, clean & tile)
 
 Source clouds arrive in WGS 84 (horizontal) + WGS 84 ellipsoidal
 height (vertical); everything downstream needs the project's target
 CRS (`CRS.md`: NAD83(2011) / Massachusetts Mainland State Plane,
-EPSG:6491, + NAVD88 via GEOID18). `las_needs_reprojection()` checks
-the LAS header and skips this step if the source is already in the
-target CRS. Otherwise `reproject_las()` dispatches to
-`reproject_las_pdal()` (default) or `reproject_las_lastools()`
-(needs a paid `lasvdatum` license — see `lidar/readme.md`).
+EPSG:6491, + NAVD88 via GEOID18). `prepare_flight()` bundles the two
+steps every driver needs before it can touch point-cloud data:
+`las_needs_reprojection()` checks the LAS header and skips
+reprojection if the source is already in the target CRS (otherwise
+`reproject_las()` dispatches to `reproject_las_pdal()` (default) or
+`reproject_las_lastools()`, which needs a paid `lasvdatum` license —
+see `lidar/readme.md`); then `clean_and_tile()` filters to last
+return, removes noise via `lidR::sor()`, and writes cleaned tiles
+using `lidR::LAScatalog` + `catalog_map()`. Both steps are
+skip-if-exists, so `prepare_flight()` is safe to call from every
+driver that needs a flight's cleaned tiles, not just the first one.
 
-- **Driver:** `lidar/02.R` (top of file).
+- **Called from:** `lidar/tuning/01_csf_tuning.R`,
+  `lidar/production/01_ground_raster.R` (`"csf"` ground-reference
+  method only), and `lidar/production/02_veg_heights.R` — each call
+  after the first for a given site/flight is a fast no-op.
 - **Input:** raw LAS resolved via `get_path("raw_lidar", site = , date = )`
-  from `lidar/data/paths.yml`.
-- **Output:** `reprojected/*_epsg<N>_navd88.las`.
-
-### Step 1 — clean & tile
-
-`clean_and_tile()` filters to last return, removes noise via
-`lidR::sor()`, and writes cleaned tiles using `lidR::LAScatalog` +
-`catalog_map()`. Skip-if-exists: safe to call repeatedly.
-
-- **Called from:** `lidar/02.R` (spring or summer, whichever site is
-  configured) and again from `lidar/05_veg_heights.R` and
-  `lidar/08_veg_height_validation.R` for the summer cloud
-  specifically (skips if `lidar/02.R` already produced the tiles).
-- **Output:** `cleaned_epsg<N>/*.las`.
+  from `lidar/paths.yml`.
+- **Output:** `reprojected/*_epsg<N>_navd88.las`,
+  `cleaned_epsg<N>/*.las`.
 
 ### Step 2 — CSF ground rasterization (DTM tuning grid)
 
@@ -128,10 +144,10 @@ parameter grid, `rasterize_ground()` classifies ground points and
 interpolates a DTM via k-NN IDW, writing one GeoTIFF per parameter
 set. `get_path("ground_raster", ...)` resolves the output filename
 from the parameter values, per the `ground_raster` template in
-`lidar/data/paths.yml`.
+`lidar/paths.yml`.
 
-- **Driver:** `lidar/02.R` (main loop).
-- **Input:** cleaned tiles (Step 1).
+- **Driver:** `lidar/tuning/01_csf_tuning.R` (main loop).
+- **Input:** cleaned tiles (Steps 0-1).
 - **Output:** `ground_rasters_epsg<N>/csf_th<...>_res<...>_rgd<...>_<res>m.tif`,
   one per grid row.
 
@@ -148,10 +164,15 @@ diagnostic plots (`plot_pred_vs_obs()`, `plot_residual_map()`,
 `plot_residual_hist()`, `plot_residual_vs_elevation()`,
 `plot_qq_residuals()`, via `summarize_residuals()`).
 
-- **Driver:** `lidar/03_evaluate_dtm.R` → `report_dtms()`.
+- **Driver:** `lidar/tuning/01_csf_tuning.R` (final section) →
+  `report_dtms()`.
 - **Report:** `rmd/dtm_evaluation_report.Rmd`.
 - **Output:** `../lidar_reports/<site>_<date>/dtm_eval_summary.csv` +
   HTML report + PNG plots.
+- **Human step:** review the rendered report, then hand-edit the
+  winning CSF parameter set into `lidar/runs.yml`, under
+  `sites.<site>.flights.<date>.best_csf`. Nothing downstream reads
+  this driver's output automatically — `runs.yml` is the handoff.
 
 Two matching decisions worth knowing when reading or extending this
 step: ECPs are matched to a DTM by site only, ignoring date — every
@@ -163,13 +184,14 @@ convert them into additional elevation points.
 ### Ground-source comparison
 
 Before committing to a ground reference for vegetation heights, the
-best CSF DTMs are compared against every other available ground
-elevation source for the site — photogrammetry DEMs and a MassGIS
-aerial-lidar bare-earth tile — using the same `sample_dtm()` +
-`evaluate_dtm()` stack, just pointed at different rasters.
+site's `best_csf` DTMs (read from `runs.yml` via `get_run_config()`,
+not hand-copied literals) are compared against every other available
+ground elevation source for the site — photogrammetry DEMs and a
+MassGIS aerial-lidar bare-earth tile — using the same `sample_dtm()`
++ `evaluate_dtm()` stack, just pointed at different rasters.
 
-- **Driver:** `lidar/06_compare_ground_sources.R` →
-  `report_ground_sources()`.
+- **Driver:** `lidar/tuning/02_ground_reference_selection.R` (first
+  section) → `report_ground_sources()`.
 - **Report:** `rmd/ground_source_comparison.Rmd`.
 - **Finding:** MassGIS beats every UAS-derived source by a wide
   margin at every site tested, with near-zero bias.
@@ -185,14 +207,43 @@ every vegetation-height measurement. `estimate_floor_bias()` isolates
 just the instrument-level component of the UAS bias from the cached
 DTM-vs-ECP residuals (excluding vegetation-contaminated outliers;
 `plot_floor_bias()` is its diagnostic companion), and that offset is
-added to the (CRS-reprojected) MassGIS raster.
+added to the (CRS-reprojected) MassGIS raster via
+`build_floor_corrected_ground()`.
 
-- **Driver:** `lidar/07_floor_corrected_ground.R`.
+- **Driver:** `lidar/tuning/02_ground_reference_selection.R` (second
+  section), which computes and plots the floor-bias estimate for
+  every candidate source flight, then — if `ground_reference.method
+  == "massgis_plus_floor"` is already recorded for the site in
+  `runs.yml` — calls `build_ground_raster()` to (re)build the hybrid
+  raster. If no decision is recorded yet, it stops after the report
+  with a reminder to review it and edit `runs.yml`.
+- **Human step:** review the ground-source comparison report and
+  floor-bias plots, then hand-edit `ground_reference` (`method`,
+  `massgis_tile`, `floor_bias_source_flight`) into `runs.yml` under
+  `sites.<site>`.
 - **Input:** cached ECP-sample CSVs from the ground-source
   comparison step.
 - **Output:** `ground_rasters_epsg<N>/massgis_plus_floor_summer.tif`.
 
-### Vegetation-height validation
+### Ground raster (production replay)
+
+Once a site/flight's tuning decisions are recorded, `production/`
+drivers never re-run a grid search or re-derive a decision — they
+call `build_ground_raster()`, which reads `runs.yml` via
+`get_run_config()` and dispatches on `ground_reference.method`: for
+`"csf"` it re-runs `rasterize_ground()` once with the recorded
+`best_csf` (preparing the cleaned cloud first via `prepare_flight()`
+if needed); for `"massgis_plus_floor"` it re-reads the *cached* ECP
+CSV already written by the tuning step above, re-runs only
+`estimate_floor_bias()` (cheap), and calls
+`build_floor_corrected_ground()`. Either branch is skip-if-exists.
+
+- **Driver:** `lidar/production/01_ground_raster.R` (also called
+  internally by `lidar/production/02_veg_heights.R`).
+- **Output:** the ground raster for the requested site/flight — same
+  path templates as the tuning steps above produce.
+
+### Vegetation-height validation (optional diagnostic)
 
 Because ECPs also carry a field-measured `veg_height_m`, the
 floor-bias-corrected ground reference can be validated directly
@@ -204,13 +255,19 @@ vegetation height (canopy top minus each candidate ground) is
 compared against `veg_height_m` via `sample_dtm()` +
 `summarize_residuals()`.
 
-- **Driver:** `lidar/08_veg_height_validation.R`.
+This step is demoted to an optional, on-demand diagnostic, not a
+required gate — nothing else in the pipeline reads its output
+automatically. Run it by hand for extra confidence in a site's
+`ground_reference` pick.
+
+- **Driver:** `lidar/tuning/veg_height_check.R`.
 - **Output:** `../lidar_reports/<site>_ground_comparison/veg_height_validation.csv`.
 
 ### Vegetation height distribution (final deliverable)
 
 `rasterize_veg_heights()` normalizes summer point heights against
-the chosen ground raster and bins them per pixel via
+the chosen ground raster (obtained from `build_ground_raster()`, not
+a hardcoded prerequisite check) and bins them per pixel via
 `bin_fractions()` (a top-level per-cell metric function — it must not
 be nested, since `lidR`'s chunked dispatch doesn't preserve closures
 referenced only inside a `pixel_metrics()` formula), writing a
@@ -219,9 +276,9 @@ height bin, plus a second single-band GeoTIFF recording how many
 returns landed in each cell (`n_returns`, the denominator the
 fractions are divided by).
 
-- **Driver:** `lidar/05_veg_heights.R`.
-- **Input:** summer cleaned tiles (Step 1) + the floor-bias-corrected
-  ground raster.
+- **Driver:** `lidar/production/02_veg_heights.R`.
+- **Input:** summer cleaned tiles (Steps 0-1) + the ground raster
+  (via `build_ground_raster()`).
 - **Output:** `veg_heights/veg_dist_<res>m.tif`,
   `veg_heights/return_counts_<res>m.tif`.
 
@@ -250,30 +307,39 @@ flowchart TD
 
     E1 --> F
     E2 --> F
-    F["rasterize_ground()<br/>per CSF parameter set<br/>(lidar/02.R)"]
+    F["rasterize_ground()<br/>per CSF parameter set<br/>(lidar/tuning/01_csf_tuning.R)"]
     F --> G1[/"Candidate spring DTMs"/]
     F --> G2[/"Candidate summer DTMs"/]
 
     G1 --> J
     G2 --> J
     LE --> J
-    J["sample_dtm() + evaluate_dtm()<br/>(lidar/03_evaluate_dtm.R)"]
+    J["sample_dtm() + evaluate_dtm()<br/>(lidar/tuning/01_csf_tuning.R)"]
     K@{ shape: doc, label: "DTM evaluation report<br/>(rmd/dtm_evaluation_report.Rmd)" }
     J --> K
+    K --> RUNS[("lidar/runs.yml<br/>best_csf")]
 
     OTHER[/"Photogrammetry DEMs +<br/>MassGIS bare-earth tile"/]
     G1 --> M
     G2 --> M
     OTHER --> M
     LE --> M
-    M["sample_dtm() + evaluate_dtm()<br/>via report_ground_sources()<br/>(lidar/06_compare_ground_sources.R)"]
+    RUNS --> M
+    M["sample_dtm() + evaluate_dtm()<br/>via report_ground_sources()<br/>(lidar/tuning/02_ground_reference_selection.R)"]
     N@{ shape: doc, label: "Ground-source comparison report<br/>(rmd/ground_source_comparison.Rmd)" }
     M --> N
 
     M --> O
     OTHER --> P
-    O["estimate_floor_bias()<br/>(lidar/07_floor_corrected_ground.R)"]
+    O["estimate_floor_bias()<br/>(lidar/tuning/02_ground_reference_selection.R)"]
     O --> P[/"Floor-bias-corrected ground raster<br/>massgis_plus_floor_summer.tif"/]
+    N --> RUNS2[("lidar/runs.yml<br/>ground_reference")]
+    RUNS2 --> O
+
+    RUNS2 --> BGR
+    RUNS --> BGR
+    BGR["build_ground_raster()<br/>(lidar/production/01_ground_raster.R)"]
+    BGR --> P
 
     E2 --> Q
     Q["rasterize_canopy_top()"]
@@ -282,12 +348,12 @@ flowchart TD
     R --> S
     P --> S
     LE --> S
-    S["sample_dtm() + summarize_residuals()<br/>(lidar/08_veg_height_validation.R)"]
+    S["sample_dtm() + summarize_residuals()<br/>(lidar/tuning/veg_height_check.R,<br/>optional diagnostic)"]
     S --> T[/"Veg-height validation CSV vs<br/>field veg_height_m"/]
 
     E2 --> U
-    P --> U
-    U["rasterize_veg_heights()<br/>+ bin_fractions() per pixel<br/>(lidar/05_veg_heights.R)"]
+    BGR --> U
+    U["rasterize_veg_heights()<br/>+ bin_fractions() per pixel<br/>(lidar/production/02_veg_heights.R)"]
     U --> V[/"veg_dist_0.5m.tif<br/>31-band height distribution<br/>(final deliverable)"/]
     U --> W[/"return_counts_0.5m.tif<br/>per-cell return count"/]
 
@@ -295,8 +361,8 @@ flowchart TD
     classDef data fill:#fff3cd,stroke:#b8860b,color:#4a3b00
     classDef report fill:#e1f5e6,stroke:#2f855a,color:#1a3b28
 
-    class B0,D1,D2,LE,F,J,M,O,Q,S,U process
-    class A1,A2,C1,C2,E1,E2,ECP,G1,G2,OTHER,P,R,T,V,W data
+    class B0,D1,D2,LE,F,J,M,O,Q,S,U,BGR process
+    class A1,A2,C1,C2,E1,E2,ECP,G1,G2,OTHER,P,R,T,V,W,RUNS,RUNS2 data
     class K,N report
 ```
 
