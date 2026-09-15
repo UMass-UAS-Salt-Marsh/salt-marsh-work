@@ -17,6 +17,64 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-09-15 — branch lidar
+
+### Added a memory pre-flight check to `lidar/02.R`
+
+Triggered by a real OOM during a Part E clean re-run of `rr`: another
+user's Metashape process was contending for memory on the shared
+machine, and `rasterize_ground()`'s `catalog_map()` failed on two
+chunks (`std::bad_alloc`, "cannot allocate vector of size 238.5 Mb")
+without halting the CSF tuning loop, leaving a corrupted DTM
+(`csf_th0.005_res0.05_rgd2_0.25m.tif`) plus its metadata sidecar. The
+user killed stray processes, deleted the garbage output, and finished
+that run manually with `workers` dropped from 20 to 10 (`lidar/02.R`
+now reflects `workers = 10`) while this check was being built.
+
+New `R/` helpers (roxygen-documented, no `pathtools` coupling):
+
+* `R/worker_memory_reference.R` — `worker_memory_reference` data
+  frame, one calibration row per process (`chunk_size`,
+  `chunk_buffer`, `density`, observed peak `memory_mb`). Currently one
+  row: `rasterize_ground` at `chunk_size = 200`, `chunk_buffer = 20`,
+  `density = 243.65` (rr spring cleaned catalog), peak `11498` MB —
+  the largest of several observed values, all below 12,000 MB, from
+  the user's manual run. Add a row per process as other scripts adopt
+  this check.
+* `R/estimate_worker_memory_mb.R` — `estimate_worker_memory_mb(process,
+  chunk_size, chunk_buffer, density, ref_* = NA)`. Assumes memory
+  scales linearly with buffered tile area (`(chunk_size + 2 *
+  chunk_buffer)^2`) times point density, scaling from the reference
+  row looked up by `process` (any `ref_*` arg can be overridden
+  explicitly, e.g. for testing).
+* `R/get_available_memory_mb.R` — free system memory in MB via
+  PowerShell's `Get-CimInstance Win32_OperatingSystem` (`wmic` is
+  deprecated/unreliable on this Windows Server version).
+* `R/check_worker_memory.R` — `check_worker_memory(workers,
+  expected_worker_memory_mb, safety_margin = 0.25)`. Hard-stops via
+  `stop()` if available memory is below `workers *
+  expected_worker_memory_mb * 1.25`; the error also reports the
+  maximum `workers` count the current available memory could support
+  at that margin, rather than just failing.
+
+Wired into `lidar/02.R` right after `clean_and_tile()` returns (now
+captured as `cleaned_ctg` instead of discarded) and before the CSF
+tuning loop starts — this is the earliest point where the real
+point density is known from the actual cleaned tiles, without a
+second catalog read. Verified: `estimate_worker_memory_mb(
+"rasterize_ground", chunk_size = 200, chunk_buffer = 20, density =
+243.65)` reproduces `11498`; `get_available_memory_mb()` matches
+`Get-CimInstance Win32_OperatingSystem` run directly; a deliberately
+absurd `check_worker_memory(workers = 999, ...)` call stops with a
+correct max-workers figure; `workers = 10` (current `02.R` default)
+passes cleanly against current free memory. `lintr::lint()` run on
+all 4 new files plus `lidar/02.R` — one indentation hit in
+`estimate_worker_memory_mb.R`, fixed.
+
+Not touched: `lidar/05_veg_heights.R` and
+`lidar/08_veg_height_validation.R` also use `future::multisession` and
+could adopt the same check later; out of scope for this change.
+
 ## 2026-09-14 — branch lidar
 
 ### Implemented Part D: metadata sidecar for final output rasters

@@ -74,7 +74,7 @@ progressr::handlers("cli")
 # Tune these for the machine and dataset; everything below uses them.
 # See the comment block above for the history behind the worker /
 # chunk-size values.
-workers      <- 25   # parallel workers for plan(multisession)
+workers      <- 10   # parallel workers for plan(multisession)
 chunk_size   <- 200  # tile size in meters
 chunk_buffer <- 20   # buffer read around each chunk in meters
 
@@ -173,8 +173,24 @@ if (las_needs_reprojection(paths$input, target_epsg = target_epsg)) {
 
 
 # Create cleaned tiles - once per site.  Everything else will use these
-clean_and_tile(paths$input, paths$cleaned_catalog_dir,
-               chunk_size = chunk_size, chunk_buffer = chunk_buffer)
+cleaned_ctg <- clean_and_tile(paths$input, paths$cleaned_catalog_dir,
+                              chunk_size = chunk_size,
+                              chunk_buffer = chunk_buffer)
+
+
+# Memory pre-flight check.  rasterize_ground() is memory-bound and a
+# single chunk running out of memory doesn't halt the tuning loop
+# below -- it just produces a corrupted/incomplete DTM and moves on
+# (see dev/worklog.md 2026-09-15).  Estimate expected per-worker
+# memory from the cleaned catalog's actual point density and hard-stop
+# before that loop starts if there isn't enough headroom.
+expected_worker_memory_mb <- estimate_worker_memory_mb(
+   process      = "rasterize_ground",
+   chunk_size   = chunk_size,
+   chunk_buffer = chunk_buffer,
+   density      = lidR::density(cleaned_ctg)
+)
+check_worker_memory(workers, expected_worker_memory_mb)
 
 
 # Find ground with several parameters - output to raster
