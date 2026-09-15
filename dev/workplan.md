@@ -7,6 +7,8 @@ history of what was done, found, and decided, see `worklog.md` /
 `worklog-archive.md`.
 
 The site-rollout plan is sidelined for now in `dev/rollout_workplan.md`.
+Known issues/future tasks not currently active are tracked in
+`dev/backlog.md`.
 
 ## Active: scratch-tree cleanup, path-scheme rework, output metadata, then a clean `rr` re-run
 
