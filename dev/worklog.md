@@ -75,6 +75,66 @@ Not touched: `lidar/05_veg_heights.R` and
 `lidar/08_veg_height_validation.R` also use `future::multisession` and
 could adopt the same check later; out of scope for this change.
 
+### Moved the memory pre-flight check into `rasterize_ground()`, made it cross-platform
+
+Discussed moving the check above from `lidar/02.R` into
+`rasterize_ground()` itself — cleaner (the function already has, or
+can cheaply get, everything the check needs), protects every future
+call site automatically, and re-checks on each CSF-grid iteration
+instead of once up front. Decided to do it, and to make
+`get_available_memory_mb()` cross-platform at the same time since this
+pipeline may eventually run on a Linux/SLURM cluster in addition to
+Windows.
+
+* `R/rasterize_ground.R` — new `check_memory = TRUE` parameter (after
+  `chunk_buffer`). When `TRUE`, computes `lidR::density(ctg)` right
+  after the catalog is read and chunk options are set, estimates
+  expected per-worker memory via `estimate_worker_memory_mb(process =
+  "rasterize_ground", ...)`, and calls `check_worker_memory()` against
+  `future::nbrOfWorkers()` — not a `workers` argument, since the
+  function can introspect the caller's active `plan()` directly
+  (avoids drift between a driver script's `workers` variable and the
+  plan actually in effect). `@details` note added: the check assumes
+  `future::plan()` is already configured by the caller, same
+  assumption `catalog_map()` itself makes.
+* `R/get_available_memory_mb.R` — split into `get_available_memory_mb()`
+  (dispatches on `.Platform$OS.type`), `get_available_memory_mb_win()`
+  (unchanged PowerShell/CIM logic), `get_available_memory_mb_nix()`
+  (reads `/proc/meminfo`'s `MemAvailable` — the reclaimable-cache-aware
+  figure, not the more pessimistic `MemFree`), and
+  `get_slurm_memory_ceiling_mb()` (returns `NA` unless `SLURM_JOB_ID`
+  is set, otherwise `SLURM_MEM_PER_NODE` or `SLURM_MEM_PER_CPU *
+  SLURM_CPUS_PER_TASK`, used to cap the Linux figure to the job's
+  actual allocation on a shared node). Windows/Linux helper names
+  shortened to `_win`/`_nix` (not `_windows`/`_linux`) to fit lintr's
+  30-character name limit. Kept all four functions in one file despite
+  the one-function-per-file convention — they're tightly coupled
+  single-purpose helpers behind one public entry point and are
+  meaningless individually; only the public function gets a full
+  roxygen block. Direct cgroup usage/limit accounting (the most
+  precise number under SLURM, but cgroup path/version-dependent) is
+  deliberately out of scope — no real cluster to verify it against.
+* `lidar/02.R` — reverted the `clean_and_tile()` call to not capture
+  its return value, and removed the now-redundant driver-level
+  memory-check block between it and the CSF loop (each
+  `rasterize_ground()` call now does this itself, only for grid rows
+  that actually run).
+
+Verified: `estimate_worker_memory_mb()`/`check_worker_memory()` sanity
+checks re-run unchanged (still reproduce `11498` and a correct
+max-workers stop message); `get_available_memory_mb()` still dispatches
+to the Windows branch here and returns a plausible value; the Linux
+`/proc/meminfo` grep/gsub logic verified against a fabricated
+`MemAvailable:` line; `get_slurm_memory_ceiling_mb()` verified against
+`Sys.setenv()`-simulated `SLURM_JOB_ID`/`SLURM_MEM_PER_NODE` and the
+`SLURM_MEM_PER_CPU`/`SLURM_CPUS_PER_TASK` fallback, plus the
+no-`SLURM_JOB_ID` `NA` case; `formals(rasterize_ground)` confirms
+`check_memory = TRUE` is in place. No real Linux/SLURM machine
+available to test the dispatch live. `lintr::lint()` run on all three
+touched files — one `object_length_linter` hit (`_windows`/`_linux`
+names), fixed by shortening as noted above. No full pipeline re-run
+done as part of this change.
+
 ## 2026-09-14 — branch lidar
 
 ### Implemented Part D: metadata sidecar for final output rasters
