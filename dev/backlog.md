@@ -18,3 +18,5 @@ here (the worklog is the durable record of what happened).
   `chunk_buffer`, `density`, `memory_mb`) added as a new
   `worker_memory_reference` row before `check_worker_memory()` can be
   wired in for that process.
+
+- **check output pixel alignment**  make sure it snaps to origin

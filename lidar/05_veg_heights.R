@@ -24,10 +24,11 @@
 #      ground raster.
 #   3. This script.
 #
-# The summer cloud need not be re-cleaned: if zzzcleaned/ tiles already
-# exist from a previous run of lidar/02.R, clean_and_tile() skips them.
+# The summer cloud need not be re-cleaned: if cleaned_epsg<target_epsg>/
+# tiles already exist from a previous run of lidar/02.R,
+# clean_and_tile() skips them.
 #
-# Outputs (under E:/uas_scratch/lidar/<site>/<summer_date>/zzzheights/)
+# Outputs (under E:/uas_scratch/lidar/<site>/<summer_date>/veg_heights/)
 #   * veg_dist_<raster_res>m.tif — 31-band height distribution raster.
 #   * return_counts_<raster_res>m.tif — single-band raster of how many
 #     returns landed in each cell (the denominator behind the
@@ -47,7 +48,7 @@ progressr::handlers("cli")
 # Run-level parameters
 #------------------------------------------------------------------------------#
 
-workers      <- 25    # parallel workers for plan(multisession)
+workers      <- 15    # parallel workers for plan(multisession)
 chunk_size   <- 100   # tile size in meters
 chunk_buffer <- 20    # buffer around each chunk in meters
 

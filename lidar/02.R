@@ -16,13 +16,13 @@
 #
 #   2. Clean & tile (`clean_and_tile()`).  Filters to last return,
 #      removes noise via `lidR::sor()`, writes cleaned tiles to
-#      `<base_output>/zzzcleaned_epsg<target_epsg>/`.  Skips if the
+#      `cleaned_epsg<target_epsg>/`.  Skips if the
 #      tiles already exist.
 #
 #   3. Ground-rasterization tuning loop.  For each row of `csf_grid`,
 #      calls `rasterize_ground()` to classify ground via Cloth
 #      Simulation Filter and interpolate a DTM (`knnidw`).  Outputs go
-#      to `<base_output>/zzzraster_epsg<target_epsg>/csf_th*_res*_rgd*_*m.tif`.
+#      to `ground_rasters_epsg<target_epsg>/csf_th*_res*_rgd*_*m.tif`.
 #      Skips individual DTMs that already exist.
 #
 #   4. (Partial) DTM evaluation against elevation control points.
@@ -38,8 +38,8 @@
 #
 # Outputs (under `E:/uas_scratch/lidar/<site>/<date>/`)
 #   * `reprojected/<basename>_epsg<target_epsg>_navd88.las`
-#   * `zzzcleaned_epsg<target_epsg>/*.las` — cleaned, tiled point cloud.
-#   * `zzzraster_epsg<target_epsg>/csf_*.tif` — one DTM per `csf_grid`
+#   * `cleaned_epsg<target_epsg>/*.las` — cleaned, tiled point cloud.
+#   * `ground_rasters_epsg<target_epsg>/csf_*.tif` — one DTM per `csf_grid`
 #     row.  Directories are namespaced by `target_epsg` so switching
 #     the CRS standard doesn't silently reuse or collide with tiles
 #     produced under a previous standard.

@@ -80,8 +80,8 @@ full investigation.
 - **`E:/uas_scratch/lidar/<site>/<date>/`** — large derived rasters
   and point-cloud tiles, not committed. Namespaced by
   `target_epsg` so a CRS-standard change doesn't collide with prior
-  output: `reprojected/`, `zzzcleaned_epsg<N>/`,
-  `zzzraster_epsg<N>/`, `zzzheights/`.
+  output: `reprojected/`, `cleaned_epsg<N>/`,
+  `ground_rasters_epsg<N>/`, `veg_heights/`.
 
 Every driver currently hardcodes `site` (and often `date`) as a
 top-of-file parameter rather than looping over sites — see
@@ -107,7 +107,7 @@ target CRS. Otherwise `reproject_las()` dispatches to
 - **Driver:** `lidar/02.R` (top of file).
 - **Input:** raw LAS resolved via `get_path("raw_lidar", site = , date = )`
   from `lidar/data/paths.yml`.
-- **Output:** `<base_output>/reprojected/*_epsg<N>_navd88.las`.
+- **Output:** `reprojected/*_epsg<N>_navd88.las`.
 
 ### Step 1 — clean & tile
 
@@ -119,7 +119,7 @@ target CRS. Otherwise `reproject_las()` dispatches to
   configured) and again from `lidar/05_veg_heights.R` and
   `lidar/08_veg_height_validation.R` for the summer cloud
   specifically (skips if `lidar/02.R` already produced the tiles).
-- **Output:** `<base_output>/zzzcleaned_epsg<N>/*.las`.
+- **Output:** `cleaned_epsg<N>/*.las`.
 
 ### Step 2 — CSF ground rasterization (DTM tuning grid)
 
@@ -132,7 +132,7 @@ from the parameter values, per the `ground_raster` template in
 
 - **Driver:** `lidar/02.R` (main loop).
 - **Input:** cleaned tiles (Step 1).
-- **Output:** `zzzraster_epsg<N>/csf_th<...>_res<...>_rgd<...>_<res>m.tif`,
+- **Output:** `ground_rasters_epsg<N>/csf_th<...>_res<...>_rgd<...>_<res>m.tif`,
   one per grid row.
 
 ### Step 3 — DTM evaluation against ECPs
@@ -190,7 +190,7 @@ added to the (CRS-reprojected) MassGIS raster.
 - **Driver:** `lidar/07_floor_corrected_ground.R`.
 - **Input:** cached ECP-sample CSVs from the ground-source
   comparison step.
-- **Output:** `zzzraster_epsg<N>/massgis_plus_floor_summer.tif`.
+- **Output:** `ground_rasters_epsg<N>/massgis_plus_floor_summer.tif`.
 
 ### Vegetation-height validation
 
@@ -222,8 +222,8 @@ fractions are divided by).
 - **Driver:** `lidar/05_veg_heights.R`.
 - **Input:** summer cleaned tiles (Step 1) + the floor-bias-corrected
   ground raster.
-- **Output:** `zzzheights/veg_dist_<res>m.tif`,
-  `zzzheights/return_counts_<res>m.tif`.
+- **Output:** `veg_heights/veg_dist_<res>m.tif`,
+  `veg_heights/return_counts_<res>m.tif`.
 
 ## Data flow
 

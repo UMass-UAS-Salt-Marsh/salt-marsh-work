@@ -19,6 +19,78 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-09-15 — branch lidar
 
+### Updated ARCHITECTURE.md and driver header comments to the final path scheme
+
+Closed out the dangling `dev/backlog.md` item carried over from
+`workplan.md` Part E (see the "Part E complete" entry below, and
+2026-09-12/14 for the naming-convention rework itself). Documentation
+only, except for one incidental change bundled into the same commit:
+`lidar/05_veg_heights.R`'s `workers` parameter was dropped from 25 to
+15, unrelated to the path-scheme wording fix.
+
+`lidar/ARCHITECTURE.md`, six spots: the "Where things live" bullet's
+list of scratch-tree subdirectories, and the per-step "Output" lines
+for Step 0 (reprojection), Step 1 (clean & tile), Step 2 (CSF
+ground-rasterization tuning), the floor-bias-corrected ground
+reference, and the vegetation-height-distribution deliverable — all
+still said `zzzcleaned_epsg<N>/`, `zzzraster_epsg<N>/`, `zzzheights/`
+(the pre-Part-B names, dropped 2026-09-12) and, in three spots, a
+stale `<base_output>/` prefix left over from before the `pathtools`
+migration (2026-09-14). Replaced with the current `paths.yml` names:
+`cleaned_epsg<N>/`, `ground_rasters_epsg<N>/`, `veg_heights/`.
+
+`lidar/02.R` header comment, four spots (both the prose description of
+steps 2/3 and the "Outputs" list at the bottom): same
+`zzzcleaned_epsg<target_epsg>` → `cleaned_epsg<target_epsg>` and
+`zzzraster_epsg<target_epsg>` → `ground_rasters_epsg<target_epsg>`
+swap, plus dropped the two remaining `<base_output>/` prefixes.
+
+`lidar/05_veg_heights.R` header comment, two spots: the
+"summer cloud need not be re-cleaned" note now says
+`cleaned_epsg<target_epsg>/` instead of the old bare `zzzcleaned/`,
+and the "Outputs (under ...)" line now says `veg_heights/` instead of
+`zzzheights/`.
+
+`CLAUDE.md` line 39 (project root, "Data conventions" section) had
+the identical stale `zzzcleaned_epsg<N>`/`zzzraster_epsg<N>` wording —
+not named in the original backlog item, initially left out of scope
+per the user's call when asked, then folded in on a follow-up request
+in the same session: `cleaned_epsg<N>/` / `ground_rasters_epsg<N>/`.
+
+Deliberately left untouched: `dev/worklog.md`/`dev/worklog-archive.md`
+(dated records of what was true at the time — retroactively editing
+old `zzz*` mentions there would misrepresent history), and
+`dev/phase1_smoketest.md`/`dev/scan_angle_bias.md` for the same
+reason.
+
+Verified: `grep -rn "zzz\b" lidar/ CLAUDE.md` now returns nothing.
+`lintr::lint()` on both changed `.R` files (comment-only changes): no
+lints. Removed the now-closed item from `dev/backlog.md`. Not
+committed, per instructions not to commit unless asked.
+
+### Part E complete: clean `rr` re-run against the reworked path scheme
+
+Full pipeline re-run end-to-end for `rr`
+(`lidar/02.R` → `03_evaluate_dtm.R` → `06_compare_ground_sources.R` →
+`07_floor_corrected_ground.R` → `08_veg_height_validation.R` →
+`05_veg_heights.R`) against the Part B/C path-scheme rework. Manually
+run and verified by the user: every output, including the new Part D
+metadata sidecars, landed where expected and looked sane.
+
+Compared the fresh reports (`../lidar_reports/rr_2022_05_14/`,
+`rr_2022_08_10/`, `rr_ground_comparison/`) against the pre-re-run
+archive kept for this purpose (`../lidar_reports/archive/`, see Part A,
+worklog 2026-09-11/12) — looked good, so the archive copies were
+deleted (7.5 MB, outside git).
+
+This closes out the "scratch-tree cleanup, path-scheme rework, output
+metadata, then a clean `rr` re-run" work item tracked in
+`workplan.md` (Parts A–E, worklog 2026-09-11 through today). One piece
+carried forward rather than closed: updating `lidar/ARCHITECTURE.md`
+and the driver header comments to reflect the final path scheme is
+still pending — moved to `dev/backlog.md` rather than left dangling in
+a cleared `workplan.md`.
+
 ### Added a memory pre-flight check to `lidar/02.R`
 
 Triggered by a real OOM during a Part E clean re-run of `rr`: another
