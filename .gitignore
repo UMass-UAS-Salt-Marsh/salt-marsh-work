@@ -47,6 +47,7 @@ docs
 
 # Annoying Rplot.pdf file that gets created while testing
 /tests/testthat/Rplots.pdf
+/Rplots.pdf
 
 # Rendered Rmarkdown
 /inundation_metrics/*.html

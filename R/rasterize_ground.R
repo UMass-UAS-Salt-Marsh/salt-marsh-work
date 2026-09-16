@@ -23,6 +23,15 @@
 #' @param chunk_size Tile size for [lidR::LAScatalog] processing (m).
 #'   Default `200`.
 #' @param chunk_buffer Buffer around each chunk (m). Default `20`.
+#' @param check_memory Run the pre-flight memory check via
+#'   [check_worker_memory()]. Default `TRUE`.
+#'
+#' @details
+#' The memory pre-flight check assumes [future::plan()] has already
+#' been configured by the caller — it introspects the active plan's
+#' worker count via [future::nbrOfWorkers()] rather than taking a
+#' `workers` argument, the same way [lidR::catalog_map()] itself
+#' relies on the caller's `plan()`.
 #'
 #' @examples
 #' \dontrun{
@@ -48,13 +57,25 @@ rasterize_ground <- function(
       raster_res    = 0.25,
       verbose       = TRUE,
       chunk_size    = 200,
-      chunk_buffer  = 20) {
+      chunk_buffer  = 20,
+      check_memory  = TRUE) {
 
    stopifnot(grepl("\\.tif$", output))
 
    ctg <- readLAScatalog(input)
    opt_chunk_size(ctg)   <- chunk_size
    opt_chunk_buffer(ctg) <- chunk_buffer
+
+   if (check_memory) {
+      density <- lidR::density(ctg)
+      expected_worker_memory_mb <- estimate_worker_memory_mb(
+         process      = "rasterize_ground",
+         chunk_size   = chunk_size,
+         chunk_buffer = chunk_buffer,
+         density      = density
+      )
+      check_worker_memory(future::nbrOfWorkers(), expected_worker_memory_mb)
+   }
 
    # Write each chunk raster to disk as it completes so an interruption
    # only loses the in-progress chunk, not the whole DTM.

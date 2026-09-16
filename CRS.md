@@ -310,9 +310,10 @@ NAD83(2011) + NAVD88/GEOID18 is the right target, not NAPGD2022.
   needs the *source* CRS re-derived as a specific realization (e.g.
   ITRF2014, EPSG:7912, or whatever WGS 84(G2139)'s actual EPSG code
   turns out to be) before reprojection, not just picking a good
-  target EPSG. Not yet fixed in code — flagging here so it isn't
-  lost; see `dev/workplan.md` / `dev/worklog.md` for whether this has
-  moved to an active task.
+  target EPSG. Not yet fixed in code. **Paused, 2026-09-11** —
+  deprioritized behind the site rollout; see `lidar/readme.md`'s
+  "Systematic vertical bias..." section and `dev/scan_angle_bias.md`
+  for status if this work resumes.
 
 ## Practical checklist for new code
 

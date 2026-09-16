@@ -1,0 +1,47 @@
+# Per-site, per-flight run configuration for the lidar pipeline.
+#
+# Written by hand, not by a helper function -- see the "Tuning vs.
+# production" refactor in dev/worklog.md, 2026-09-15. Tuning drivers
+# (lidar/tuning/) read a site/flight's `best_csf` grid winner and its
+# `ground_reference` choice from human review of their reports and
+# get hand-edited in here; production drivers (lidar/production/) only
+# ever read this file, via R/get_run_config.R, never write it.
+#
+# To set up a new site: copy the `rr` block below, replace the values,
+# and start with `lidar/tuning/01_csf_tuning.R`.
+#
+# Schema (per site):
+#   target_epsg, workers, chunk_size, chunk_buffer -- used by
+#     prepare_flight() for the shared reprojection + clean_and_tile
+#     step. Per-stage rasterization drivers keep their own
+#     workers/chunk_size locally (different memory footprints).
+#   flights.<yyyy_mm_dd>.season -- "spring" or "summer".
+#   flights.<yyyy_mm_dd>.best_csf -- CSF parameter set from
+#     lidar/tuning/01_csf_tuning.R for that flight.
+#   ground_reference.method -- "csf" or "massgis_plus_floor".
+#   ground_reference.massgis_tile -- tile id, or a list of tile ids
+#     for sites needing a multi-tile mosaic.
+#   ground_reference.floor_bias_source_flight -- which flight's cached
+#     ECP residuals (from lidar/tuning/02_ground_reference_selection.R)
+#     the floor bias is estimated from. Only meaningful when method is
+#     "massgis_plus_floor".
+
+sites:
+  rr:
+    target_epsg: 6491
+    workers: 25
+    chunk_size: 100
+    chunk_buffer: 20
+    flights:
+      "2022_05_14":
+        season: spring
+        best_csf: {csf_threshold: 0.01, csf_res: 0.1,
+                   csf_rigidness: 2, raster_res: 0.25}
+      "2022_08_10":
+        season: summer
+        best_csf: {csf_threshold: 0.12, csf_res: 0.2,
+                   csf_rigidness: 2, raster_res: 0.25}
+    ground_reference:
+      method: massgis_plus_floor
+      massgis_tile: "19TDG412612"
+      floor_bias_source_flight: "2022_08_10"

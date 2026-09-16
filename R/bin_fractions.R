@@ -23,8 +23,9 @@ bin_fractions <- function(z, bin_breaks, bin_names) {
       return(setNames(as.list(rep(NA_real_, n_bins)), bin_names))
    }
 
+   floor_ht   <- bin_breaks[1L]
    ceiling_ht <- bin_breaks[n_bins + 1L]
-   z_pos  <- z[z >= 0 & z < ceiling_ht]
+   z_pos  <- z[z >= floor_ht & z < ceiling_ht]
    counts <- tabulate(
       .bincode(z_pos, bin_breaks, right = FALSE,
                include.lowest = TRUE),

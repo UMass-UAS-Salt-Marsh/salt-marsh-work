@@ -21,7 +21,9 @@
 #' @param ecp_types Character vector of ECP `type` values to include
 #'    (case-insensitive). Default `"EVP"`.
 #' @param output_file Name of the output HTML file.
-#'    Defaults to `ground_comparison_<site>.html`.
+#'    Defaults to the basename of
+#'    `pathtools::get_path("ground_comparison_report_html", site)`
+#'    (`ground_comparison_<site>.html`).
 #' @param open If `TRUE` (default), open the rendered HTML in the
 #'    default browser.
 #'
@@ -50,7 +52,8 @@ report_ground_sources <- function(
       output_dir  = get_path("ground_comparison_report", site = site),
       tolerances  = c(0.10, 0.20),
       ecp_types   = "EVP",
-      output_file = paste0("ground_comparison_", site, ".html"),
+      output_file = basename(get_path("ground_comparison_report_html",
+                                      site = site)),
       open        = TRUE) {
 
    stopifnot(

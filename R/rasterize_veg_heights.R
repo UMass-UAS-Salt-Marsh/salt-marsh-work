@@ -8,57 +8,93 @@
 #' @param input Directory containing cleaned `.las` tiles
 #'   (output of [clean_and_tile()]).
 #' @param dtm Path to the single-band spring-season reference DTM `.tif`.
-#' @param output Path for the output multi-band `.tif`.
+#' @param output Path for the output multi-band `.tif` of per-bin
+#'   fractions.
+#' @param count_output Path for a second, single-band `.tif` recording
+#'   `n_returns`: how many returns landed in each cell (the value each
+#'   cell's fractions are divided by). Written as a 32-bit signed
+#'   integer raster (`datatype = "INT4S"`).
 #' @param bin_breaks Numeric vector of break points (metres) defining the
-#'   height bins.
-#'   Default: 5 cm bins 0–1 m then 20 cm bins 1–3 m (30 bands total).
+#'   height bins. The first and last breaks act as the floor and
+#'   ceiling: returns below the floor are treated as noise and
+#'   excluded, while `Inf` as the last break keeps the top bin
+#'   open-ended.
+#'   Default: a -5 to 5 cm bin to catch near-zero returns, then 5 cm
+#'   bins up to 1 m, 20 cm bins 1–3 m, and an open-ended bin above
+#'   3 m (31 bands total).
 #' @param raster_res Output raster resolution in metres. Default `0.5`.
 #' @param chunk_size Tile size for [lidR::LAScatalog] processing (metres).
 #'   Default `200`.
 #' @param chunk_buffer Buffer around each chunk (metres). Default `20`.
 #' @param verbose Print progress messages. Default `TRUE`.
-#' @return Path to the output GeoTIFF (invisibly).
+#' @return `c(output, count_output)` (invisibly).
 #'
 #' @details
 #' **Fraction denominator**: cell values are `count_in_bin / total_returns`
 #' where the denominator is all returns in the cell (including returns
-#' below ground or above the ceiling of `bin_breaks`).
+#' below the floor of `bin_breaks`, or above its ceiling for a custom,
+#' non-open-ended `bin_breaks`).
 #' Per-band fractions therefore need not sum to 1.
 #'
-#' **Band names** encode bin edges in centimetres:
-#' `h000_005` = 0–5 cm, `h100_120` = 100–120 cm, etc.
+#' **Band names** encode bin edges in centimetres, with `n` marking a
+#' negative edge and `Inf` marking an open-ended one:
+#' `hn05_005` = -5–5 cm, `h100_120` = 100–120 cm, `h300_Inf` = above
+#' 3 m.
 #'
 #' @examples
 #' \dontrun{
 #' rasterize_veg_heights(
-#'    input  = pathtools::get_path("cleaned_tiles", site = "rr",
+#'    input        = pathtools::get_path("cleaned_tiles", site = "rr",
 #'                                 date = "2022_08_10", target_epsg = 6491),
-#'    dtm    = pathtools::get_path("ground_raster", site = "rr",
+#'    dtm          = pathtools::get_path("ground_raster", site = "rr",
 #'                                 date = "2022_05_14", target_epsg = 6491,
 #'                                 csf_threshold = 0.06, csf_res = 0.10,
 #'                                 csf_rigidness = 2, raster_res = 0.25),
-#'    output = pathtools::get_path("veg_heights_raster", site = "rr",
-#'                                 date = "2022_08_10", raster_res = 0.5)
+#'    output       = pathtools::get_path("veg_heights_raster", site = "rr",
+#'                                 date = "2022_08_10", raster_res = 0.5),
+#'    count_output = pathtools::get_path("veg_return_count_raster",
+#'                                 site = "rr", date = "2022_08_10",
+#'                                 raster_res = 0.5)
 #' )
 #' }
 rasterize_veg_heights <- function(
       input,
       dtm,
       output,
-      bin_breaks   = c(seq(0, 1, by = 0.05), seq(1.2, 3.0, by = 0.20)),
+      count_output,
+      bin_breaks   = c(-0.05, seq(0.05, 1, by = 0.05),
+                       seq(1.2, 3.0, by = 0.20), Inf),
       raster_res   = 0.5,
       chunk_size   = 200,
       chunk_buffer = 20,
       verbose      = TRUE) {
 
    stopifnot(grepl("\\.tif$", output, ignore.case = TRUE))
+   stopifnot(grepl("\\.tif$", count_output, ignore.case = TRUE))
    stopifnot(file.exists(dtm))
 
    n_bins    <- length(bin_breaks) - 1L
    low_cm    <- round(bin_breaks[-length(bin_breaks)] * 100)
    high_cm   <- round(bin_breaks[-1L] * 100)
-   bin_names <- sprintf("h%03d_%03d", low_cm, high_cm)
-   ceiling_ht <- bin_breaks[n_bins + 1L]
+
+   # `sprintf("%03d", ...)` errors on `Inf`, and a literal `-` prefix
+   # would make the resulting bin name an invalid, unquoted R name --
+   # format each edge individually instead of vectorizing over
+   # low_cm/high_cm directly.
+   format_edge <- function(cm) {
+      if (is.infinite(cm)) {
+         "Inf"
+      } else if (cm < 0) {
+         sprintf("n%02d", abs(cm))
+      } else {
+         sprintf("%03d", cm)
+      }
+   }
+   bin_names <- sprintf(
+      "h%s_%s",
+      vapply(low_cm, format_edge, character(1L)),
+      vapply(high_cm, format_edge, character(1L))
+   )
 
    dtm_path <- dtm   # path string — serialises safely to workers
 
@@ -83,9 +119,12 @@ rasterize_veg_heights <- function(
    # reconstructs it inside a data.table call, so embedding a literal
    # (multi-line) function object corrupts that reparse. Bake
    # bin_breaks/bin_names in as literal values via bquote() since
-   # those deparse safely as simple vectors.
-   metric_call <- bquote(bin_fractions(Z, bin_breaks = .(bin_breaks),
-                                       bin_names = .(bin_names)))
+   # those deparse safely as simple vectors. n_returns is appended
+   # here (not inside bin_fractions()) so that function stays focused
+   # on fractions only.
+   metric_call <- bquote(c(bin_fractions(Z, bin_breaks = .(bin_breaks),
+                                         bin_names = .(bin_names)),
+                           list(n_returns = length(Z))))
    metric_formula <- stats::as.formula(call("~", metric_call))
 
    compute_heights <- function(las) {
@@ -102,8 +141,16 @@ rasterize_veg_heights <- function(
 
    result <- lidR::catalog_map(ctg, compute_heights)
 
-   terra::writeRaster(result, filename = output, overwrite = TRUE)
+   fraction_bands <- terra::subset(result, bin_names)
+   count_band     <- terra::subset(result, "n_returns")
+
+   terra::writeRaster(fraction_bands, filename = output, overwrite = TRUE)
+   terra::writeRaster(count_band, filename = count_output,
+                      datatype = "INT4S", overwrite = TRUE)
    unlink(chunk_dir, recursive = TRUE)
-   if (verbose) message("Vegetation height raster written: ", output)
-   invisible(output)
+   if (verbose) {
+      message("Vegetation height raster written: ", output)
+      message("Return-count raster written: ", count_output)
+   }
+   invisible(c(output, count_output))
 }
