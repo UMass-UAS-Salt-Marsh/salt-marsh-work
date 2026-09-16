@@ -20,3 +20,15 @@ here (the worklog is the durable record of what happened).
   wired in for that process.
 
 - **check output pixel alignment**  make sure it snaps to origin
+
+- **Burn flow lines under roads before sink-filling.** `fill_sinks()`
+  (`R/fill_sinks.R`, added 2026-09-16) fills whatever raster it's
+  given, with no assumption about roads/culverts/bridges. Real DTMs
+  will have places where a road or driveway crosses a channel and
+  reads as a dam, producing an unrealistic upstream fill. Needs a
+  preprocessing function that lowers the DTM along mapped
+  culvert/bridge flow lines (a vector layer isn't identified yet)
+  before it reaches `fill_sinks()`.
+  `whitebox::wbt_breach_depressions_least_cost()` is worth evaluating
+  as an alternative/complement to hand-burning, since it's built for
+  exactly this kind of obstacle-breaching.
