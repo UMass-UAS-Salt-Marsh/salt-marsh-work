@@ -15,6 +15,18 @@ not on CRAN and must be installed from GitHub:
 remotes::install_github("ethanplunkett/pathtools")
 ```
 
+Sink-filling (`R/fill_sinks.R`) uses the
+[`whitebox`](https://cran.r-project.org/package=whitebox) package,
+which is on CRAN but also needs a one-time binary fetch:
+
+```r
+install.packages("whitebox")
+whitebox::install_whitebox()
+```
+
+See [`dev/whitebox_install.md`](dev/whitebox_install.md) for a log of
+this install.
+
 The structure is as follows:
 * `R/`  function code.  Source the `.R` files here to define functions.
 *  `inundation_metrics`  Calculate hydrology inundation metrics and perform regression against elevation at
