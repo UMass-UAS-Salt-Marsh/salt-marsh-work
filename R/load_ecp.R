@@ -53,7 +53,8 @@
 #'    (case-insensitive;
 #'    compared against `tolower(ecp$site)`).
 #'    If `NULL` (default), all sites are returned.
-#'
+#' @param source_crs The crs of tabular the source data. Ignored if `path`
+#'    is to a GeoPackage
 #' @return An `sf` object,
 #'    one row per surviving ECP,
 #'    with `easting` and `northing` columns plus all other
@@ -69,9 +70,9 @@
 load_ecp <- function(path,
                      target_crs = 6491L,
                      exclude_types = "Logger Array",
-                     site = NULL) {
+                     site = NULL,
+                     source_crs = 26919L) {
 
-   source_crs <- 26919L
 
    stopifnot(
       is.character(path), length(path) == 1L, file.exists(path),
@@ -80,8 +81,30 @@ load_ecp <- function(path,
       is.null(site) || (is.character(site) && length(site) == 1L)
    )
 
-   ecp <- readxl::read_xlsx(path) |> clean_column_names()
-
+   ext <- tools::file_ext(path) |> tolower()
+   
+   if (ext == "xlsx") {
+      ecp <- readxl::read_xlsx(path) |> clean_column_names()
+   } else if (ext == "gpkg") {
+      ecp <- sf::read_sf(path)
+      source_crs <- sf::st_crs(ecp)
+      sf::st_coordinates(ecp)
+      if("subclass" %in% names(ecp) && !"type" %in% names(ecp)) {
+         ecp$type <- ecp$subclass
+         cat("Using \"subclass\" to define the \"type\" of ground control point.")
+      }
+      coords <- sf::st_coordinates(ecp)
+      if(! "elevation" %in% names(ecp) && ncol(coords) > 2)
+         ecp$elevation <- coords[, 3]
+      if(!"easting" %in% names(ecp))
+         ecp$easting <- coords[, 1]
+      if(!"northing" %in% names(ecp))
+         ecp$northing <- coords[, 2]
+   } else {
+      stop("load_ecp does not handle files with extension: ", ext)
+   }
+      
+   
    required <- c("easting", "northing", "elevation", "type", "site")
    missing <- setdiff(required, colnames(ecp))
    if (length(missing) > 0L) {
@@ -111,18 +134,25 @@ load_ecp <- function(path,
               ").")
    }
 
-   ecp_sf <- sf::st_as_sf(
-      ecp,
-      coords = c("easting", "northing"),
-      crs    = source_crs,
-      remove = FALSE
-   )
-
+   if (!inherits(ecp, "sf")) {
+      ecp_sf <- sf::st_as_sf(
+         ecp,
+         coords = c("easting", "northing"),
+         crs    = source_crs,
+         remove = FALSE
+      )
+   } else {
+      ecp_sf <- ecp
+   }
+   
    if (as.integer(target_crs) != source_crs) {
       ecp_sf <- sf::st_transform(ecp_sf, crs = as.integer(target_crs))
       coords <- sf::st_coordinates(ecp_sf)
       ecp_sf$easting <- coords[, 1]
       ecp_sf$northing <- coords[, 2]
+      if (ncol(coords) == 3) {
+         ecp_sf$elevation <- coords[, 3]
+      }
    }
 
    ecp_sf
