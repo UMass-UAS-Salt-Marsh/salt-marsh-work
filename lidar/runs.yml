@@ -45,3 +45,18 @@ sites:
       method: massgis_plus_floor
       massgis_tile: "19TDG412612"
       floor_bias_source_flight: "2022_08_10"
+
+  esx:
+    target_epsg: 6491
+    workers: 25
+    chunk_size: 100
+    chunk_buffer: 20
+    flights:
+      "2026_08_05":
+        season: summer
+        best_csf: {csf_threshold: 0.01, csf_res: 0.1,
+                   csf_rigidness: 2, raster_res: 0.25}
+    ground_reference:
+      method: massgis_plus_floor
+      massgis_tile: "19TDG412612"
+      floor_bias_source_flight: "2022_08_05"

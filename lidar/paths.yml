@@ -19,17 +19,21 @@ paths:
   # ---------------------------------------------------------------------
   scratch_root:      "E:/uas_scratch/lidar"
   reports_root:      "../lidar_reports"
-  legacy_data_root:  "X:/legacy/gdrive"
-  sites_data_root:   "X:/projects/uas_veg/sites"
-  massgis_root:      "X:/scratch/bcompton/LiDAR"
+  legacy_data_root:  "U:/legacy/gdrive"
+  sites_data_root:   "U:/projects/uas_veg/sites"
+  massgis_root:      "U:/scratch/bcompton/LiDAR"
 
   # ---------------------------------------------------------------------
   # Constants
   # ---------------------------------------------------------------------
   geoid_grid: "{@legacy_data_root}/UMassAir User Resources/LASTools/Geoid Transformation GTX Files/geoid18/us_noaa_g2018u0.tif"
 
-  ecp_path: "{@legacy_data_root}/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
-
+  ecp_path: 
+    template: "{@legacy_data_root}/saltmarsh_UAS_native/In Situ Data Collection/JoshSurveyPoints_AllSites_One_Sheet.xlsx"
+    overrides:
+      - when: {site: esx}
+        path: "U:/projects/uas_veg/sites/esx/field/results/plots.gpkg"
+        
   # Per-site/flight run parameters recorded by the tuning drivers and
   # consumed by the production drivers -- see get_run_config(). Human-
   # written, not templated, so this is a plain path, not a template.
@@ -70,6 +74,8 @@ paths:
         path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/2022/LiDAR/LiDAR_WEL_02Aug2022/RESEPI-5FFC59-2022-08-02-13-39-18/clouds/ppk_07Nov2022_cloud_1.las"
       - when: {site: wel, date: "2022_05_20"}
         path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/2022/LiDAR/LiDAR_Wellfleet_20May2022/RESEPI-5FFC59-2022-05-20-17-17-50/clouds/ppk_AllTransects_14Jun2022_220to310.las"
+      - when: {site: esx, date: "2026_08_05"}
+        path: "U:/projects/uas_veg/sites/esx/lidar/USGS_LiDAR_Aug_2026/Essex_cloud_1_NAD832011_MAMainland_NAVD88_clipped.laz"
     type: file
 
   # ---------------------------------------------------------------------
@@ -201,7 +207,7 @@ paths:
 # for now (declared, no `values:`) -- a firmer list can be added once
 # convenient.
 parameters:
-  site: [rr, oth, wel, nor, peg, bar]
+  site: [rr, oth, wel, nor, peg, bar, esx]
   date:
   target_epsg:
   csf_threshold:
