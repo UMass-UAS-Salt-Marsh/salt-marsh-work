@@ -8,8 +8,8 @@ output:
     theme: flatly
     df_print: kable
 params:
-  site:        "rr"
-  date:        "2022_05_14"
+  site:        "esx"
+  date:        "2026_08_05"
   ecp_path:    NULL
   dtm_dir:     NULL
   eval_dir:    NULL
@@ -30,7 +30,7 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 set_path_scheme("lidar/paths.yml")
 
-ecp_path <- params$ecp_path %||% get_path("ecp_path")
+ecp_path <- params$ecp_path %||% get_path("ecp_path", site = site)
 dtm_dir  <- params$dtm_dir %||% get_path("ground_raster_dir",
                                         site = params$site,
                                         date = params$date,
@@ -251,20 +251,28 @@ p <- p  +
 print(p)
 ```
 
-# With vegetation height indicated
+```{r has_veg}
+has_veg_height <- "veg_height_m" %in% names(plot_data)
+```
+
+
+```{r, echo=FALSE, results='asis', include = has_veg_height}
+cat("# With vegetation height indicated
 
 Vertical lines stretch from the RTK field surveyed elevation to the 
-top of the vegetation as recorded in the field, which may not be the 
+top of the vegetation as recorded in the field, which may not be the
 height of the vegetation when the lidar was flown. Field work was
 conducted between `r min(plot_data$date)` and `r max(plot_data$date)`.  
-The lidar was flown on `r gsub("_", "-", date, fixed = TRUE)`
+The lidar was flown on `r gsub(\"_\", \"-\", date, fixed = TRUE)`")
+   
+```
 
 
 ```{r cross_dtm_plot_lines, fig.width = 10, fig.height = 10, out.width= "100%"}
 
 
 # Render plot with height lines
-if ("veg_height_m" %in% names(plot_data)) {
+if (has_veg_height) {
    p2 <- p + geom_segment(aes(x = elevation, xend = elevation,
                               y = elevation,
                               yend = elevation + veg_height_m,
