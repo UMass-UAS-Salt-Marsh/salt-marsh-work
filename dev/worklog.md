@@ -27,6 +27,66 @@ It was downloaded from MassGIS but produced by USGS.  This change
 wasn't made in the worklog and worklog hostor but was made everywhere 
 else including in the other dev/*.md files.
 
+### Added `merge_usgs_tiles()` — multi-tile USGS mosaic
+
+Implements the mosaic step `build_ground_raster()`'s
+`"usgs_plus_floor"` branch has stopped on for multi-tile sites
+(`R/build_ground_raster.R:87-91`) — see `dev/rollout_workplan.md` for
+the original decision to use a `.vrt` over `terra::merge()`. Wiring
+the mosaic into that branch is still out of scope here; this adds the
+standalone building block.
+
+- Added `R/merge_usgs_tiles.R`: `merge_usgs_tiles(site, overwrite =
+  FALSE)`. Resolves `usgs_tile_index` and `site_footprint` via
+  `pathtools::get_path()`, finds every tile intersecting the site's
+  footprint (`sf::st_intersects()`), downloads any that aren't local
+  yet (`download_usgs_tile()`), and mosaics them into
+  `usgs_mosaic_vrt` via `sf::gdal_utils(util = "buildvrt", ...)`.
+  Skip-if-exists; writes a `write_output_metadata()` sidecar recording
+  the matched tile IDs (`params$tiles`) and the two source paths
+  (`inputs`).
+- Added `R/download_usgs_tile.R`: `download_usgs_tile(tile, overwrite
+  = FALSE)`. Looks up a tile's `DEM_URL` in `usgs_tile_index`,
+  downloads+unzips it to `get_path("usgs_tile", tile = ...)` if not
+  already present. Only handles `.zip`-packaged tiles (every tile
+  `esx`/`wel` need, and everything downloaded by hand so far,
+  confirmed to share the `2021_CENTRAL_EASTERN_MA` era/format) — errors
+  clearly on any other `DEM_URL` extension (`.img.bz2` for 2015/Sandy,
+  bare `.tif` for 2018_Nantucket) rather than guessing at unverified
+  formats.
+- `R/write_output_metadata.R`: `source_cloud` is now optional
+  (`= NULL` default) and omitted from the sidecar YAML entirely when
+  `NULL`, rather than written as `null` — needed since a tile mosaic
+  has no single raw-point-cloud lineage. All 5 pre-existing call sites
+  already passed it by name, so no call-site changes were needed;
+  confirmed via a forced rewrite of `rr`'s existing
+  `usgs_plus_floor.yaml` sidecar that `source_cloud` is still written
+  correctly when a real path is passed.
+- `lidar/paths.yml`:
+  - Fixed `site_footprint`'s `esx` override, which pointed at a bare
+    `.prj` file `sf::st_read()` can't open ("Cannot open ...prj;
+    source could be corrupt") — it should have pointed at the sibling
+    `.shp`.
+  - Converted `site_footprint` from fully-enumerated (one `esx`
+    override only) to a template (`{site}_footprint.shp`) with
+    overrides for `rr`/`nor`, whose footprint shapefiles predate that
+    naming convention (`RR_100ac_Mask_27Mar23.shp`,
+    `NR_200ac_Mask_24Mar23.shp`). `wel`/`bar`/`esx` all already follow
+    the `{site}_footprint.shp` convention on disk — this was needed to
+    get `merge_usgs_tiles("wel")` resolving at all; without it the
+    smoke test failed with "no rule matches {site: wel}" since `wel`
+    had no override and there was no general template.
+  - Added `usgs_mosaic_vrt` (`{@scratch_root}/{site}/usgs_mosaic.vrt`,
+    site-level leaf, no `date`/`target_epsg` dependency).
+- Verified: `lintr::lint()` clean on all three changed/new files.
+  `merge_usgs_tiles("esx")` matched all 6 tiles, downloaded all 6 for
+  real (none were in `usgs_root` yet), mosaic opened fine via
+  `terra::rast()`, sidecar had no `source_cloud` key, second call
+  printed the skip-if-exists message with no rebuild.
+  `merge_usgs_tiles("wel")` matched its known 2 tiles
+  (`19TDG415636`/`19TDG417636`), both already present locally (no
+  download needed), mosaic opened fine.
+
 ## 2026-09-16 — branch fill-sinks
 
 ### Added `fill_sinks()`

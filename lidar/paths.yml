@@ -33,7 +33,8 @@ paths:
     overrides:
       - when: {site: esx}
         path: "U:/projects/uas_veg/sites/esx/field/results/plots.gpkg"
-        
+
+  usgs_tile_index: 'U:\scratch\bcompton\LiDAR\usgs_lidar_index\LIDARINDEX_POLY_CURRENT_BEST.shp'
   # Per-site/flight run parameters recorded by the tuning drivers and
   # consumed by the production drivers -- see get_run_config(). Human-
   # written, not templated, so this is a plain path, not a template.
@@ -78,6 +79,17 @@ paths:
         path: "{@sites_data_root}/esx/lidar/USGS_LiDAR_Aug_2026/Essex_cloud_1_NAD832011_MAMainland_NAVD88_clipped.laz"
     type: file
 
+  # Most sites' footprint shapefile follows {site}_footprint.shp
+  # (esx, bar, wel); rr and nor predate that convention and keep
+  # their original hand-picked filenames as overrides.
+  site_footprint:
+    template: "{@sites_data_root}/{site}/site_footprint/{site}_footprint.shp"
+    overrides:
+      - when: {site: rr}
+        path: "{@sites_data_root}/{site}/site_footprint/RR_100ac_Mask_27Mar23.shp"
+      - when: {site: nor}
+        path: "{@sites_data_root}/{site}/site_footprint/NR_200ac_Mask_24Mar23.shp"
+
   # ---------------------------------------------------------------------
   # Scratch-tree templates. `site_date_root` is a composition root
   # (like pathtools's out_root -> out_dir -> scenario_dir example) so
@@ -87,6 +99,9 @@ paths:
   site_date_root:
     template: "{@scratch_root}/{site}/{date}"
     type: dir
+  usgs_mosaic_vrt:
+    template: "{@scratch_root}/{site}/usgs_mosaic.vrt"
+    type: file
   cleaned_tiles:
     template: "{@site_date_root}/cleaned_epsg{target_epsg}"
     type: dir

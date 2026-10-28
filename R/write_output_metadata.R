@@ -24,6 +24,9 @@
 #' @param source_cloud Path to the original raw point cloud this
 #'    output ultimately derives from — the first input to the whole
 #'    pipeline, not necessarily this output's immediate upstream file.
+#'    Default `NULL` for outputs with no single raw-point-cloud
+#'    lineage (e.g. a USGS tile mosaic); omitted from the sidecar
+#'    entirely when `NULL`, rather than written as `null`.
 #' @param crs The output's CRS, as a string (e.g. `"EPSG:6491"`).
 #' @param inputs Named list of the immediate input paths this output
 #'    was built from.
@@ -49,7 +52,7 @@
 #' }
 write_output_metadata <- function(output,
                                   created_by,
-                                  source_cloud,
+                                  source_cloud = NULL,
                                   crs,
                                   inputs,
                                   params = list(),
@@ -64,14 +67,16 @@ write_output_metadata <- function(output,
    }
 
    metadata <- list(
-      created_at   = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
-      created_by   = created_by,
-      output       = output,
-      crs          = crs,
-      source_cloud = source_cloud,
-      inputs       = as.list(inputs),
-      params       = as.list(params)
+      created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+      created_by = created_by,
+      output     = output,
+      crs        = crs,
+      inputs     = as.list(inputs),
+      params     = as.list(params)
    )
+   if (!is.null(source_cloud)) {
+      metadata$source_cloud <- source_cloud
+   }
 
    yaml::write_yaml(metadata, sidecar)
 
