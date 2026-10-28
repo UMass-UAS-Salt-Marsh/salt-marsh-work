@@ -47,8 +47,8 @@ if (is.null(sources) || length(sources) == 0L) {
                                 source = "may_14_ortho"),
       may_02_ortho   = get_path("photo_dem", site = site,
                                 source = "may_02_ortho"),
-      massgis_346737 = get_path("massgis_tile", tile = "19TCH346737"),
-      massgis_346735 = get_path("massgis_tile", tile = "19TCH346735")
+      usgs_346737 = get_path("usgs_tile", tile = "19TCH346737"),
+      usgs_346735 = get_path("usgs_tile", tile = "19TCH346735")
    )
 }
 
@@ -147,7 +147,7 @@ knitr::kable(rank_tbl, row.names = FALSE)
 
 A consistent positive `mean_bias` across sources that share a common
 processing lineage (e.g. all project lidar and photogrammetry) but not
-in external reference data (MassGIS) points to a datum or reprojection
+in external reference data (USGS) points to a datum or reprojection
 issue rather than a ground-finding problem.
 
 ```{r bias_plot, fig.height = 4}

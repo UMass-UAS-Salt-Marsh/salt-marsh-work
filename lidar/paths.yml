@@ -21,7 +21,7 @@ paths:
   reports_root:      "../lidar_reports"
   legacy_data_root:  "U:/legacy/gdrive"
   sites_data_root:   "U:/projects/uas_veg/sites"
-  massgis_root:      "U:/scratch/bcompton/LiDAR"
+  usgs_root:      "U:/scratch/bcompton/LiDAR"  # usgs lidar tiles (via massgis)
 
   # ---------------------------------------------------------------------
   # Constants
@@ -75,7 +75,7 @@ paths:
       - when: {site: wel, date: "2022_05_20"}
         path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/2022/LiDAR/LiDAR_Wellfleet_20May2022/RESEPI-5FFC59-2022-05-20-17-17-50/clouds/ppk_AllTransects_14Jun2022_220to310.las"
       - when: {site: esx, date: "2026_08_05"}
-        path: "U:/projects/uas_veg/sites/esx/lidar/USGS_LiDAR_Aug_2026/Essex_cloud_1_NAD832011_MAMainland_NAVD88_clipped.laz"
+        path: "{@sites_data_root}/esx/lidar/USGS_LiDAR_Aug_2026/Essex_cloud_1_NAD832011_MAMainland_NAVD88_clipped.laz"
     type: file
 
   # ---------------------------------------------------------------------
@@ -106,10 +106,10 @@ paths:
     template: "{@ground_raster_dir}/csf_th{csf_threshold}_res{csf_res}_rgd{csf_rigidness}_{raster_res}m_ecp.csv"
     type: file
   corrected_ground_raster:
-    template: "{@ground_raster_dir}/massgis_plus_floor_summer.tif"
+    template: "{@ground_raster_dir}/usgs_plus_floor.tif"
     type: file
   corrected_ground_raster_ecp_cache:
-    template: "{@ground_raster_dir}/massgis_plus_floor_summer_ecp.csv"
+    template: "{@ground_raster_dir}/usgs_plus_floor_ecp.csv"
     type: file
   canopy_top_raster:
     template: "{@ground_raster_dir}/canopy_top_summer.tif"
@@ -161,21 +161,14 @@ paths:
   # ---------------------------------------------------------------------
   # Third-party reference rasters -- fully enumerated. Naming is
   # irregular (rr's tile sits in its own be_<tile>/ subdirectory; oth's
-  # and wel's tiles sit directly in massgis_root), so this cannot be a
+  # and wel's tiles sit directly in usgs_root), so this cannot be a
   # single template.
   # ---------------------------------------------------------------------
-  massgis_tile:
+  usgs_tile:
+    template: "{@usgs_root}/be_{tile}.tif"
     overrides:
       - when: {tile: "19TDG412612"}
-        path: "{@massgis_root}/be_19TDG412612/be_19TDG412612.tif"
-      - when: {tile: "19TCH346737"}
-        path: "{@massgis_root}/be_19TCH346737.tif"
-      - when: {tile: "19TCH346735"}
-        path: "{@massgis_root}/be_19TCH346735.tif"
-      - when: {tile: "19TDG415636"}
-        path: "{@massgis_root}/be_19TDG415636.tif"
-      - when: {tile: "19TDG417636"}
-        path: "{@massgis_root}/be_19TDG417636.tif"
+        path: "{@usgs_root}/be_19TDG412612/be_19TDG412612.tif"
     type: file
 
   # ---------------------------------------------------------------------

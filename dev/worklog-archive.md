@@ -7,7 +7,6 @@ newest-on-top format as `worklog.md`; whole `## YYYY-MM-DD — branch
 when recalling history; consult this file only if the answer isn't
 there.
 
-
 ## 2026-09-14 — branch lidar
 
 ### Implemented Part D: metadata sidecar for final output rasters

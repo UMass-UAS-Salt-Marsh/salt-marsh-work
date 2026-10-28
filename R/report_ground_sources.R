@@ -7,7 +7,7 @@
 #' @param sources Named character vector mapping a short label to the
 #'    path of each raster source to compare
 #'    (e.g. `c(lidar_spring = "E:/…/csf_th0.01…tif",
-#'    massgis = "X:/…/be_tile.tif")`).
+#'    usgs = "X:/…/be_tile.tif")`).
 #' @param site 2- or 3-character lowercase site code (e.g. `"rr"`).
 #' @param ecp_path Path to the all-sites ECP xlsx.
 #'    Defaults to `pathtools::get_path("ecp_path")`.
@@ -39,7 +39,7 @@
 #'                                          csf_threshold = 0.01,
 #'                                          csf_res = 0.1, csf_rigidness = 2,
 #'                                          raster_res = 0.25),
-#'       massgis      = pathtools::get_path("massgis_tile",
+#'       usgs      = pathtools::get_path("usgs_tile",
 #'                                          tile = "19TDG412612")
 #'    ),
 #'    site = "rr"

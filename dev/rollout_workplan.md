@@ -21,11 +21,11 @@ Active work is applying it to the remaining four sites.
 |---|---|---|---|
 | `rr` | 2022-05-14 / 2022-08-10 | 169 | Done |
 | `wel` | 2022-05-20 / 2022-08-02 | 153 | **Ready, not started** — has everything the pipeline needs; larger clouds than `rr`'s, so Steps 0–2 will take longer (memory-bound). Best next candidate. |
-| `oth` | none (photogrammetry only) | 145 | **Blocked** — no raw point cloud; ground-source comparison (photogrammetry + MassGIS only) already done. |
+| `oth` | none (photogrammetry only) | 145 | **Blocked** — no raw point cloud; ground-source comparison (photogrammetry + USGS only) already done. |
 | `nor` | 2024-05-24 / 2024-10-06 | **0** | Blocked — no ECPs to validate against. |
 | `peg` | 2024-04-19 / 2024-09-23 | **0** | Blocked — same reason as `nor`. |
 
-`wel` also spans two non-overlapping MassGIS tiles
+`wel` also spans two non-overlapping USGS tiles
 (`be_19TDG415636.tif`, `be_19TDG417636.tif`), so extending the
 floor-bias approach there needs a mosaic step first — decided
 (2026-09-11) to build a lightweight `.vrt` via `gdalbuildvrt`
@@ -41,16 +41,16 @@ Decisions locked in with the user (2026-09-11):
   user review the report before hardcoding `best_csf_spring`/
   `best_csf_summer` into the downstream scripts (unlike `rr`, where
   lowest-RMSE was picked directly).
-- **Multi-tile MassGIS mosaic**: new reusable `R/merge_massgis_tiles.R`
+- **Multi-tile USGS mosaic**: new reusable `R/merge_usgs_tiles.R`
   (one function, `sf::gdal_utils(util = "buildvrt", ...)`), not inlined
   in `07_floor_corrected_ground.R` — multi-tile sites will likely
   recur (e.g. `bar`).
 
 Steps:
-- [ ] Add `R/merge_massgis_tiles.R`: takes a vector of tile paths +
+- [ ] Add `R/merge_usgs_tiles.R`: takes a vector of tile paths +
   output path, calls `sf::gdal_utils("buildvrt", source = ,
   destination = )`, returns the `.vrt` path via `ensure_parent()`.
-- [ ] Add `massgis_mosaic_vrt` template to `lidar/data/paths.yml`
+- [ ] Add `usgs_mosaic_vrt` template to `lidar/data/paths.yml`
   (leaf under `ground_raster_dir`, alongside `corrected_ground_raster`
   / `canopy_top_raster`).
 - [ ] Run `lidar/02.R` for `wel` spring (`2022_05_20`) then summer
@@ -60,12 +60,12 @@ Steps:
   (`../lidar_reports/wel_2022_05_20/`, `wel_2022_08_02/`) and wait for
   their CSF pick** before continuing.
 - [ ] Update `lidar/06_compare_ground_sources.R`'s existing `wel` block
-  (currently just `photo_dem` + the two raw MassGIS tiles): add
+  (currently just `photo_dem` + the two raw USGS tiles): add
   `lidar_spring`/`lidar_summer` `ground_raster` entries using the
   user's chosen CSF params (mirroring the `rr` block), and replace the
-  two separate MassGIS tile entries with one `massgis` entry built from
-  `merge_massgis_tiles()`. Run it.
-- [ ] `lidar/07_floor_corrected_ground.R`: generalize the MassGIS
+  two separate USGS tile entries with one `usgs` entry built from
+  `merge_usgs_tiles()`. Run it.
+- [ ] `lidar/07_floor_corrected_ground.R`: generalize the USGS
   lookup so a site can name >1 tile (e.g. a small `list(rr = ...,
   wel = c(...))` map at the top), building the mosaic only when a site
   has more than one. Set `site <- "wel"`, `date <- "2022_08_02"`; run.

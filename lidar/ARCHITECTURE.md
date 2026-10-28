@@ -45,9 +45,9 @@ vegetation, used for the height signal). From those it produces:
 Along the way, the ground reference used for (2) turned out not to
 be the site's own spring DTM: DTM validation showed all UAS-derived
 sources carry a positive elevation bias against ECPs (spring lidar
-least of all, but still biased), while a MassGIS aerial-lidar tile
+least of all, but still biased), while a USGS aerial-lidar tile
 for the same area does not. The pipeline therefore builds a hybrid
-ground reference — MassGIS elevation, shifted by an estimated
+ground reference — USGS elevation, shifted by an estimated
 instrument-level offset — and validates that choice against
 field-measured vegetation heights before using it. See "Pipeline
 stages" below for how, and `dev/worklog.md` (2026-08-24) for the
@@ -187,43 +187,43 @@ Before committing to a ground reference for vegetation heights, the
 site's `best_csf` DTMs (read from `runs.yml` via `get_run_config()`,
 not hand-copied literals) are compared against every other available
 ground elevation source for the site — photogrammetry DEMs and a
-MassGIS aerial-lidar bare-earth tile — using the same `sample_dtm()`
+USGS aerial-lidar bare-earth tile — using the same `sample_dtm()`
 + `evaluate_dtm()` stack, just pointed at different rasters.
 
 - **Driver:** `lidar/tuning/02_ground_reference_selection.R` (first
   section) → `report_ground_sources()`.
 - **Report:** `rmd/ground_source_comparison.Rmd`.
-- **Finding:** MassGIS beats every UAS-derived source by a wide
+- **Finding:** USGS beats every UAS-derived source by a wide
   margin at every site tested, with near-zero bias.
 - **Output:** `../lidar_reports/<site>_ground_comparison/` (per-source
   ECP CSVs, `ground_source_comparison.csv`, HTML report).
 
 ### Floor-bias-corrected ground reference
 
-MassGIS's near-zero bias makes it the accuracy winner, but it
+USGS's near-zero bias makes it the accuracy winner, but it
 doesn't share the UAS point cloud's own instrument-level vertical
 offset — using it unmodified would leave that offset uncancelled in
 every vegetation-height measurement. `estimate_floor_bias()` isolates
 just the instrument-level component of the UAS bias from the cached
 DTM-vs-ECP residuals (excluding vegetation-contaminated outliers;
 `plot_floor_bias()` is its diagnostic companion), and that offset is
-added to the (CRS-reprojected) MassGIS raster via
+added to the (CRS-reprojected) USGS raster via
 `build_floor_corrected_ground()`.
 
 - **Driver:** `lidar/tuning/02_ground_reference_selection.R` (second
   section), which computes and plots the floor-bias estimate for
   every candidate source flight, then — if `ground_reference.method
-  == "massgis_plus_floor"` is already recorded for the site in
+  == "usgs_plus_floor"` is already recorded for the site in
   `runs.yml` — calls `build_ground_raster()` to (re)build the hybrid
   raster. If no decision is recorded yet, it stops after the report
   with a reminder to review it and edit `runs.yml`.
 - **Human step:** review the ground-source comparison report and
   floor-bias plots, then hand-edit `ground_reference` (`method`,
-  `massgis_tile`, `floor_bias_source_flight`) into `runs.yml` under
+  `usgs_tile`, `floor_bias_source_flight`) into `runs.yml` under
   `sites.<site>`.
 - **Input:** cached ECP-sample CSVs from the ground-source
   comparison step.
-- **Output:** `ground_rasters_epsg<N>/massgis_plus_floor_summer.tif`.
+- **Output:** `ground_rasters_epsg<N>/usgs_plus_floor_summer.tif`.
 
 ### Ground raster (production replay)
 
@@ -233,7 +233,7 @@ call `build_ground_raster()`, which reads `runs.yml` via
 `get_run_config()` and dispatches on `ground_reference.method`: for
 `"csf"` it re-runs `rasterize_ground()` once with the recorded
 `best_csf` (preparing the cleaned cloud first via `prepare_flight()`
-if needed); for `"massgis_plus_floor"` it re-reads the *cached* ECP
+if needed); for `"usgs_plus_floor"` it re-reads the *cached* ECP
 CSV already written by the tuning step above, re-runs only
 `estimate_floor_bias()` (cheap), and calls
 `build_floor_corrected_ground()`. Either branch is skip-if-exists.
@@ -319,7 +319,7 @@ flowchart TD
     J --> K
     K --> RUNS[("lidar/runs.yml<br/>best_csf")]
 
-    OTHER[/"Photogrammetry DEMs +<br/>MassGIS bare-earth tile"/]
+    OTHER[/"Photogrammetry DEMs +<br/>USGS bare-earth tile"/]
     G1 --> M
     G2 --> M
     OTHER --> M
@@ -332,7 +332,7 @@ flowchart TD
     M --> O
     OTHER --> P
     O["estimate_floor_bias()<br/>(lidar/tuning/02_ground_reference_selection.R)"]
-    O --> P[/"Floor-bias-corrected ground raster<br/>massgis_plus_floor_summer.tif"/]
+    O --> P[/"Floor-bias-corrected ground raster<br/>usgs_plus_floor_summer.tif"/]
     N --> RUNS2[("lidar/runs.yml<br/>ground_reference")]
     RUNS2 --> O
 

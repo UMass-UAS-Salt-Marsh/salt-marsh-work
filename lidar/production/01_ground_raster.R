@@ -6,9 +6,9 @@
 # 2026-09-15, for the tuning/production driver split this is part of.
 # Once a site/flight has a `best_csf` (for `ground_reference.method ==
 # "csf"`) or a `ground_reference` decision (for
-# `"massgis_plus_floor"`) recorded in `lidar/runs.yml`, this is the
+# `"usgs_plus_floor"`) recorded in `lidar/runs.yml`, this is the
 # only script needed to (re)produce its ground raster -- no grid
-# search, no MassGIS/photo-DEM comparison report.
+# search, no USGS/photo-DEM comparison report.
 #
 # Prerequisite workflow:
 #   lidar/tuning/01_csf_tuning.R and

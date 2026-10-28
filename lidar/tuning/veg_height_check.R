@@ -16,9 +16,9 @@
 #
 #   opt2_spring_lidar_ground — legacy approach: summer canopy top
 #     minus the spring lidar CSF DTM.
-#   opt3_massgis_plus_floor  — current default
+#   opt3_usgs_plus_floor  — current default
 #     (`lidar/production/01_ground_raster.R`): summer canopy top minus
-#     MassGIS ground shifted up by the estimated instrument-level
+#     USGS ground shifted up by the estimated instrument-level
 #     floor bias.
 #
 # The floor-bias estimate is fit from DTM-vs-ECP ground residuals
@@ -27,7 +27,7 @@
 #
 # Prerequisites:
 #   1. lidar/tuning/02_ground_reference_selection.R (rr) — cached
-#      spring lidar DTM sample at ECPs, plus the massgis_plus_floor
+#      spring lidar DTM sample at ECPs, plus the usgs_plus_floor
 #      raster if that's the recorded ground_reference.
 #
 # Run from the project root in RStudio so relative paths resolve.
@@ -61,11 +61,11 @@ spring_dtm_path <- get_path("ground_comparison_ecp_cache", site = site,
 
 # Large derived rasters live alongside the other rr summer rasters in
 # the E: scratch tree, not in the reports directory.
-massgis_floor_tif <- get_path("corrected_ground_raster", site = site,
+usgs_floor_tif <- get_path("corrected_ground_raster", site = site,
                               date = summer_date, target_epsg = target_epsg)
 
-if (!file.exists(massgis_floor_tif)) {
-   stop("Corrected ground raster not found: ", massgis_floor_tif,
+if (!file.exists(usgs_floor_tif)) {
+   stop("Corrected ground raster not found: ", usgs_floor_tif,
         "\nRun lidar/tuning/02_ground_reference_selection.R first.")
 }
 
@@ -123,8 +123,8 @@ spring_elev <- sample_dtm(
    ecp        = site_ecp,
    output_csv = spring_dtm_path
 )
-massgis_floor_elev <- sample_dtm(
-   dtm        = massgis_floor_tif,
+usgs_floor_elev <- sample_dtm(
+   dtm        = usgs_floor_tif,
    ecp        = site_ecp,
    output_csv = get_path("corrected_ground_raster_ecp_cache", site = site,
                          date = summer_date, target_epsg = target_epsg)
@@ -141,7 +141,7 @@ canopy_elev <- sample_dtm(
 #------------------------------------------------------------------------------#
 
 veg_height_opt2 <- canopy_elev$predicted - spring_elev$predicted
-veg_height_opt3 <- canopy_elev$predicted - massgis_floor_elev$predicted
+veg_height_opt3 <- canopy_elev$predicted - usgs_floor_elev$predicted
 
 evaluate_veg_height <- function(predicted_height, label) {
    df <- data.frame(
@@ -158,7 +158,7 @@ evaluate_veg_height <- function(predicted_height, label) {
 
 veg_height_validation <- rbind(
    evaluate_veg_height(veg_height_opt2, "opt2_spring_lidar_ground"),
-   evaluate_veg_height(veg_height_opt3, "opt3_massgis_plus_floor")
+   evaluate_veg_height(veg_height_opt3, "opt3_usgs_plus_floor")
 )
 veg_height_validation <- veg_height_validation[
    , c("option", setdiff(colnames(veg_height_validation), "option"))

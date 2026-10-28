@@ -237,9 +237,9 @@ the system PATH; the PDAL tools are invoked from R using their full paths.
 All UAS-derived datasets (spring lidar, summer lidar, and both
 photogrammetry DEMs) show a consistent **+10–16 cm positive bias**
 against the field-collected ECPs (predicted > observed).
-The MassGIS 2021 aerial lidar tile for the same area shows no bias.
+The USGS 2021 aerial lidar tile for the same area shows no bias.
 
-Since MassGIS is unbiased, the ECPs' *vertical* datum/geoid is right —
+Since USGS is unbiased, the ECPs' *vertical* datum/geoid is right —
 this rules out a vertical CRS/datum error in the ECPs themselves.
 The offset is in the UAS geo-referencing, not in the ECP vertical
 datum.
@@ -355,7 +355,7 @@ CRS/datum/geoid standard this investigation produced.
 
 ### Finding
 
-Both candidate ground references (floor-bias-corrected MassGIS and
+Both candidate ground references (floor-bias-corrected USGS and
 the legacy spring-DTM-relative approach) underestimate true
 vegetation height by roughly 15 cm against field-measured
 `veg_height_m` — common to both, so it isn't a ground-reference
@@ -397,7 +397,7 @@ elevation (presumably taken in spring when vegetation is low) to compare to
 when evaluating vegetation height.
 
 There are three possible sources for DTM and DEM rasters:
-1. MassGIS DEM derived from aerial lidar.
+1. USGS DEM derived from aerial lidar.
 2. MassMarsh (this project) DEM created via photogrametry for
   a. spring (minimal vegetation) 
   b. summer (full vegetation)
@@ -416,10 +416,10 @@ Spring:
 High summer:
     X:\legacy\gdrive\saltmarsh_UAS\UAS Data Collection\Red River\Orthos and DEMs 2022\10Aug2022\Low\10Aug22_RR_Low_Mavic_DEM.tif
 
-#### [MassGIS LiDAR](https://www.mass.gov/info-details/massgis-data-lidar-terrain-data#technical-details-of-the-new-usgs-3dep-central-eastern-massachusetts-lidar-) for tile 19TDG412612:
+#### [USGS LiDAR](https://www.mass.gov/info-details/usgs-data-lidar-terrain-data#technical-details-of-the-new-usgs-3dep-central-eastern-massachusetts-lidar-) for tile 19TDG412612:
 File is here: X:\scratch\bcompton\LiDAR\be_19TDG412612\be_19TDG412612.tif
 [File URL](https://s3.us-east-1.amazonaws.com/download.massgis.digital.mass.gov/lidar/2021_LIDAR/be_rasters/be_19TDG412612.zip)
-MassGIS LiDAR is from 2021. Bad for our use, but good for the comparison.   
+USGS LiDAR is from 2021. Bad for our use, but good for the comparison.   
 There's also an ArcGIS project: X:\scratch\bcompton\LiDAR\Red_River_LiDAR.aprx
 
 

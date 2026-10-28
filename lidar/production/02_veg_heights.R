@@ -15,7 +15,7 @@
 #
 # Ground reference defaults to whatever `ground_reference.method` is
 # recorded for this site in `lidar/runs.yml`. For `rr` that's currently
-# the floor-bias-corrected MassGIS raster: MassGIS has near-zero bias
+# the floor-bias-corrected USGS raster: USGS has near-zero bias
 # against ECPs but doesn't share the UAS point cloud's ~10 cm
 # instrument-level offset, so it's shifted up by an estimate of that
 # offset alone (not the full spring-lidar-DTM bias, which also carries

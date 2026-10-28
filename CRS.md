@@ -54,8 +54,8 @@ state plane projection in each state.
 data products publish in Massachusetts Mainland State Plane, and
 aligning with that convention makes cross-referencing state layers
 (parcels, wetlands, other MassGIS rasters) simpler.
-One caveat worth flagging: the MassGIS lidar bare-earth tiles used in
-the Phase 1.5 ground-source comparison
+One caveat worth flagging: the USGS lidar bare-earth tiles used in
+the Phase 1.5 ground-source comparison and downloaded via MassGIS
 (`lidar/output/*_ground_comparison/`) are themselves published in
 **NAD83(2011) / UTM zone 19N (EPSG:6348)**, not State Plane — confirmed
 via `terra::crs()` on `be_19TDG412612.tif`.

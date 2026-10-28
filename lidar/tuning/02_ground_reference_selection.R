@@ -7,12 +7,12 @@
 #
 #   1. `lidar/06_compare_ground_sources.R` — renders
 #      `rmd/ground_source_comparison.Rmd`, comparing this site's tuned
-#      CSF DTM(s) against orthophoto DEMs and MassGIS.
-#   2. `lidar/07_floor_corrected_ground.R` — if MassGIS looks better,
+#      CSF DTM(s) against orthophoto DEMs and USGS.
+#   2. `lidar/07_floor_corrected_ground.R` — if USGS looks better,
 #      estimates the instrument-level "floor" component of the lidar
 #      bias (`estimate_floor_bias()`, which excludes the vegetation-
 #      contaminated part of the residual distribution) and builds a
-#      MassGIS-plus-floor-bias hybrid raster: keeps MassGIS's superior
+#      USGS-plus-floor-bias hybrid raster: keeps USGS's superior
 #      absolute accuracy while still cancelling the UAS point cloud's
 #      instrument-level offset.
 #
@@ -23,7 +23,7 @@
 # This script is data-driven for a site once a ground_reference
 # decision is recorded: it renders the comparison report, then checks
 # `get_run_config(site)$ground_reference$method` — if
-# "massgis_plus_floor" is already recorded, it (re)builds that hybrid
+# "usgs_plus_floor" is already recorded, it (re)builds that hybrid
 # raster via `build_ground_raster()`; otherwise it stops after the
 # report with a reminder to review it and edit `runs.yml`. The same
 # script serves the first exploratory run and every later refresh.
@@ -68,7 +68,7 @@ sources <- c(
                                  source = "spring_mica"),
    photo_summer       = get_path("photo_dem", site = site,
                                  source = "summer"),
-   massgis            = get_path("massgis_tile", tile = "19TDG412612")
+   usgs            = get_path("usgs_tile", tile = "19TDG412612")
 )
 
 report_ground_sources(sources = sources, site = site)
@@ -119,8 +119,8 @@ if (is.null(ground_reference) || is.null(ground_reference$method)) {
    message("No ground_reference decision recorded yet for '", site, "'. ",
            "Review the comparison report and floor-bias plots above, ",
            "then edit lidar/runs.yml's sites.", site, ".ground_reference.")
-} else if (identical(ground_reference$method, "massgis_plus_floor")) {
-   message("ground_reference.method = 'massgis_plus_floor' already ",
+} else if (identical(ground_reference$method, "usgs_plus_floor")) {
+   message("ground_reference.method = 'usgs_plus_floor' already ",
            "recorded for '", site, "' -- (re)building the hybrid raster.")
    build_ground_raster(site, ground_reference$floor_bias_source_flight)
 } else {
@@ -133,7 +133,7 @@ if (is.null(ground_reference) || is.null(ground_reference$method)) {
 #------------------------------------------------------------------------------#
 
 # No raw point cloud for this site -- comparison is photo DEMs vs.
-# MassGIS only, no lidar/CSF sources. Not yet represented in
+# USGS only, no lidar/CSF sources. Not yet represented in
 # lidar/runs.yml (site rollout tracked separately, dev/rollout_workplan.md).
 site <- "oth"
 sources <- c(
@@ -141,8 +141,8 @@ sources <- c(
                              source = "may_14_ortho"),
    may_02_ortho   = get_path("photo_dem", site = site,
                              source = "may_02_ortho"),
-   massgis_346737 = get_path("massgis_tile", tile = "19TCH346737"),
-   massgis_346735 = get_path("massgis_tile", tile = "19TCH346735")
+   usgs_346737 = get_path("usgs_tile", tile = "19TCH346737"),
+   usgs_346735 = get_path("usgs_tile", tile = "19TCH346735")
 )
 
 report_ground_sources(sources = sources, site = site)
@@ -151,15 +151,15 @@ report_ground_sources(sources = sources, site = site)
 # Welfleet
 #------------------------------------------------------------------------------#
 
-# Photo DEMs vs. MassGIS only, same as Old Town Hill above -- this
+# Photo DEMs vs. USGS only, same as Old Town Hill above -- this
 # site's lidar/CSF ground rasters aren't included in this comparison
 # yet (also tracked under the site rollout, dev/rollout_workplan.md).
 site <- "wel"
 sources <- c(
    may_22_ortho   = get_path("photo_dem", site = site,
                              source = "may_22_ortho"),
-   massgis_415636 = get_path("massgis_tile", tile = "19TDG415636"),
-   massgis_417636 = get_path("massgis_tile", tile = "19TDG417636")
+   usgs_415636 = get_path("usgs_tile", tile = "19TDG415636"),
+   usgs_417636 = get_path("usgs_tile", tile = "19TDG417636")
 )
 
 report_ground_sources(sources = sources, site = site)

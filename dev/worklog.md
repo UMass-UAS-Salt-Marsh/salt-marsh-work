@@ -17,6 +17,16 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-10-28
+
+Setup LIDAR parameter files to run new Essex site `esx`.
+Add support for geopackage input of elevation control points.
+Made minor changes to support the lack of vegetation height data.
+Renamed `massgis` to `usgs` in reference to the downloaded DEM. 
+It was downloaded from MassGIS but produced by USGS.  This change 
+wasn't made in the worklog and worklog hostor but was made everywhere 
+else including in the other dev/*.md files.
+
 ## 2026-09-16 — branch fill-sinks
 
 ### Added `fill_sinks()`

@@ -8,7 +8,7 @@
 #' - `"csf"` — runs [rasterize_ground()] once using that flight's
 #'   recorded `best_csf`, preparing the cleaned point cloud first via
 #'   [prepare_flight()] if needed.
-#' - `"massgis_plus_floor"` — builds the floor-bias-corrected MassGIS
+#' - `"usgs_plus_floor"` — builds the floor-bias-corrected USGS
 #'   raster via [build_floor_corrected_ground()], estimating the floor
 #'   bias from `ground_reference$floor_bias_source_flight`'s cached
 #'   ECP residuals (written by
@@ -80,16 +80,16 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
          params       = best_csf
       )
 
-   } else if (identical(method, "massgis_plus_floor")) {
+   } else if (identical(method, "usgs_plus_floor")) {
 
       ground_reference <- config$ground_reference
-      massgis_tile <- ground_reference$massgis_tile
-      if (length(massgis_tile) != 1) {
-         stop("build_ground_raster(): multi-tile massgis_tile ",
+      usgs_tile <- ground_reference$usgs_tile
+      if (length(usgs_tile) != 1) {
+         stop("build_ground_raster(): multi-tile usgs_tile ",
               "mosaicking is not yet implemented -- see ",
               "dev/rollout_workplan.md.")
       }
-      massgis_path <- pathtools::get_path("massgis_tile", tile = massgis_tile)
+      usgs_path <- pathtools::get_path("usgs_tile", tile = usgs_tile)
 
       floor_flight <- ground_reference$floor_bias_source_flight
       floor_season <- config$flights[[floor_flight]]$season
@@ -114,7 +114,7 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
       output <- pathtools::get_path("corrected_ground_raster", site = site,
                                     date = date, target_epsg = target_epsg)
       build_floor_corrected_ground(
-         massgis_path = massgis_path,
+         usgs_path = usgs_path,
          floor_bias   = floor_bias,
          output       = output,
          target_epsg  = target_epsg,
@@ -127,7 +127,7 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
          source_cloud = pathtools::get_path("raw_lidar", site = site,
                                             date = date),
          crs          = paste0("EPSG:", target_epsg),
-         inputs       = list(massgis_tile = massgis_path,
+         inputs       = list(usgs_tile = usgs_path,
                              floor_bias_ecp_cache = ecp_cache),
          params       = list(floor_bias = floor_bias)
       )
