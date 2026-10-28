@@ -12,7 +12,10 @@
 #'   raster via [build_floor_corrected_ground()], estimating the floor
 #'   bias from `ground_reference$floor_bias_source_flight`'s cached
 #'   ECP residuals (written by
-#'   `lidar/tuning/02_ground_reference_selection.R`).
+#'   `lidar/tuning/02_ground_reference_selection.R`). When
+#'   `ground_reference$usgs_tile` names more than one tile, the USGS
+#'   input is instead a multi-tile mosaic built by
+#'   [merge_usgs_tiles()].
 #'
 #' This is the piece that only exists because of the tuning/production
 #' split — see `dev/worklog.md`, 2026-09-15 — giving a way to get a
@@ -84,12 +87,11 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
 
       ground_reference <- config$ground_reference
       usgs_tile <- ground_reference$usgs_tile
-      if (length(usgs_tile) != 1) {
-         stop("build_ground_raster(): multi-tile usgs_tile ",
-              "mosaicking is not yet implemented -- see ",
-              "dev/rollout_workplan.md.")
+      if (length(usgs_tile) == 1) {
+         usgs_path <- pathtools::get_path("usgs_tile", tile = usgs_tile)
+      } else {
+         usgs_path <- merge_usgs_tiles(site)
       }
-      usgs_path <- pathtools::get_path("usgs_tile", tile = usgs_tile)
 
       floor_flight <- ground_reference$floor_bias_source_flight
       floor_season <- config$flights[[floor_flight]]$season

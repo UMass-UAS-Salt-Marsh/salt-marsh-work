@@ -32,9 +32,7 @@ else including in the other dev/*.md files.
 Implements the mosaic step `build_ground_raster()`'s
 `"usgs_plus_floor"` branch has stopped on for multi-tile sites
 (`R/build_ground_raster.R:87-91`) — see `dev/rollout_workplan.md` for
-the original decision to use a `.vrt` over `terra::merge()`. Wiring
-the mosaic into that branch is still out of scope here; this adds the
-standalone building block.
+the original decision to use a `.vrt` over `terra::merge()`.
 
 - Added `R/merge_usgs_tiles.R`: `merge_usgs_tiles(site, overwrite =
   FALSE)`. Resolves `usgs_tile_index` and `site_footprint` via
@@ -86,6 +84,24 @@ standalone building block.
   `merge_usgs_tiles("wel")` matched its known 2 tiles
   (`19TDG415636`/`19TDG417636`), both already present locally (no
   download needed), mosaic opened fine.
+
+### Wired `merge_usgs_tiles()` into `build_ground_raster()`
+
+`R/build_ground_raster.R`'s `"usgs_plus_floor"` branch no longer
+hard-stops on a multi-tile `ground_reference$usgs_tile` — when it
+names more than one tile, `usgs_path` is resolved via
+`merge_usgs_tiles(site)` instead of `get_path("usgs_tile", ...)`.
+Everything downstream (`build_floor_corrected_ground()`,
+`write_output_metadata()`) is unchanged, since both branches just
+produce a raster path.
+
+`wel` has no `lidar/runs.yml` entry yet (tuning not done — tracked in
+`dev/rollout_workplan.md`), so the new branch couldn't be exercised
+through `build_ground_raster()` end-to-end. Verified the dispatch
+logic directly instead: a single-tile call resolves to the same path
+as before, and a multi-tile call (`c("19TDG415636", "19TDG417636")`,
+`wel`'s real tile pair) resolves to `merge_usgs_tiles("wel")`'s
+`.vrt`. `lintr::lint()` clean on the changed file.
 
 ## 2026-09-16 — branch fill-sinks
 
