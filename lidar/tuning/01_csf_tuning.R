@@ -49,11 +49,11 @@ workers      <- 10   # parallel workers for plan(multisession)
 chunk_size   <- 200  # tile size in meters
 chunk_buffer <- 20   # buffer read around each chunk in meters
 
-site <- "rr" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
+site <- "esx" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
 
 # Date string in "yyyy_mm_dd" format identifying which flight to tune
 # (see the `raw_lidar` entry in lidar/paths.yml).
-date <- "2022_08_10"
+date <- "2026_08_05"
 
 # Target horizontal CRS for reprojection. 6491 = NAD83(2011) /
 # Massachusetts Mainland State Plane, this project's current standard
@@ -146,19 +146,24 @@ for (i in seq_len(nrow(csf_grid))) {
 # opens fast. `sample_dtm()` is skip-if-exists; re-running this block
 # is cheap. `load_ecp()` cleans, filters, and returns an sf object.
 # Logger Array excluded; Berm, EVP, and Training kept.
-site_ecp <- load_ecp(get_path("ecp_path"), site = site,
+site_ecp <- load_ecp(get_path("ecp_path", site = site), site = site,
                      target_crs = target_epsg)
 
+overwrite <- FALSE
 for (i in seq_len(nrow(csf_results))) {
    ecp_cache <- get_path(
-      "ground_raster_ecp_cache", site = site, date = date,
+      "ground_raster_ecp_cache", site = site, 
+      date = date,
       target_epsg = target_epsg,
       csf_threshold = csf_results$csf_threshold[i],
       csf_res       = csf_results$csf_res[i],
       csf_rigidness = csf_results$csf_rigidness[i],
       raster_res    = csf_results$raster_res[i]
    )
-   sample_dtm(csf_results$dtm[i], site_ecp, output_csv = ecp_cache)
+   sample_dtm(csf_results$dtm[i],
+              site_ecp, 
+              output_csv = ecp_cache,
+              overwrite = overwrite)
 }
 
 report_dtms(

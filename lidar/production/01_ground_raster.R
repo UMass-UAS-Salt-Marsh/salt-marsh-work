@@ -30,11 +30,11 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
 
 set_path_scheme("lidar/paths.yml")
 
-site <- "rr" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
+site <- "esx" # 2- or 3-character lowercase site code (e.g. "rr", "nor")
 
 # Date string in "yyyy_mm_dd" format identifying which flight to
 # produce a ground raster for.
-date <- "2022_08_10"
+date <- "2026_08_05"
 
 output <- build_ground_raster(site, date)
 
