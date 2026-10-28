@@ -1,24 +1,31 @@
-#' Coerce a mixed-format character vector to `Date`
+#' Coerce a mixed-format input vectors to `Date`
 #'
-#' Handles two encodings seen in the ECP and field-data spreadsheets:
-#'
+#' For character input it handles two encoding seen in the ECP 
+#' and field-data spreadsheets:
 #' * Excel serial-day numerics (e.g. `"45517"` → 2024-08-07).
 #'   Origin is `1899-12-30`.
 #' * Day-month-year strings with a 3-letter month abbreviation
 #'   (e.g. `"07Aug2024"`).
-#'
-#' Inputs already of class `Date` pass through unchanged. Values that
-#' match neither pattern come back as `NA` with a warning naming the
+#' Character input that
+#' matches neither pattern is assigned `NA` with a warning naming the
 #' first offender.
 #'
-#' @param dates A character vector (or a `Date` vector, returned as-is).
+#' Inputs already of class `Date` pass through unchanged.  
+#' Date time classes are converted to dates.
+
 #'
+#' @param dates A character, `Date`, or  Date Time vector.
 #' @return A `Date` vector the same length as `dates`.
 #'
 #' @examples
 #' clean_dates(c("45517", "07Aug2024"))
 clean_dates <- function(dates) {
-   if (lubridate::is.Date(dates)) {
+   
+   # Handle formal date and date time classes
+   if (lubridate::is.timepoint(dates)) {
+      if (!lubridate::is.Date(dates)) {
+         dates <- lubridate::as_date(dates)
+      }
       return(dates)
    }
 
