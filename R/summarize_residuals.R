@@ -68,8 +68,9 @@ summarize_residuals <- function(points,
 
    overall <- group_stats(points, "overall")
 
+   
    by_subclass <- points |>
-      split(points$subclass) |>
+      split(points$subclass, drop = TRUE) |>
       lapply(\(df) group_stats(df, unique(df$subclass))) |>
       do.call(what = rbind)
 

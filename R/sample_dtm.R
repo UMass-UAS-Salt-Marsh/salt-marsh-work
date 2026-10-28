@@ -74,9 +74,14 @@ sample_dtm <- function(dtm,
 
    if (file.exists(output_csv) && !overwrite) {
       message("sample_dtm(): output exists, skipping: ", output_csv)
-      return(as.data.frame(readr::read_csv(
-         output_csv, show_col_types = FALSE
-      )))
+      out <- readr::read_csv(output_csv, show_col_types = FALSE) |> 
+         as.data.frame()
+      
+      # Restore original factor status and levels to subclass
+      if("subclass" %in% names(out) && is.factor(ecp$subclass)) {
+         out$subclass <- factor(out$subclass, levels = levels(ecp$subclass))
+      } 
+      return(out)
    }
 
    # Resolve the raster.

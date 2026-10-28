@@ -90,8 +90,8 @@ load_ecp <- function(path,
       source_crs <- sf::st_crs(ecp)
       sf::st_coordinates(ecp)
       if("subclass" %in% names(ecp) && !"type" %in% names(ecp)) {
-         ecp$type <- ecp$subclass
-         cat("Using \"subclass\" to define the \"type\" of ground control point.")
+         ecp$type <- "EVP"
+         cat("Setting the \"type\" of all points to \"EVP\"")
       }
       coords <- sf::st_coordinates(ecp)
       if(! "elevation" %in% names(ecp) && ncol(coords) > 2)
@@ -117,6 +117,10 @@ load_ecp <- function(path,
    }
    ecp$site <- tolower(ecp$site)
 
+   if("subclass" %in% names(ecp))
+      ecp$subclass <- as.factor(ecp$subclass)
+   
+   
    if (length(exclude_types) > 0L) {
       ecp <- ecp[!ecp$type %in% exclude_types, ]
    }
