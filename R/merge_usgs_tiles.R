@@ -46,11 +46,7 @@ merge_usgs_tiles <- function(site, overwrite = FALSE) {
            site, "'s footprint.")
    }
 
-   tile_paths <- vapply(
-      tiles,
-      \(tile) download_usgs_tile(tile),
-      character(1L)
-   )
+   tile_paths <- vapply(tiles, download_usgs_tile, character(1L))
 
    sf::gdal_utils(
       util        = "buildvrt",
