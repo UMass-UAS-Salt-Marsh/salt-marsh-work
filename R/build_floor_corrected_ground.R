@@ -25,7 +25,12 @@
 #' @param usgs_path Path to the USGS bare-earth tile (or
 #'    already-mosaicked raster) to correct.
 #' @param floor_bias Floor bias estimate (meters) to add, e.g.
-#'    `estimate_floor_bias(...)$floor_bias`.
+#'    `estimate_floor_bias(...)$floor_bias`. Pass `0` to use `usgs_path`
+#'    as ground unmodified (just reprojected) -- the
+#'    `ground_reference.method == "usgs"` case in
+#'    [build_ground_raster()], for sites where the UAS-vs-USGS bias
+#'    doesn't look like the instrument-level offset this function
+#'    otherwise corrects for.
 #' @param output Output raster path.
 #' @param target_epsg Target horizontal CRS EPSG code (e.g. `6491L`).
 #'    USGS tiles are published in EPSG:6348

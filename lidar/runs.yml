@@ -18,14 +18,22 @@
 #   flights.<yyyy_mm_dd>.season -- "spring" or "summer".
 #   flights.<yyyy_mm_dd>.best_csf -- CSF parameter set from
 #     lidar/tuning/01_csf_tuning.R for that flight.
-#   ground_reference.method -- "csf" or "usgs_plus_floor". For
-#     "usgs_plus_floor", the USGS input is resolved by
-#     merge_usgs_tiles(site) -- which tiles a site needs is looked up
-#     from its footprint, not recorded here.
-#   ground_reference.floor_bias_source_flight -- which flight's cached
-#     ECP residuals (from lidar/tuning/02_ground_reference_selection.R)
-#     the floor bias is estimated from. Only meaningful when method is
-#     "usgs_plus_floor".
+#   ground_reference.method -- "csf", "usgs", or "usgs_plus_floor".
+#     "csf" uses the reference_flight's own tuned lidar DTM, unmodified.
+#     "usgs" uses merge_usgs_tiles(site)'s USGS mosaic, unmodified --
+#     for sites where the UAS-vs-USGS bias looks too weak/unstructured
+#     to be the instrument-level offset usgs_plus_floor corrects for.
+#     "usgs_plus_floor" is the same USGS mosaic, shifted by an
+#     instrument-level floor-bias estimate (see below). For both USGS
+#     variants, which tiles a site needs is looked up from its
+#     footprint, not recorded here.
+#   ground_reference.reference_flight -- which flight this ground
+#     reference is filed/computed under. For "csf", the flight the DTM
+#     comes from. For "usgs_plus_floor", also which flight's cached ECP
+#     residuals (from lidar/tuning/02_ground_reference_selection.R) the
+#     floor bias is estimated from. Unused for "usgs" beyond identifying
+#     a flight to pass to build_ground_raster() -- its output raster
+#     itself is flight-agnostic.
 
 sites:
   rr:
@@ -44,7 +52,7 @@ sites:
                    csf_rigidness: 2, raster_res: 0.25}
     ground_reference:
       method: usgs_plus_floor
-      floor_bias_source_flight: "2022_08_10"
+      reference_flight: "2022_08_10"
 
   esx:
     target_epsg: 6491
@@ -57,5 +65,5 @@ sites:
         best_csf: {csf_threshold: 0.01, csf_res: 0.1,
                    csf_rigidness: 2, raster_res: 0.25}
     ground_reference:
-      method: usgs_plus_floor
-      floor_bias_source_flight: "2026_08_05"
+      method: usgs
+      reference_flight: "2026_08_05"

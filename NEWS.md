@@ -1,3 +1,12 @@
+2026-10-29
+==========
+
+*   `lidar/runs.yml`'s `ground_reference.method` gains a third option,
+    `"usgs"`, for sites where the USGS DEM should be used as ground
+    with no further modification.
+    `ground_reference.floor_bias_source_flight` is renamed to the
+    method-neutral `reference_flight`.
+
 2026-05-13
 ==========
 

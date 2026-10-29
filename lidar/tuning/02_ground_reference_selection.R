@@ -19,25 +19,24 @@
 # A single `site <- "..."` variable (matching every other driver in
 # `lidar/tuning/` and `lidar/production/`) drives everything below.
 # Which flights/seasons a site has comes entirely from `lidar/runs.yml`
-# (via `get_run_config()`); 
-# a flight only contributes a lidar ground-raster
-# source once its `best_csf` is recorded there, so a brand-new site
-# (flight dates entered, tuning not done yet) just skips that flight
-# with a message rather than erroring. 
-# Photo-DEM sources (irregular per site, unrelated to `runs.yml`) 
-# and the USGS source are both optional: a site with no photo_dem 
-# overrides, or whose footprint can't resolve USGS tiles (e.g. `oth`, 
+# (via `get_run_config()`); a flight only contributes a lidar
+# ground-raster source once its `best_csf` is recorded there, so a
+# brand-new site (flight dates entered, tuning not done yet) just
+# skips that flight with a message rather than erroring.
+# Photo-DEM sources (irregular per site, unrelated to `runs.yml`)
+# and the USGS source are both optional: a site with no photo_dem
+# overrides, or whose footprint can't resolve USGS tiles (e.g. `oth`,
 # which has no site_footprint shapefile on disk), simply contributes
 # fewer sources rather than failing.
 #
 # This script is data-driven for a site once a ground_reference
 # decision is recorded: it renders the comparison report, then checks
-# `get_run_config(site)$ground_reference$method` — if
-# "usgs_plus_floor" is already recorded, it (re)builds that hybrid
-# raster via `build_ground_raster()`; otherwise it stops after the
-# report with a reminder to review it and edit `runs.yml`. A site with
-# no `runs.yml` entry at all skips that decision step entirely — there
-# is no flight or ground_reference to decide on yet.
+# `get_run_config(site)$ground_reference$method` — if one of "csf",
+# "usgs", or "usgs_plus_floor" is already recorded, it (re)builds that
+# ground raster via `build_ground_raster()`; otherwise it stops after
+# the report with a reminder to review it and edit `runs.yml`. A site
+# with no `runs.yml` entry at all skips that decision step entirely —
+# there is no flight or ground_reference to decide on yet.
 #
 # Run from the project root in RStudio so relative paths resolve.
 #------------------------------------------------------------------------------#
@@ -120,9 +119,9 @@ report_ground_sources(sources = sources, site = site)
 #------------------------------------------------------------------------------#
 # Floor-bias diagnostics -- one per season that produced a lidar source,
 # for human comparison, even though only one (per
-# ground_reference.floor_bias_source_flight, once recorded) ever feeds
-# the hybrid raster. estimate_floor_bias() and build_ground_raster()
-# only ever compute the one that's needed.
+# ground_reference.reference_flight, once recorded) ever feeds the
+# hybrid raster if method is "usgs_plus_floor". estimate_floor_bias()
+# and build_ground_raster() only ever compute the one that's needed.
 #------------------------------------------------------------------------------#
 
 for (label in names(lidar_sources)) {
@@ -163,11 +162,11 @@ if (length(config$flights) == 0L && is.null(ground_reference)) {
    message("No ground_reference decision recorded yet for '", site, "'. ",
            "Review the comparison report and floor-bias plots above, ",
            "then edit lidar/runs.yml's sites.", site, ".ground_reference.")
-} else if (identical(ground_reference$method, "usgs_plus_floor")) {
-   message("ground_reference.method = 'usgs_plus_floor' already ",
-           "recorded for '", site, "' -- (re)building the hybrid raster.")
-   build_ground_raster(site, ground_reference$floor_bias_source_flight)
-} else {
+} else if (ground_reference$method %in% c("csf", "usgs", "usgs_plus_floor")) {
    message("ground_reference.method = '", ground_reference$method,
-           "' recorded for '", site, "' -- nothing further to build here.")
+           "' recorded for '", site, "' -- (re)building the ground raster.")
+   build_ground_raster(site, ground_reference$reference_flight)
+} else {
+   message("Unrecognized ground_reference.method '",
+           ground_reference$method, "' for '", site, "'.")
 }

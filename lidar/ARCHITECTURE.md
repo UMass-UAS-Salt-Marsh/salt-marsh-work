@@ -198,46 +198,64 @@ USGS aerial-lidar bare-earth tile — using the same `sample_dtm()`
 - **Output:** `../lidar_reports/<site>_ground_comparison/` (per-source
   ECP CSVs, `ground_source_comparison.csv`, HTML report).
 
-### Floor-bias-corrected ground reference
+### Ground reference selection — three sibling methods
 
-USGS's near-zero bias makes it the accuracy winner, but it
-doesn't share the UAS point cloud's own instrument-level vertical
-offset — using it unmodified would leave that offset uncancelled in
-every vegetation-height measurement. `estimate_floor_bias()` isolates
-just the instrument-level component of the UAS bias from the cached
-DTM-vs-ECP residuals (excluding vegetation-contaminated outliers;
-`plot_floor_bias()` is its diagnostic companion), and that offset is
-added to the (CRS-reprojected) USGS raster via
-`build_floor_corrected_ground()`.
+Once a site's ground-source comparison report is reviewed,
+`ground_reference.method` in `runs.yml` records one of three
+unmodified-vs-corrected choices, all built via `build_ground_raster()`:
+
+- **`"csf"`** — the site's own tuned lidar DTM, unmodified. Just
+  re-runs `rasterize_ground()` with the flight's recorded `best_csf`
+  (preparing the cleaned cloud first via `prepare_flight()` if
+  needed).
+- **`"usgs"`** — the USGS mosaic, unmodified (just CRS-reprojected
+  via `build_floor_corrected_ground()` with `floor_bias = 0`). For
+  sites where the UAS-vs-USGS bias looks too weak or unstructured to
+  be the instrument-level offset `"usgs_plus_floor"` corrects for
+  (e.g. a small, non-one-sided residual, more plausibly a slight
+  upward bias in USGS's own lidar from vegetation interference than
+  a UAS instrument offset). Unlike the other two methods' output,
+  this raster is flight-agnostic — nothing about it depends on which
+  flight it's paired with — so it's filed at the site level
+  (`usgs_ground_raster`), not nested under a flight date.
+- **`"usgs_plus_floor"`** — USGS's near-zero bias makes it the
+  accuracy winner, but it doesn't share the UAS point cloud's own
+  instrument-level vertical offset — using it unmodified would leave
+  that offset uncancelled in every vegetation-height measurement.
+  `estimate_floor_bias()` isolates just the instrument-level
+  component of the UAS bias from the cached DTM-vs-ECP residuals
+  (excluding vegetation-contaminated outliers; `plot_floor_bias()` is
+  its diagnostic companion), and that offset is added to the
+  (CRS-reprojected) USGS raster via `build_floor_corrected_ground()`.
 
 - **Driver:** `lidar/tuning/02_ground_reference_selection.R` (second
   section), which computes and plots the floor-bias estimate for
-  every candidate source flight, then — if `ground_reference.method
-  == "usgs_plus_floor"` is already recorded for the site in
-  `runs.yml` — calls `build_ground_raster()` to (re)build the hybrid
-  raster. If no decision is recorded yet, it stops after the report
-  with a reminder to review it and edit `runs.yml`.
+  every candidate source flight, then — if a `ground_reference.method`
+  is already recorded for the site in `runs.yml` — calls
+  `build_ground_raster()` to (re)build that ground raster. If no
+  decision is recorded yet, it stops after the report with a
+  reminder to review it and edit `runs.yml`.
 - **Human step:** review the ground-source comparison report and
   floor-bias plots, then hand-edit `ground_reference` (`method`,
-  `floor_bias_source_flight`) into `runs.yml` under `sites.<site>`.
+  `reference_flight`) into `runs.yml` under `sites.<site>`.
   The USGS tiles a site needs aren't recorded here — they're looked
   up from the site's footprint by `merge_usgs_tiles()`.
 - **Input:** cached ECP-sample CSVs from the ground-source
   comparison step.
-- **Output:** `ground_rasters_epsg<N>/usgs_plus_floor_summer.tif`.
+- **Output:** `ground_rasters_epsg<N>/usgs_plus_floor.tif` (for
+  `usgs_plus_floor`), `usgs_epsg<N>.tif` at the site level (for
+  `usgs`), or the flight's own CSF DTM path (for `csf`).
 
 ### Ground raster (production replay)
 
 Once a site/flight's tuning decisions are recorded, `production/`
 drivers never re-run a grid search or re-derive a decision — they
 call `build_ground_raster()`, which reads `runs.yml` via
-`get_run_config()` and dispatches on `ground_reference.method`: for
-`"csf"` it re-runs `rasterize_ground()` once with the recorded
-`best_csf` (preparing the cleaned cloud first via `prepare_flight()`
-if needed); for `"usgs_plus_floor"` it re-reads the *cached* ECP
-CSV already written by the tuning step above, re-runs only
-`estimate_floor_bias()` (cheap), and calls
-`build_floor_corrected_ground()`. Either branch is skip-if-exists.
+`get_run_config()` and dispatches on `ground_reference.method` as
+described above. For `"usgs_plus_floor"` it re-reads the *cached* ECP
+CSV already written by the tuning step above and re-runs only
+`estimate_floor_bias()` (cheap) rather than the full comparison. Every
+branch is skip-if-exists.
 
 - **Driver:** `lidar/production/01_ground_raster.R` (also called
   internally by `lidar/production/02_veg_heights.R`).
@@ -333,7 +351,7 @@ flowchart TD
     M --> O
     OTHER --> P
     O["estimate_floor_bias()<br/>(lidar/tuning/02_ground_reference_selection.R)"]
-    O --> P[/"Floor-bias-corrected ground raster<br/>usgs_plus_floor_summer.tif"/]
+    O --> P[/"Ground reference raster<br/>(csf / usgs / usgs_plus_floor)"/]
     N --> RUNS2[("lidar/runs.yml<br/>ground_reference")]
     RUNS2 --> O
 

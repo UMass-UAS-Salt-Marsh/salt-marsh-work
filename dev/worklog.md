@@ -68,6 +68,71 @@ footprint still missing); `esx` resolves to a 2-source vector
 (`lidar_summer`, `usgs`) with no spring assumption anywhere.
 `lintr::lint()` clean.
 
+### Added `ground_reference.method == "usgs"` (unmodified USGS as
+ground) and renamed `floor_bias_source_flight` to `reference_flight`
+
+`esx`'s ground-source comparison report showed only a ~3cm UAS-vs-USGS
+bias with no one-sided "floor" shape in the residual plot, unlike `rr`
+and other sites. `estimate_floor_bias()`'s model assumes a one-sided
+residual distribution (an instrument/PPK offset separable from a
+vegetation-dependent CSF ground-finding error that only pushes
+residuals positive) — a weak, symmetric-looking signal doesn't fit
+that model, and more plausibly reflects USGS's own lidar picking up
+some vegetation than a UAS instrument offset worth correcting for.
+Decision: treat USGS as ground for `esx`, unmodified.
+
+- `lidar/runs.yml`: `esx`'s `ground_reference` changed to
+  `method: usgs`; schema-comment block at the top rewritten to
+  describe all three `ground_reference.method` values (`csf`, `usgs`,
+  `usgs_plus_floor`) as siblings.
+- Renamed `ground_reference.floor_bias_source_flight` to the
+  method-neutral `reference_flight` everywhere (`runs.yml` for both
+  `rr` and `esx`, `R/build_ground_raster.R`,
+  `lidar/tuning/02_ground_reference_selection.R`,
+  `lidar/ARCHITECTURE.md`) — one field now names which flight a ground
+  reference is filed/computed under for every method, with
+  `usgs_plus_floor` additionally treating it as the floor-bias ECP
+  source flight.
+- `R/build_ground_raster.R`: new `"usgs"` branch, parallel to
+  `"usgs_plus_floor"` but reusing
+  `build_floor_corrected_ground(..., floor_bias = 0)` instead of
+  estimating a floor bias — i.e. reproject USGS to `target_epsg`,
+  add nothing. Unlike `usgs_plus_floor`'s output, this raster is
+  flight-agnostic, so it's filed at the site level via a new
+  `usgs_ground_raster` path template, not nested under
+  `ground_raster_dir` (which is keyed by `site`+`date`+`target_epsg`
+  and would otherwise duplicate an identical raster under every
+  flight directory a site has). `write_output_metadata()`'s
+  `source_cloud` is omitted for this branch, matching
+  `merge_usgs_tiles()`'s own call — this output has no single-flight
+  lineage.
+- `R/build_floor_corrected_ground.R`: roxygen doc for `floor_bias`
+  notes that `0` is the "use USGS as-is" case.
+- `lidar/paths.yml`: added `usgs_ground_raster` and
+  `usgs_ground_raster_ecp_cache` templates at
+  `{@scratch_root}/{site}/usgs_epsg{target_epsg}...`, alongside
+  `usgs_mosaic_vrt`'s existing site-level, flight-agnostic placement.
+- `lidar/tuning/02_ground_reference_selection.R`: decision-check tail
+  simplified to call `build_ground_raster()` for any of the three
+  recognized methods, rather than special-casing only
+  `usgs_plus_floor` (the existing `"csf"` method already works fine
+  through `build_ground_raster()`, it just hadn't been wired into
+  this tail before — no site had picked it as a final decision yet).
+- `lidar/ARCHITECTURE.md`: reworked the "Floor-bias-corrected ground
+  reference" section into "Ground reference selection — three sibling
+  methods", describing `csf`/`usgs`/`usgs_plus_floor` side by side;
+  fixed the mermaid diagram's stale `usgs_plus_floor_summer.tif`
+  output label (the real template never had a `_summer` suffix).
+
+Note the existing `"csf"` method (a site's own tuned lidar DTM,
+unmodified) already covers the hypothetical future case of using one
+of our own lidar DTMs as-is — no new code needed for that, just this
+documentation making the parallel to `"usgs"` explicit.
+
+`build_ground_raster("esx", "2026_08_05")` itself (materializing the
+actual `usgs_epsg6491.tif` and its metadata sidecar) is left to be run
+by hand — not exercised here.
+
 ### Swept remaining `ground_reference.usgs_tile` references
 
 Follow-up to 2026-10-28's drop of `ground_reference.usgs_tile`

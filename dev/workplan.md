@@ -10,4 +10,6 @@ The site-rollout plan is sidelined for now in `dev/rollout_workplan.md`.
 Known issues/future tasks not currently active are tracked in
 `dev/backlog.md`.
 
+## Active plan
+
 No plan is currently active.

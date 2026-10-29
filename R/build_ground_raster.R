@@ -8,14 +8,20 @@
 #' - `"csf"` — runs [rasterize_ground()] once using that flight's
 #'   recorded `best_csf`, preparing the cleaned point cloud first via
 #'   [prepare_flight()] if needed.
+#' - `"usgs"` — uses the site's USGS mosaic as ground, unmodified (via
+#'   [build_floor_corrected_ground()] with `floor_bias = 0`), for
+#'   sites where the UAS-vs-USGS bias looks too weak or unstructured
+#'   to be the instrument-level offset `"usgs_plus_floor"` corrects
+#'   for. Unlike `"usgs_plus_floor"`'s output, this raster is
+#'   flight-agnostic, so it's filed at the site level, not nested
+#'   under `date`.
 #' - `"usgs_plus_floor"` — builds the floor-bias-corrected USGS
 #'   raster via [build_floor_corrected_ground()], using
 #'   [merge_usgs_tiles()] to resolve the USGS input (which USGS
 #'   tiles a site needs is looked up from its footprint, not
 #'   hand-recorded), and estimating the floor bias from
-#'   `ground_reference$floor_bias_source_flight`'s cached ECP
-#'   residuals (written by
-#'   `lidar/tuning/02_ground_reference_selection.R`).
+#'   `ground_reference$reference_flight`'s cached ECP residuals
+#'   (written by `lidar/tuning/02_ground_reference_selection.R`).
 #'
 #' This is the piece that only exists because of the tuning/production
 #' split — see `dev/worklog.md`, 2026-09-15 — giving a way to get a
@@ -83,12 +89,33 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
          params       = best_csf
       )
 
+   } else if (identical(method, "usgs")) {
+
+      usgs_path <- merge_usgs_tiles(site)
+      output <- pathtools::get_path("usgs_ground_raster", site = site,
+                                    target_epsg = target_epsg)
+      build_floor_corrected_ground(
+         usgs_path   = usgs_path,
+         floor_bias  = 0,
+         output      = output,
+         target_epsg = target_epsg,
+         overwrite   = overwrite
+      )
+
+      write_output_metadata(
+         output     = output,
+         created_by = "build_ground_raster",
+         crs        = paste0("EPSG:", target_epsg),
+         inputs     = list(usgs_mosaic = usgs_path),
+         params     = list(floor_bias = 0)
+      )
+
    } else if (identical(method, "usgs_plus_floor")) {
 
       ground_reference <- config$ground_reference
       usgs_path <- merge_usgs_tiles(site)
 
-      floor_flight <- ground_reference$floor_bias_source_flight
+      floor_flight <- ground_reference$reference_flight
       floor_season <- config$flights[[floor_flight]]$season
       ecp_cache <- pathtools::get_path(
          "ground_comparison_ecp_cache", site = site,

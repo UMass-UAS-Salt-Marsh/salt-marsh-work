@@ -102,6 +102,16 @@ paths:
   usgs_mosaic_vrt:
     template: "{@scratch_root}/{site}/usgs_mosaic.vrt"
     type: file
+  # Flight-agnostic -- the reprojected USGS mosaic used as ground
+  # unmodified (ground_reference.method == "usgs"), so this is filed
+  # at the site level like usgs_mosaic_vrt above, not nested under a
+  # flight date the way ground_raster_dir's outputs are.
+  usgs_ground_raster:
+    template: "{@scratch_root}/{site}/usgs_epsg{target_epsg}.tif"
+    type: file
+  usgs_ground_raster_ecp_cache:
+    template: "{@scratch_root}/{site}/usgs_epsg{target_epsg}_ecp.csv"
+    type: file
   cleaned_tiles:
     template: "{@site_date_root}/cleaned_epsg{target_epsg}"
     type: dir
