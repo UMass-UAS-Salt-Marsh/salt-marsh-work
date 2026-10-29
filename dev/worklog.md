@@ -17,6 +17,38 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-10-29
+
+### Swept remaining `ground_reference.usgs_tile` references
+
+Follow-up to 2026-10-28's drop of `ground_reference.usgs_tile`
+(below) — checked every other flagged call site for staleness:
+
+- `lidar/ARCHITECTURE.md`: updated the ground-reference "human step"
+  description to drop `usgs_tile` from the fields hand-edited into
+  `runs.yml`, noting tiles are now looked up from the site footprint.
+- `lidar/tuning/02_ground_reference_selection.R`: `rr`'s comparison
+  `sources` vector hardcoded a single tile (`19TDG412612`) for its
+  `usgs` entry — replaced with `merge_usgs_tiles(site)`. This was a
+  real bug, not just stale-reference cleanup: `rr`'s footprint
+  actually spans two tiles (confirmed via `merge_usgs_tiles("rr")` on
+  2026-10-28), so this comparison had silently been missing tile
+  `19TDG412614` the whole time. `oth`'s and `wel`'s blocks (which list
+  tiles separately rather than merged, and in `oth`'s case have no
+  `site_footprint` shapefile on disk yet) were left as-is — listing
+  tiles individually there looks intentional for per-tile visual
+  comparison, not something `merge_usgs_tiles()` should replace.
+- Left unchanged, confirmed not applicable: `rmd/ground_source_comparison.Rmd`'s
+  `oth`-only standalone-knit fallback (`oth` has no footprint file to
+  resolve against), and the `R/build_floor_corrected_ground.R` /
+  `R/report_ground_sources.R` roxygen `@examples`, which just
+  illustrate a single raw tile path as one valid input and aren't
+  tied to the removed config field.
+- `lintr::lint()` clean on the changed driver script. Re-resolved
+  `rr`'s full `sources` vector end-to-end to confirm the `usgs` entry
+  still comes back as a valid path (the existing `.vrt`,
+  skip-if-exists).
+
 ## 2026-10-28
 
 Setup LIDAR parameter files to run new Essex site `esx`.

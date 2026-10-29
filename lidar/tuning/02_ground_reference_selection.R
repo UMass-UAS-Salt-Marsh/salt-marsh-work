@@ -68,7 +68,7 @@ sources <- c(
                                  source = "spring_mica"),
    photo_summer       = get_path("photo_dem", site = site,
                                  source = "summer"),
-   usgs            = get_path("usgs_tile", tile = "19TDG412612")
+   usgs               = merge_usgs_tiles(site)
 )
 
 report_ground_sources(sources = sources, site = site)
