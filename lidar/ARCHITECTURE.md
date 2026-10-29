@@ -219,8 +219,9 @@ added to the (CRS-reprojected) USGS raster via
   with a reminder to review it and edit `runs.yml`.
 - **Human step:** review the ground-source comparison report and
   floor-bias plots, then hand-edit `ground_reference` (`method`,
-  `usgs_tile`, `floor_bias_source_flight`) into `runs.yml` under
-  `sites.<site>`.
+  `floor_bias_source_flight`) into `runs.yml` under `sites.<site>`.
+  The USGS tiles a site needs aren't recorded here — they're looked
+  up from the site's footprint by `merge_usgs_tiles()`.
 - **Input:** cached ECP-sample CSVs from the ground-source
   comparison step.
 - **Output:** `ground_rasters_epsg<N>/usgs_plus_floor_summer.tif`.
