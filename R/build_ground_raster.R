@@ -9,13 +9,13 @@
 #'   recorded `best_csf`, preparing the cleaned point cloud first via
 #'   [prepare_flight()] if needed.
 #' - `"usgs_plus_floor"` — builds the floor-bias-corrected USGS
-#'   raster via [build_floor_corrected_ground()], estimating the floor
-#'   bias from `ground_reference$floor_bias_source_flight`'s cached
-#'   ECP residuals (written by
-#'   `lidar/tuning/02_ground_reference_selection.R`). When
-#'   `ground_reference$usgs_tile` names more than one tile, the USGS
-#'   input is instead a multi-tile mosaic built by
-#'   [merge_usgs_tiles()].
+#'   raster via [build_floor_corrected_ground()], using
+#'   [merge_usgs_tiles()] to resolve the USGS input (which USGS
+#'   tiles a site needs is looked up from its footprint, not
+#'   hand-recorded), and estimating the floor bias from
+#'   `ground_reference$floor_bias_source_flight`'s cached ECP
+#'   residuals (written by
+#'   `lidar/tuning/02_ground_reference_selection.R`).
 #'
 #' This is the piece that only exists because of the tuning/production
 #' split — see `dev/worklog.md`, 2026-09-15 — giving a way to get a
@@ -86,12 +86,7 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
    } else if (identical(method, "usgs_plus_floor")) {
 
       ground_reference <- config$ground_reference
-      usgs_tile <- ground_reference$usgs_tile
-      if (length(usgs_tile) == 1) {
-         usgs_path <- pathtools::get_path("usgs_tile", tile = usgs_tile)
-      } else {
-         usgs_path <- merge_usgs_tiles(site)
-      }
+      usgs_path <- merge_usgs_tiles(site)
 
       floor_flight <- ground_reference$floor_bias_source_flight
       floor_season <- config$flights[[floor_flight]]$season
@@ -129,7 +124,7 @@ build_ground_raster <- function(site, date, overwrite = FALSE) {
          source_cloud = pathtools::get_path("raw_lidar", site = site,
                                             date = date),
          crs          = paste0("EPSG:", target_epsg),
-         inputs       = list(usgs_tile = usgs_path,
+         inputs       = list(usgs_mosaic = usgs_path,
                              floor_bias_ecp_cache = ecp_cache),
          params       = list(floor_bias = floor_bias)
       )

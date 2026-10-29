@@ -5,10 +5,6 @@
 #' [`pathtools::get_path()`]) and mosaics them into a lightweight
 #' `.vrt` via `sf::gdal_utils(util = "buildvrt", ...)` -- a GDAL
 #' virtual-raster pointer file, not a materialized merged raster.
-#' Decided (2026-09-11, see `dev/rollout_workplan.md`) over
-#' `terra::merge()` because sites needing more than one tile (e.g.
-#' `wel`) just need the tiles to read as one raster downstream, not a
-#' new file written to disk tile-by-tile.
 #'
 #' Skip-if-exists, matching [`reproject_las()`], [`clean_and_tile()`],
 #' and [`build_floor_corrected_ground()`] -- safe to call

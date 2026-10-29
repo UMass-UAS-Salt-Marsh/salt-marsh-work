@@ -18,9 +18,10 @@
 #   flights.<yyyy_mm_dd>.season -- "spring" or "summer".
 #   flights.<yyyy_mm_dd>.best_csf -- CSF parameter set from
 #     lidar/tuning/01_csf_tuning.R for that flight.
-#   ground_reference.method -- "csf" or "usgs_plus_floor".
-#   ground_reference.usgs_tile -- tile id, or a list of tile ids
-#     for sites needing a multi-tile mosaic.
+#   ground_reference.method -- "csf" or "usgs_plus_floor". For
+#     "usgs_plus_floor", the USGS input is resolved by
+#     merge_usgs_tiles(site) -- which tiles a site needs is looked up
+#     from its footprint, not recorded here.
 #   ground_reference.floor_bias_source_flight -- which flight's cached
 #     ECP residuals (from lidar/tuning/02_ground_reference_selection.R)
 #     the floor bias is estimated from. Only meaningful when method is
@@ -43,7 +44,6 @@ sites:
                    csf_rigidness: 2, raster_res: 0.25}
     ground_reference:
       method: usgs_plus_floor
-      usgs_tile: "19TDG412612"
       floor_bias_source_flight: "2022_08_10"
 
   esx:
@@ -58,5 +58,4 @@ sites:
                    csf_rigidness: 2, raster_res: 0.25}
     ground_reference:
       method: usgs_plus_floor
-      usgs_tile: "19TDG412612"
       floor_bias_source_flight: "2022_08_05"

@@ -85,23 +85,32 @@ the original decision to use a `.vrt` over `terra::merge()`.
   (`19TDG415636`/`19TDG417636`), both already present locally (no
   download needed), mosaic opened fine.
 
-### Wired `merge_usgs_tiles()` into `build_ground_raster()`
+### Wired `merge_usgs_tiles()` into `build_ground_raster()`, dropped `ground_reference$usgs_tile`
 
-`R/build_ground_raster.R`'s `"usgs_plus_floor"` branch no longer
-hard-stops on a multi-tile `ground_reference$usgs_tile` — when it
-names more than one tile, `usgs_path` is resolved via
-`merge_usgs_tiles(site)` instead of `get_path("usgs_tile", ...)`.
-Everything downstream (`build_floor_corrected_ground()`,
-`write_output_metadata()`) is unchanged, since both branches just
-produce a raster path.
+`R/build_ground_raster.R`'s `"usgs_plus_floor"` branch now
+unconditionally resolves its USGS input via `merge_usgs_tiles(site)`
+instead of looking up `ground_reference$usgs_tile`. First pass wired
+this in as a single-tile-vs-multi-tile branch on that field, but on
+review the field itself is no longer conceptually necessary:
+`merge_usgs_tiles()` already determines which tiles a site needs from
+its footprint (`sf::st_intersects()` against `usgs_tile_index`) and is
+skip-if-exists, so there's nothing left for a human to record. Removed
+`ground_reference.usgs_tile` from `lidar/runs.yml`'s `rr` and `esx`
+blocks and its schema comment; `build_ground_raster()` no longer reads
+or branches on it. The `write_output_metadata()` `inputs` key for this
+branch is renamed `usgs_tile` -> `usgs_mosaic`, since there's no
+config field of that name to echo anymore.
 
-`wel` has no `lidar/runs.yml` entry yet (tuning not done — tracked in
-`dev/rollout_workplan.md`), so the new branch couldn't be exercised
-through `build_ground_raster()` end-to-end. Verified the dispatch
-logic directly instead: a single-tile call resolves to the same path
-as before, and a multi-tile call (`c("19TDG415636", "19TDG417636")`,
-`wel`'s real tile pair) resolves to `merge_usgs_tiles("wel")`'s
-`.vrt`. `lintr::lint()` clean on the changed file.
+Smoke-tested both sites through `merge_usgs_tiles()` directly (the
+same call `build_ground_raster()` now makes): `rr`'s footprint turned
+out to span two tiles (`19TDG412612`, already local, and
+`19TDG412614`, downloaded on the fly) — confirming the lookup finds
+tiles a hand-written single-tile config would have missed. `esx`
+resolved to its existing 6-tile mosaic, skip-if-exists, no rebuild.
+`wel` still has no `lidar/runs.yml` entry (tuning not done — tracked
+in `dev/rollout_workplan.md`), so `build_ground_raster()` itself
+couldn't be run end-to-end for it, same as the first pass.
+`lintr::lint()` clean on the changed file.
 
 ## 2026-09-16 — branch fill-sinks
 
