@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------#
-# Ground reference selection driver — per site
+# Ground reference selection driver — one generic block, any site
 #------------------------------------------------------------------------------#
 #
 # Combines what used to be two separate scripts — see `dev/worklog.md`,
@@ -16,17 +16,28 @@
 #      absolute accuracy while still cancelling the UAS point cloud's
 #      instrument-level offset.
 #
-# CSF parameters come from `lidar/runs.yml` (recorded by
-# `lidar/tuning/01_csf_tuning.R`), not hand-copied literals — this is
-# what kills the drift risk the old scripts had.
+# A single `site <- "..."` variable (matching every other driver in
+# `lidar/tuning/` and `lidar/production/`) drives everything below —
+# no more one hand-written block per site. Which flights/seasons a
+# site has comes entirely from `lidar/runs.yml` (via
+# `get_run_config()`); a flight only contributes a lidar ground-raster
+# source once its `best_csf` is recorded there, so a brand-new site
+# (flight dates entered, tuning not done yet) just skips that flight
+# with a message rather than erroring. Photo-DEM sources (irregular
+# per site, unrelated to `runs.yml`) and the USGS source are both
+# optional: a site with no photo_dem overrides, or whose footprint
+# can't resolve USGS tiles (e.g. `oth`, which has no site_footprint
+# shapefile on disk), simply contributes fewer sources rather than
+# failing.
 #
 # This script is data-driven for a site once a ground_reference
 # decision is recorded: it renders the comparison report, then checks
 # `get_run_config(site)$ground_reference$method` — if
 # "usgs_plus_floor" is already recorded, it (re)builds that hybrid
 # raster via `build_ground_raster()`; otherwise it stops after the
-# report with a reminder to review it and edit `runs.yml`. The same
-# script serves the first exploratory run and every later refresh.
+# report with a reminder to review it and edit `runs.yml`. A site with
+# no `runs.yml` entry at all skips that decision step entirely — there
+# is no flight or ground_reference to decide on yet.
 #
 # Run from the project root in RStudio so relative paths resolve.
 #------------------------------------------------------------------------------#
@@ -38,84 +49,117 @@ invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
 
 set_path_scheme("lidar/paths.yml")
 
+site <- "esx" # 2- or 3-character lowercase site code (e.g. "rr", "esx")
+
 #------------------------------------------------------------------------------#
-# Red River
+# Resolve this site's run configuration, if any
 #------------------------------------------------------------------------------#
 
-site <- "rr"
-
-config      <- get_run_config(site)
+config <- tryCatch(get_run_config(site), error = function(e) {
+   message("No lidar/runs.yml entry for '", site, "' yet -- comparing ",
+           "photo/USGS sources only.")
+   list(target_epsg = NULL, flights = list(), ground_reference = NULL)
+})
 target_epsg <- config$target_epsg
 
-spring_date <- "2022_05_14"
-summer_date <- "2022_08_10"
+#------------------------------------------------------------------------------#
+# Lidar sources -- one per flight with a recorded best_csf
+#------------------------------------------------------------------------------#
 
-best_csf_spring <- config$flights[[spring_date]]$best_csf
-best_csf_summer <- config$flights[[summer_date]]$best_csf
+lidar_sources <- list()
+for (date in names(config$flights)) {
+   flight <- config$flights[[date]]
+   if (is.null(flight$best_csf)) {
+      message("No best_csf recorded yet for '", site, "' flight '", date,
+              "' -- skipping its lidar source. Run ",
+              "lidar/tuning/01_csf_tuning.R and record its winner in ",
+              "lidar/runs.yml first.")
+      next
+   }
+   label <- paste0("lidar_", flight$season)
+   lidar_sources[[label]] <- get_path("ground_raster", c(
+      list(site = site, date = date, target_epsg = target_epsg),
+      flight$best_csf
+   ))
+}
+lidar_sources <- unlist(lidar_sources)
 
-sources <- c(
-   lidar_spring = get_path("ground_raster", c(
-      list(site = site, date = spring_date, target_epsg = target_epsg),
-      best_csf_spring
-   )),
-   lidar_summer = get_path("ground_raster", c(
-      list(site = site, date = summer_date, target_epsg = target_epsg),
-      best_csf_summer
-   )),
-   photo_spring_hesai = get_path("photo_dem", site = site,
-                                 source = "spring_hesai"),
-   photo_spring_mica  = get_path("photo_dem", site = site,
-                                 source = "spring_mica"),
-   photo_summer       = get_path("photo_dem", site = site,
-                                 source = "summer"),
-   usgs               = merge_usgs_tiles(site)
+#------------------------------------------------------------------------------#
+# Photo-DEM sources -- whatever lidar/paths.yml's photo_dem overrides
+# record for this site, however many and however named.
+#------------------------------------------------------------------------------#
+
+photo_overrides <- yaml::read_yaml("lidar/paths.yml")$paths$photo_dem$overrides
+photo_sources <- list()
+for (ov in photo_overrides) {
+   if (identical(ov$when$site, site)) {
+      photo_sources[[ov$when$source]] <- get_path(
+         "photo_dem", site = site, source = ov$when$source
+      )
+   }
+}
+photo_sources <- unlist(photo_sources)
+
+#------------------------------------------------------------------------------#
+# USGS source -- omitted if the site's footprint can't resolve tiles
+#------------------------------------------------------------------------------#
+
+usgs_source <- tryCatch(
+   c(usgs = merge_usgs_tiles(site)),
+   error = function(e) {
+      message("merge_usgs_tiles() failed for '", site, "' -- omitting ",
+              "the USGS source from this comparison: ", conditionMessage(e))
+      character(0)
+   }
 )
+
+sources <- c(lidar_sources, photo_sources, usgs_source)
 
 report_ground_sources(sources = sources, site = site)
 
-# Floor-bias diagnostics -- both flights, for human comparison, even
-# though only one (per ground_reference.floor_bias_source_flight, once
-# recorded) ever feeds the hybrid raster. estimate_floor_bias() and
-# build_ground_raster() only ever compute the one that's needed.
-lidar_spring_ecp <- readr::read_csv(
-   get_path("ground_comparison_ecp_cache", site = site,
-            source_name = "lidar_spring"),
-   show_col_types = FALSE
-)
-lidar_summer_ecp <- readr::read_csv(
-   get_path("ground_comparison_ecp_cache", site = site,
-            source_name = "lidar_summer"),
-   show_col_types = FALSE
-)
+#------------------------------------------------------------------------------#
+# Floor-bias diagnostics -- one per season that produced a lidar source,
+# for human comparison, even though only one (per
+# ground_reference.floor_bias_source_flight, once recorded) ever feeds
+# the hybrid raster. estimate_floor_bias() and build_ground_raster()
+# only ever compute the one that's needed.
+#------------------------------------------------------------------------------#
 
-floor_spring <- estimate_floor_bias(lidar_spring_ecp)
-floor_summer <- estimate_floor_bias(lidar_summer_ecp)
+for (label in names(lidar_sources)) {
+   season <- sub("^lidar_", "", label)
 
-message(sprintf(
-   "Floor bias — spring: %.3f m (n = %d, %d excluded)",
-   floor_spring$floor_bias, floor_spring$n, floor_spring$n_excluded
-))
-message(sprintf(
-   "Floor bias — summer: %.3f m (n = %d, %d excluded)",
-   floor_summer$floor_bias, floor_summer$n, floor_summer$n_excluded
-))
+   ecp <- readr::read_csv(
+      get_path("ground_comparison_ecp_cache", site = site,
+               source_name = label),
+      show_col_types = FALSE
+   )
+   floor <- estimate_floor_bias(ecp)
 
-ggplot2::ggsave(
-   get_path("floor_bias_plot", site = site, season = "spring"),
-   plot_floor_bias(floor_spring, title = paste(site, "spring lidar")),
-   width = 6, height = 4
-)
-ggplot2::ggsave(
-   get_path("floor_bias_plot", site = site, season = "summer"),
-   plot_floor_bias(floor_summer, title = paste(site, "summer lidar")),
-   width = 6, height = 4
-)
+   message(sprintf(
+      "Floor bias -- %s: %.3f m (n = %d, %d excluded)",
+      season, floor$floor_bias, floor$n, floor$n_excluded
+   ))
 
+   ggplot2::ggsave(
+      get_path("floor_bias_plot", site = site, season = season),
+      plot_floor_bias(floor, title = paste(site, season, "lidar")),
+      width = 6, height = 4
+   )
+}
+
+#------------------------------------------------------------------------------#
 # Decision check -- build the hybrid raster if it's already decided,
-# otherwise remind to record the decision.
+# otherwise remind to record the decision. Skipped entirely for a site
+# with no runs.yml entry at all (nothing to decide on yet).
+#------------------------------------------------------------------------------#
+
 ground_reference <- config$ground_reference
 
-if (is.null(ground_reference) || is.null(ground_reference$method)) {
+if (length(config$flights) == 0L && is.null(ground_reference)) {
+   message("No lidar/runs.yml entry for '", site, "' -- nothing to decide ",
+           "yet. Add a `sites.", site, "` block once this site has a ",
+           "recorded flight.")
+} else if (is.null(ground_reference) || is.null(ground_reference$method)) {
    message("No ground_reference decision recorded yet for '", site, "'. ",
            "Review the comparison report and floor-bias plots above, ",
            "then edit lidar/runs.yml's sites.", site, ".ground_reference.")
@@ -127,39 +171,3 @@ if (is.null(ground_reference) || is.null(ground_reference$method)) {
    message("ground_reference.method = '", ground_reference$method,
            "' recorded for '", site, "' -- nothing further to build here.")
 }
-
-#------------------------------------------------------------------------------#
-# Old Town Hill
-#------------------------------------------------------------------------------#
-
-# No raw point cloud for this site -- comparison is photo DEMs vs.
-# USGS only, no lidar/CSF sources. Not yet represented in
-# lidar/runs.yml (site rollout tracked separately, dev/rollout_workplan.md).
-site <- "oth"
-sources <- c(
-   may_14_ortho   = get_path("photo_dem", site = site,
-                             source = "may_14_ortho"),
-   may_02_ortho   = get_path("photo_dem", site = site,
-                             source = "may_02_ortho"),
-   usgs_346737 = get_path("usgs_tile", tile = "19TCH346737"),
-   usgs_346735 = get_path("usgs_tile", tile = "19TCH346735")
-)
-
-report_ground_sources(sources = sources, site = site)
-
-#------------------------------------------------------------------------------#
-# Welfleet
-#------------------------------------------------------------------------------#
-
-# Photo DEMs vs. USGS only, same as Old Town Hill above -- this
-# site's lidar/CSF ground rasters aren't included in this comparison
-# yet (also tracked under the site rollout, dev/rollout_workplan.md).
-site <- "wel"
-sources <- c(
-   may_22_ortho   = get_path("photo_dem", site = site,
-                             source = "may_22_ortho"),
-   usgs_415636 = get_path("usgs_tile", tile = "19TDG415636"),
-   usgs_417636 = get_path("usgs_tile", tile = "19TDG417636")
-)
-
-report_ground_sources(sources = sources, site = site)

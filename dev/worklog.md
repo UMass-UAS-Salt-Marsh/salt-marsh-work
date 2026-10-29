@@ -19,6 +19,55 @@ history; consult the archive only if the answer isn't here.
 
 ## 2026-10-29
 
+### Made `02_ground_reference_selection.R` data-driven from `runs.yml`
+
+Collapsed `lidar/tuning/02_ground_reference_selection.R`'s three
+hand-written per-site blocks (`rr`, `oth`, `wel`) into one generic
+block driven entirely by a single `site <- "..."` variable, matching
+every other driver in `lidar/tuning/`/`lidar/production/`. `rr`'s
+block previously hardcoded its spring/summer flight dates
+(`"2022_05_14"`, `"2022_08_10"`) and season labels directly in the
+script even though `lidar/runs.yml` already records a site's
+flights/seasons — this duplication meant every new site (immediate
+case: `esx`, summer-only, no spring flight) needed a whole new
+hand-copied block instead of the script just reading what `runs.yml`
+says.
+
+- Lidar sources now come from looping over `config$flights` (via
+  `get_run_config()`); a flight only contributes a `lidar_<season>`
+  source once its `best_csf` is recorded, so a site with flight dates
+  entered but tuning not yet done just skips with a `message()`
+  rather than erroring.
+- Photo-DEM sources (irregular per site, unrelated to `runs.yml`:
+  `rr` has 3, `oth` 2, `wel` 1, `esx` 0) are now discovered by reading
+  `lidar/paths.yml`'s `photo_dem` overrides directly and filtering to
+  the current site, rather than listed as literal lines per site.
+- USGS source resolution (`merge_usgs_tiles(site)`) is wrapped in
+  `tryCatch()` and omitted (with a `message()`) rather than erroring
+  the whole script when it fails — needed for `oth`, which has no
+  `site_footprint` shapefile on disk yet (was already called out as
+  intentional in yesterday's entry below; now a generic `tryCatch`
+  instead of `oth` having its own hardcoded two-tile block).
+- `get_run_config(site)` itself is wrapped in a local `tryCatch()`
+  too, since `oth`/`wel` have no `lidar/runs.yml` entry at all yet —
+  falls back to an empty flights/no-ground_reference config so the
+  script still runs the photo+USGS-only comparison those two sites
+  had before.
+- Floor-bias diagnostics loop over whichever seasons actually produced
+  a lidar source (from the step above) instead of a hardcoded
+  `spring`/`summer` pair.
+- Fixed an evident typo in `lidar/runs.yml`: `esx`'s
+  `ground_reference.floor_bias_source_flight` was `"2022_08_05"` but
+  `esx`'s only recorded flight is `"2026_08_05"`.
+
+Verified by resolving all four sites' `sources` vectors end-to-end
+(without rendering the report): `rr` reproduces the same 6 paths
+(2 lidar + 3 photo + 1 USGS) the old hardcoded block built; `oth`/`wel`
+fall back to photo+USGS-only exactly as before (`oth`'s USGS omitted,
+footprint still missing); `esx` resolves to a 2-source vector
+(`lidar_summer`, `usgs`) with no spring assumption anywhere.
+`lintr::lint()` clean.
+
 ### Swept remaining `ground_reference.usgs_tile` references
 
 Follow-up to 2026-10-28's drop of `ground_reference.usgs_tile`

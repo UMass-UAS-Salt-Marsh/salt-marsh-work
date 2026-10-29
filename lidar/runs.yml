@@ -58,4 +58,4 @@ sites:
                    csf_rigidness: 2, raster_res: 0.25}
     ground_reference:
       method: usgs_plus_floor
-      floor_bias_source_flight: "2022_08_05"
+      floor_bias_source_flight: "2026_08_05"
