@@ -17,18 +17,18 @@
 #      instrument-level offset.
 #
 # A single `site <- "..."` variable (matching every other driver in
-# `lidar/tuning/` and `lidar/production/`) drives everything below —
-# no more one hand-written block per site. Which flights/seasons a
-# site has comes entirely from `lidar/runs.yml` (via
-# `get_run_config()`); a flight only contributes a lidar ground-raster
+# `lidar/tuning/` and `lidar/production/`) drives everything below.
+# Which flights/seasons a site has comes entirely from `lidar/runs.yml`
+# (via `get_run_config()`); 
+# a flight only contributes a lidar ground-raster
 # source once its `best_csf` is recorded there, so a brand-new site
 # (flight dates entered, tuning not done yet) just skips that flight
-# with a message rather than erroring. Photo-DEM sources (irregular
-# per site, unrelated to `runs.yml`) and the USGS source are both
-# optional: a site with no photo_dem overrides, or whose footprint
-# can't resolve USGS tiles (e.g. `oth`, which has no site_footprint
-# shapefile on disk), simply contributes fewer sources rather than
-# failing.
+# with a message rather than erroring. 
+# Photo-DEM sources (irregular per site, unrelated to `runs.yml`) 
+# and the USGS source are both optional: a site with no photo_dem 
+# overrides, or whose footprint can't resolve USGS tiles (e.g. `oth`, 
+# which has no site_footprint shapefile on disk), simply contributes
+# fewer sources rather than failing.
 #
 # This script is data-driven for a site once a ground_reference
 # decision is recorded: it renders the comparison report, then checks
