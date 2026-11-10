@@ -215,22 +215,22 @@ paths:
         path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Old Town Hill/Orthos and DEMs 2022/02May2022/02May2022_OTH_Low_Mavic_DEM.tif"
       - when: {site: wel, source: may_22_ortho}
         path: "{@legacy_data_root}/saltmarsh_UAS/UAS Data Collection/Wellfleet Bay/Orthos and DEMs 2022/20May2022/Low/20May22_WEL_Low_Hesai_DEM.tif"
-      - when: {site: esx, source: 2026_07_20_low_micap}
-        path: "{@sites_data_root}/esx/dem/esx_2026_07_20_low_micap_dem.tif"
-      - when: {site: esx, source: 2026_07_20_low_panchro}
-        path: "{@sites_data_root}/esx/dem/esx_2026_07_20_low_panchro_dem.tif"
-      - when: {site: esx, source: 2026_08_07_mid_micap}
-        path: "{@sites_data_root}/esx/dem/esx_2026_08_07_mid_micap_dem.tif"
-      - when: {site: esx, source: 2026_08_07_mid_panchro}
-        path: "{@sites_data_root}/esx/dem/esx_2026_08_07_mid_panchro_dem.tif"
-      - when: {site: esx, source: 2026_08_14_high_micap}
-        path: "{@sites_data_root}/esx/dem/esx_2026_08_14_high_micap_dem.tif"
-      - when: {site: esx, source: 2026_08_14_high_panchro}
-        path: "{@sites_data_root}/esx/dem/esx_2026_08_14_high_panchro_dem.tif"
-      - when: {site: esx, source: 2026_08_21_mid_micap}
-        path: "{@sites_data_root}/esx/dem/esx_2026_08_21_mid_micap_dem.tif"
-      - when: {site: esx, source: 2026_08_21_mid_panchro}
-        path: "{@sites_data_root}/esx/dem/esx_2026_08_21_mid_panchro_dem.tif"
+      # - when: {site: esx, source: 2026_07_20_low_micap}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_07_20_low_micap_dem.tif"
+      # - when: {site: esx, source: 2026_07_20_low_panchro}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_07_20_low_panchro_dem.tif"
+      # - when: {site: esx, source: 2026_08_07_mid_micap}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_08_07_mid_micap_dem.tif"
+      # - when: {site: esx, source: 2026_08_07_mid_panchro}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_08_07_mid_panchro_dem.tif"
+      # - when: {site: esx, source: 2026_08_14_high_micap}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_08_14_high_micap_dem.tif"
+      # - when: {site: esx, source: 2026_08_14_high_panchro}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_08_14_high_panchro_dem.tif"
+      # - when: {site: esx, source: 2026_08_21_mid_micap}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_08_21_mid_micap_dem.tif"
+      # - when: {site: esx, source: 2026_08_21_mid_panchro}
+      #   path: "{@sites_data_root}/esx/dem/esx_2026_08_21_mid_panchro_dem.tif"
     type: file
 
 # ---------------------------------------------------------------------
