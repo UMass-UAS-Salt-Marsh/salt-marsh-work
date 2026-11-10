@@ -74,13 +74,13 @@ sample_dtm <- function(dtm,
 
    if (file.exists(output_csv) && !overwrite) {
       message("sample_dtm(): output exists, skipping: ", output_csv)
-      out <- readr::read_csv(output_csv, show_col_types = FALSE) |> 
+      out <- readr::read_csv(output_csv, show_col_types = FALSE) |>
          as.data.frame()
-      
+
       # Restore original factor status and levels to subclass
-      if("subclass" %in% names(out) && is.factor(ecp$subclass)) {
+      if ("subclass" %in% names(out) && is.factor(ecp$subclass)) {
          out$subclass <- factor(out$subclass, levels = levels(ecp$subclass))
-      } 
+      }
       return(out)
    }
 
@@ -93,7 +93,7 @@ sample_dtm <- function(dtm,
            "SpatRaster or a path to one.")
    }
 
-   # Extract coordinates.  Accept either an sf object
+   # Extract coordinates. Accept either an sf object
    # (use the geometry) or a data frame with easting / northing.
    if (inherits(ecp, "sf")) {
       coords <- sf::st_coordinates(ecp)[, 1:2, drop = FALSE]
@@ -108,10 +108,9 @@ sample_dtm <- function(dtm,
       # to avoid CRS-transfer reliability issues across terra versions.
       raster_crs <- sf::st_crs(terra::crs(dtm))
       ecp_proj   <- sf::st_transform(ecp, crs = raster_crs)
-      proj_coords <- sf::st_coordinates(ecp_proj)[, 1:2, drop = FALSE]
-      predicted <- terra::extract(dtm, proj_coords,
-                                  method = "bilinear")[, 1]
-   } else {
+      coords <- sf::st_coordinates(ecp_proj)[, 1:2, drop = FALSE]
+
+   } else {  # ecp is a data frame - not an sf object
       if (!all(c("easting", "northing") %in% colnames(ecp))) {
          stop("sample_dtm(): `ecp` must have `easting` and ",
               "`northing` columns (or an sf geometry).")
@@ -119,8 +118,11 @@ sample_dtm <- function(dtm,
       coords <- as.matrix(ecp[, c("easting", "northing")])
       colnames(coords) <- c("x", "y")
       out       <- as.data.frame(ecp)
-      predicted <- terra::extract(dtm, coords, method = "bilinear")[, 1]
    }
+
+   predicted <- terra::extract(dtm, coords,
+                               method = "bilinear")[, 1]
+
    n_missing <- sum(is.na(predicted))
    if (n_missing > 0L) {
       message("sample_dtm(): ", n_missing,
@@ -128,6 +130,7 @@ sample_dtm <- function(dtm,
               " ECPs fell outside the DTM extent ",
               "(predicted = NA).")
    }
+
    out$predicted <- predicted
 
    dir.create(dirname(output_csv), recursive = TRUE,

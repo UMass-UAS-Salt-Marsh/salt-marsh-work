@@ -59,8 +59,16 @@ set_path_scheme("lidar/paths.yml")
 # Run-level parameters
 #------------------------------------------------------------------------------#
 
-site        <- "rr"
-summer_date <- "2022_08_10"
+site        <- "esx"
+
+flight_info <- get_flight_info(site)
+
+if (!"summer" %in% flight_info$season)
+   stop("No summer flight for site: ", site, "in lidar/runs.yml")
+if (sum(flight_info$season == "summer") > 1)
+   stop("More than one summer flight listed in lidar/runs.yml for site: ",
+        site)
+summer_date <- flight_info$date[flight_info$season == "summer"]
 
 config      <- get_run_config(site, summer_date)
 target_epsg <- config$target_epsg

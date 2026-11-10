@@ -17,6 +17,68 @@ history; consult the archive only if the answer isn't here.
 
 ---
 
+## 2026-11-10 — branch main
+
+### Ran esx ground-source comparison report and 02_veg_heights.R;
+fixed several bugs this surfaced
+
+While running the lidar reports and workflows for `esx`, hand-edited
+several files across the repo to make the comparison report and the
+production veg-heights driver actually work for this site, and fixed
+a few bugs the run surfaced.
+
+- `R/get_flight_dates.R` (new): added `get_flight_info(site, config =
+  NULL)`, returning a `site`/`date`/`season` data frame from
+  `runs.yml`'s `config$flights` — used by both
+  `lidar/production/02_veg_heights.R` (to find the one summer flight
+  automatically instead of a hardcoded date) and
+  `lidar/tuning/02_ground_reference_selection.R` (to iterate flights).
+- `lidar/production/02_veg_heights.R`: replaced the hardcoded
+  `site <- "rr"` / `summer_date <- "2022_08_10"` pair with
+  `site <- "esx"` plus `get_flight_info(site)`, erroring clearly if
+  `runs.yml` has zero or more than one summer flight for the site
+  rather than silently picking the wrong one.
+- `lidar/tuning/02_ground_reference_selection.R`: set `site <- "esx"`
+  and changed the lidar-sources loop to iterate flight dates via
+  `get_flight_info(site, config)$date`. This script originally called
+  a nonexistent `get_flight_dates(site, config)` — caught before
+  committing (would have errored at runtime); fixed to call
+  `get_flight_info()` instead, which is the function actually defined.
+- `lidar/runs.yml`: `esx`'s `ground_reference.reference_flight`
+  changed from `"2026_08_05"` to `null`, since `esx`'s
+  `ground_reference.method` is `"usgs"` (unmodified USGS-as-ground —
+  see 2026-10-29 below) and has no reference flight to name.
+- `lidar/paths.yml`: added 8 `photo_dem` overrides for `esx`, one per
+  flight/sensor combination (`2026_07_20`/`2026_08_07`/`2026_08_14`/
+  `2026_08_21`, each `low`/`mid`/`high` x `micap`/`panchro` as
+  applicable) pointing at `{sites_data_root}/esx/dem/...`.
+- `R/report_ground_sources.R`: `ecp_path` default now resolves via
+  `get_path("ecp_path", site = site)` instead of a siteless call, so
+  it picks up `esx`'s `ecp_path` override
+  (`.../esx/field/results/plots.gpkg`) instead of the shared
+  spreadsheet default.
+- `rmd/ground_source_comparison.Rmd`: added an `esx` branch to the
+  "default sources for standalone knitting" block (`lidar_summer` CSF
+  DTM, the 8 photo DEMs, USGS mosaic), params `site`/`ecp_types`
+  defaults changed to `"esx"`/`"EVP"`, working-directory setup moved
+  from a `setup`-chunk `setwd()` call to a dedicated first chunk using
+  `knitr::opts_knit$set(root.dir = here::here())` (applies to every
+  subsequent chunk, not just the one call site), and added a
+  `stop()` guard for an empty resolved ECP set after type-filtering
+  (previously would have failed later with a more confusing error).
+  The `esx` sources block triggers a `[indentation_linter]`
+  false-positive tied to the preceding block's structure; wrapped in
+  `# nolint start/end: indentation_linter.` rather than restructuring
+  otherwise-straightforward code to dodge it.
+- `R/sample_dtm.R`: deduplicated the `sf`-vs-data-frame branches'
+  `terra::extract(..., method = "bilinear")` call into one shared call
+  after the if/else, since both branches only differed in how
+  `coords` was computed.
+
+All seven touched R/Rmd files plus the new `R/get_flight_dates.R`
+pass `lintr::lint()` clean. Both touched YAML files validated via
+`yaml::read_yaml()`.
+
 ## 2026-10-29
 
 ### Made `02_ground_reference_selection.R` data-driven from `runs.yml`

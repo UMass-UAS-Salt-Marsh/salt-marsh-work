@@ -66,4 +66,4 @@ sites:
                    csf_rigidness: 2, raster_res: 0.25}
     ground_reference:
       method: usgs
-      reference_flight: "2026_08_05"
+      reference_flight: null

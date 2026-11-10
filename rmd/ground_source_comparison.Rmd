@@ -8,31 +8,43 @@ output:
     theme: flatly
     df_print: kable
 params:
-  site:       "oth"
+  site:       "esx"
   sources:  NULL
   ecp_path:   NULL
   output_dir: NULL
   tolerances: [0.10, 0.20]
-  ecp_types:  ["EVP"]
+  ecp_types:  "EVP"
 ---
+
+
+```{r set wd, include = FALSE}
+# Set working directory to project root, not rmd path.
+# Applies to subsequent chunks -- not this one!
+knitr::opts_knit$set(root.dir = here::here())
+```
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
                       fig.width = 8, fig.height = 5)
+
 library(here)
 library(ggplot2)
 library(dplyr)
 library(pathtools)
-setwd(here::here())
+
+site <- params$site
+
+config <- get_run_config(site = site)
 
 invisible(lapply(list.files("R/", pattern = "\\.[Rr]$",
                             full.names = TRUE), source))
 set_path_scheme("lidar/paths.yml")
 
 # Unpack params to local variables for convenience.
-site       <- params$site
+# Note report_ground_sources() also sets defaults and they take precedence
+# so NULL alternatives set here are only relevant to interactive use.
 sources    <- params$sources
-ecp_path   <- params$ecp_path %||% get_path("ecp_path")
+ecp_path   <- params$ecp_path %||% get_path("ecp_path", site = site)
 output_dir <- params$output_dir %||% get_path("ground_comparison_report",
                                               site = site)
 tolerances <- params$tolerances
@@ -40,18 +52,43 @@ ecp_types  <- params$ecp_types
 
 # Default sources for standalone knitting (oth values).
 if (is.null(sources) || length(sources) == 0L) {
-   if (!site == "oth")
-      stop("Default sources are for site oth")
-   sources <- c(
-      may_14_ortho   = get_path("photo_dem", site = site,
-                                source = "may_14_ortho"),
-      may_02_ortho   = get_path("photo_dem", site = site,
-                                source = "may_02_ortho"),
-      usgs_346737 = get_path("usgs_tile", tile = "19TCH346737"),
-      usgs_346735 = get_path("usgs_tile", tile = "19TCH346735")
-   )
+   if (site == "oth") {
+      sources <- c(
+         may_14_ortho   = get_path("photo_dem", site = site,
+                                   source = "may_14_ortho"),
+         may_02_ortho   = get_path("photo_dem", site = site,
+                                   source = "may_02_ortho"),
+         usgs_346737 = get_path("usgs_tile", tile = "19TCH346737"),
+         usgs_346735 = get_path("usgs_tile", tile = "19TCH346735")
+      )
+   } else if (site == "esx") {
+      esx_dem_dir <- "U:/projects/uas_veg/sites/esx/dem"
+      # nolint start: indentation_linter.
+      sources <- c(
+         lidar_summer = paste0(
+            "E:/uas_scratch/lidar/esx/2026_08_05/",
+            "ground_rasters_epsg6491/csf_th0.01_res0.1_rgd2_0.25m.tif"
+         ),
+         `2026_07_20_low_micap` =
+            file.path(esx_dem_dir, "esx_2026_07_20_low_micap_dem.tif"),
+         `2026_07_20_low_panchro` =
+            file.path(esx_dem_dir, "esx_2026_07_20_low_panchro_dem.tif"),
+         `2026_08_07_mid_micap` =
+            file.path(esx_dem_dir, "esx_2026_08_07_mid_micap_dem.tif"),
+         `2026_08_07_mid_panchro` =
+            file.path(esx_dem_dir, "esx_2026_08_07_mid_panchro_dem.tif"),
+         `2026_08_14_high_micap` =
+            file.path(esx_dem_dir, "esx_2026_08_14_high_micap_dem.tif"),
+         `2026_08_14_high_panchro` =
+            file.path(esx_dem_dir, "esx_2026_08_14_high_panchro_dem.tif"),
+         `2026_08_21_mid_micap` =
+            file.path(esx_dem_dir, "esx_2026_08_21_mid_micap_dem.tif"),
+         `2026_08_21_mid_panchro` =
+            file.path(esx_dem_dir, "esx_2026_08_21_mid_panchro_dem.tif"),
+         usgs = "E:/uas_scratch/lidar/esx/usgs_mosaic.vrt")
+      # nolint end
+   }
 }
-
 
 if (is.null(sources) || length(sources) == 0L) {
    stop("sources param is required — pass a named character vector ",
@@ -72,6 +109,13 @@ if (length(ecp_types) > 0L) {
    ]
 }
 
+if (nrow(site_ecp) == 0) {
+   stop("No Elevation Control points in resolved site dataset\n",
+        "ecp_path: ", ecp_path, "\n",
+        "site: ", site, "\n",
+        "ecp_types: ", ecp_types, "\n")
+}
+
 # -- Sample each source at ECP locations (skip-if-exists cache) ---------------
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -79,7 +123,7 @@ all_elevations <- do.call(rbind, lapply(names(sources), function(label) {
    csv_path <- get_path("ground_comparison_ecp_cache", site = site,
                         source_name = label)
    elev     <- sample_dtm(sources[[label]], site_ecp,
-                          output_csv = csv_path)
+                          output_csv = csv_path, overwrite = FALSE)
    elev$source <- label
    elev
 }))

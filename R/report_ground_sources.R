@@ -48,7 +48,7 @@
 report_ground_sources <- function(
       sources,
       site,
-      ecp_path    = get_path("ecp_path"),
+      ecp_path    = get_path("ecp_path", site = site),
       output_dir  = get_path("ground_comparison_report", site = site),
       tolerances  = c(0.10, 0.20),
       ecp_types   = "EVP",

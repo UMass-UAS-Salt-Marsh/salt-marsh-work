@@ -66,7 +66,7 @@ target_epsg <- config$target_epsg
 #------------------------------------------------------------------------------#
 
 lidar_sources <- list()
-for (date in names(config$flights)) {
+for (date in get_flight_info(site, config)$date) {
    flight <- config$flights[[date]]
    if (is.null(flight$best_csf)) {
       message("No best_csf recorded yet for '", site, "' flight '", date,
